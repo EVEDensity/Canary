@@ -2,7 +2,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { resolve, relative } from "node:path";
 import { Session } from "node:inspector/promises";
-import type { CoverageFile, CoverageFragment, CoverageManifest, CoverageMetric, CoverageProvider, CoverageScript, CoverageSummary, FeatureCoverage, FeatureDefinition, SourceLocation } from "@canary/core";
+import type { CoverageFile, CoverageFragment, CoverageManifest, CoverageMetric, CoverageProvider, CoverageScript, CoverageSummary, FeatureCoverage, SourceLocation } from "@canary/core";
 
 export interface CoverageSourceConfig {
   rootDir?: string;
@@ -53,6 +53,6 @@ export class V8CoverageCollector implements CoverageProvider {
   async sample(): Promise<CoverageFragment> { if (!this.started) return this.lastFragment ?? this.fragment("unavailable"); try { const response = await this.session.post("Profiler.takePreciseCoverage") as { result: CoverageScript[] }; this.latest = response.result; const fragment = this.fragment("final"); this.options.onUpdate?.(summarizeCoverage(this.options.runId, this.latest, this.options)); return fragment; } catch { return this.fragment("partial"); } }
   async stop(): Promise<CoverageFragment> { if (this.lastFragment) return this.lastFragment; if (this.stopping) return this.stopping; this.stopping = this.finish(); this.lastFragment = await this.stopping; return this.lastFragment; }
   private async finish(): Promise<CoverageFragment> { if (!this.started) return this.fragment("unavailable"); if (this.timer) clearInterval(this.timer); try { await this.sample(); await this.session.post("Profiler.stopPreciseCoverage"); await this.session.post("Profiler.disable"); const fragment = this.fragment("final"); this.options.onUpdate?.(summarizeCoverage(this.options.runId, this.latest, this.options)); return fragment; } catch { return this.fragment("partial"); } finally { await this.cleanup(); } }
-  private fragment(status: CoverageFragment["status"]): CoverageFragment { return { runId: this.options.runId, executionId: this.options.executionId, provider: "node-v8", sourceHash: sourceHash(configuredFiles(this.options, this.latest.map((s) => resolve(this.options.rootDir ?? process.cwd(), s.url))), this.options), capturedAt: new Date().toISOString(), scripts: this.latest, status }; }
+  private fragment(status: CoverageFragment["status"], reason?: string): CoverageFragment { const root = resolve(this.options.rootDir ?? process.cwd()); const observed = this.latest.map((s) => normalizeFile(s.url, root)).filter((x): x is string => Boolean(x)); return { runId: this.options.runId, executionId: this.options.executionId, provider: "node-v8", sourceHash: sourceHash(configuredFiles(this.options, observed), this.options), capturedAt: new Date().toISOString(), scripts: this.latest, status, reason }; }
   private async cleanup(): Promise<void> { if (this.timer) { clearInterval(this.timer); this.timer = undefined; } if (this.started) this.started = false; try { await this.session.disconnect(); } catch { /* already disconnected */ } }
 }
