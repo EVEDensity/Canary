@@ -1,0 +1,2 @@
+﻿export interface ImprovementSuggestion { id: string; category: "prompt" | "routing" | "tool_schema" | "recovery" | "guardrail" | "test_gap"; rationale: string; status: "proposed" | "accepted" | "rejected" | "verified"; }
+export function proposeCoverageGap(featureId: string): ImprovementSuggestion { return { id: `suggestion_${featureId}`, category: "test_gap", rationale: `Add a deterministic test for feature ${featureId}.`, status: "proposed" }; }
