@@ -1,0 +1,9 @@
+node_modules/
+dist/
+/coverage/
+.canary/runs/*
+.canary/artifacts/*
+!.canary/runs/.gitkeep
+!.canary/artifacts/.gitkeep
+*.log
+.DS_Store

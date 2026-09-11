@@ -1,0 +1,17 @@
+{
+  "files": [],
+  "references": [
+    { "path": "packages/core" },
+    { "path": "packages/coverage" },
+    { "path": "packages/adapters" },
+    { "path": "packages/environment" },
+    { "path": "packages/evaluators" },
+    { "path": "packages/improvement" },
+    { "path": "packages/reporters" },
+    { "path": "packages/runner" },
+    { "path": "packages/trace" },
+    { "path": "packages/cli" },
+    { "path": "apps/web" },
+    { "path": "examples/local-agent" }
+  ]
+}

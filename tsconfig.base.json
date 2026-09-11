@@ -1,0 +1,26 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "strict": true,
+    "baseUrl": ".",
+    "paths": {
+      "@canary/core": ["packages/core/src/index.ts"],
+      "@canary/coverage": ["packages/coverage/src/index.ts"],
+      "@canary/adapters": ["packages/adapters/src/index.ts"],
+      "@canary/environment": ["packages/environment/src/index.ts"],
+      "@canary/evaluators": ["packages/evaluators/src/index.ts"],
+      "@canary/improvement": ["packages/improvement/src/index.ts"],
+      "@canary/reporters": ["packages/reporters/src/index.ts"],
+      "@canary/runner": ["packages/runner/src/index.ts"],
+      "@canary/trace": ["packages/trace/src/index.ts"]
+    },
+    "declaration": true,
+    "sourceMap": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "noUncheckedIndexedAccess": true,
+    "forceConsistentCasingInFileNames": true
+  }
+}

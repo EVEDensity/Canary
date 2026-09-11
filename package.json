@@ -1,0 +1,10 @@
+{
+  "name": "canary",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Local Agent evaluation, runtime coverage, and improvement workspace.",
+  "packageManager": "pnpm@10.15.0",
+  "engines": { "node": ">=22" },
+  "scripts": { "build": "pnpm -r --if-present build", "check": "pnpm typecheck && pnpm test", "test": "pnpm -r --if-present test", "typecheck": "pnpm -r --if-present typecheck", "dev": "pnpm --filter @canary/cli dev", "canary": "pnpm --filter @canary/cli canary" },
+  "devDependencies": { "@types/node": "^22.0.0", "tsx": "^4.19.0", "typescript": "^5.7.0", "vitest": "^3.0.0" }
+}
