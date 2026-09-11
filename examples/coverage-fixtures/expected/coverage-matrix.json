@@ -1,0 +1,16 @@
+﻿{
+  "branch": {
+    "true-only": { "branches": { "covered": 1, "total": 2 } },
+    "false-only": { "branches": { "covered": 1, "total": 2 } },
+    "both": { "branches": { "covered": 2, "total": 2 } }
+  },
+  "functions": {
+    "used": { "covered": 1, "total": 2 },
+    "unused": { "covered": 0, "total": 2 }
+  },
+  "errors": {
+    "thrown": { "status": "final" },
+    "safe": { "status": "final" }
+  },
+  "unloaded": { "total": ">0", "covered": 0, "pct": 0 }
+}
