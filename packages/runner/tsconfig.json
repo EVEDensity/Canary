@@ -1,21 +1,20 @@
-﻿{
+{
+  "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "target": "ES2022",
-    "module": "NodeNext",
-    "moduleResolution": "NodeNext",
-    "strict": true,
-    "baseUrl": "../..",
-    "paths": {
-      "@canary/core": ["packages/core/src/index.ts"],
-      "@canary/coverage": ["packages/coverage/src/index.ts"]
-    },
-    "types": ["node"],
-    "declaration": true,
-    "sourceMap": true,
-    "esModuleInterop": true,
-    "skipLibCheck": true,
-    "noUncheckedIndexedAccess": true,
-    "forceConsistentCasingInFileNames": true
+    "rootDir": ".",
+    "outDir": "dist",
+    "composite": true
   },
-  "include": ["src/**/*.ts", "tests/**/*.ts"]
+  "include": [
+    "src/**/*.ts",
+    "tests/**/*.ts"
+  ],
+  "references": [
+    {
+      "path": "../core"
+    },
+    {
+      "path": "../coverage"
+    }
+  ]
 }
