@@ -3,7 +3,8 @@ import { resolve } from "node:path";
 import { spawn, type ChildProcess } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import type { CanaryConfig, CoverageSummary, EvalResult, Trajectory, TrajectoryEvent } from "@canary/core";
-import { V8CoverageCollector } from "@canary/coverage";
+import { summarizeCoverage, emptyCoverage } from "@canary/coverage";
+import type { CoverageSourceConfig, CoverageScript } from "@canary/coverage";
 
 export interface ExecutionOptions {
   cwd?: string;
@@ -15,7 +16,7 @@ export interface ExecutionOptions {
   input: unknown;
   runId: string;
   caseId: string;
-  coverage: Omit<Parameters<typeof V8CoverageCollector>[0], "runId" | "executionId">;
+  coverage: CoverageSourceConfig;
   onEvent?: (event: RunnerEvent) => void;
   onCoverage?: (summary: CoverageSummary) => void;
 }
@@ -30,38 +31,42 @@ interface ChildMessage {
   type: "ready" | "event" | "result" | "error";
   event?: TrajectoryEvent;
   value?: unknown;
+  scripts?: unknown;
   error?: string;
-}
-
-function workerSource(): string {
-  return `
-const { parentPort, workerData } = require('node:worker_threads');
-(async () => {
-  try {
-    const mod = await import(workerData.entry);
-    const fn = mod[workerData.exportName || 'default'];
-    if (typeof fn !== 'function') throw new Error('Agent export is not a function: ' + (workerData.exportName || 'default'));
-    const emit = (event) => parentPort.postMessage({ type: 'event', event: { ...event, timestamp: new Date().toISOString() } });
-    parentPort.postMessage({ type: 'ready' });
-    const value = await fn(workerData.input, { executionId: workerData.executionId, emit });
-    parentPort.postMessage({ type: 'result', value });
-  } catch (error) {
-    parentPort.postMessage({ type: 'error', error: error instanceof Error ? error.stack || error.message : String(error) });
-    process.exitCode = 1;
-  }
-})();
-`;
 }
 
 function childScript(): string {
   return `
 const { Worker } = require('node:worker_threads');
-const worker = new Worker(${JSON.stringify(workerSource())}, { eval: true, workerData: JSON.parse(process.env.CANARY_WORKER_DATA) });
-worker.on('message', message => process.send?.(message));
-worker.on('error', error => process.send?.({ type: 'error', error: error.stack || error.message }));
-worker.on('exit', code => { if (code !== 0) process.send?.({ type: 'error', error: 'worker exited with code ' + code }); process.exitCode = code; });
+const { Session } = require('node:inspector/promises');
+(async () => {
+  const data = JSON.parse(process.env.CANARY_WORKER_DATA);
+  const session = new Session();
+  let scripts = [];
+  let active = false;
+  try {
+    await session.connect();
+    await session.post('Profiler.enable');
+    await session.post('Profiler.startPreciseCoverage', { callCount: true, detailed: true });
+    active = true;
+    const workerSource = "const { parentPort, workerData } = require('node:worker_threads'); (async()=>{ try { const mod=await import(workerData.entry); const fn=mod[workerData.exportName||'default']; if(typeof fn!=='function') throw new Error('Agent export is not a function'); const emit=(event)=>parentPort.postMessage({type:'event',event:{...event,timestamp:new Date().toISOString()}}); parentPort.postMessage({type:'ready'}); const value=await fn(workerData.input,{executionId:workerData.executionId,emit}); parentPort.postMessage({type:'result',value}); } catch(error) { parentPort.postMessage({type:'error',error:error&&error.stack||String(error)}); } })();";
+    const worker = new Worker(workerSource, { eval: true, workerData: data });
+    worker.on('message', message => process.send?.(message));
+    worker.on('error', error => process.send?.({ type: 'error', error: error.stack || error.message }));
+    await new Promise(resolve => worker.on('exit', resolve));
+    try { scripts = (await session.post('Profiler.takePreciseCoverage')).result || []; } catch {}
+  } catch(error) { process.send?.({ type:'error', error: error && error.stack || String(error) }); }
+  finally {
+    if (active) { try { await session.post('Profiler.stopPreciseCoverage'); } catch {} try { await session.post('Profiler.disable'); } catch {} }
+    try { await session.disconnect(); } catch {}
+    process.send?.({ type: 'coverage', scripts });
+  }
+})();
 `;
 }
+
+function summarizeChildCoverage(options: ExecutionOptions, executionId: string, scripts: unknown[]): CoverageSummary { return summarizeCoverage(options.runId, scripts as CoverageScript[], options.coverage); }
+function emptyChildCoverage(options: ExecutionOptions, executionId: string): CoverageSummary { return emptyCoverage(options.runId); }
 
 function spawnExecution(options: ExecutionOptions): ChildProcess {
   const workerData = JSON.stringify({
@@ -83,11 +88,10 @@ export async function runExecution(options: ExecutionOptions): Promise<EvalResul
   const events: TrajectoryEvent[] = [];
   const child = spawnExecution({ ...options, caseId: executionId });
   options.onEvent?.({ type: "execution.started", runId: options.runId, executionId, caseId: options.caseId });
-  const collector = new V8CoverageCollector({ ...options.coverage, runId: options.runId, executionId, onUpdate: options.onCoverage });
-  await collector.start();
   let settled = false;
   let value: unknown;
   let failure: string | undefined;
+  let childScripts: any[] = [];
   const timeout = setTimeout(() => {
     failure = `Execution timed out after ${options.timeoutMs ?? 60_000}ms`;
     child.kill("SIGTERM");
@@ -97,6 +101,8 @@ export async function runExecution(options: ExecutionOptions): Promise<EvalResul
       if (message.type === "event" && message.event) {
         events.push(message.event);
         options.onEvent?.({ type: "trace.event", executionId, event: message.event });
+      } else if (message.type === "coverage") {
+        childScripts = Array.isArray(message.scripts) ? message.scripts : [];
       } else if (message.type === "result") {
         value = message.value;
         settled = true;
@@ -109,7 +115,7 @@ export async function runExecution(options: ExecutionOptions): Promise<EvalResul
   });
   clearTimeout(timeout);
   if (failure && !settled) options.onEvent?.({ type: "execution.failed", executionId, error: failure });
-  const coverage = await collector.stop();
+  const coverage = childScripts.length ? summarizeChildCoverage(options, executionId, childScripts) : emptyChildCoverage(options, executionId);
   const trajectory: Trajectory = {
     id: `trajectory_${executionId}`,
     runId: options.runId,
