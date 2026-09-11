@@ -45,7 +45,7 @@ export interface CoverageManifest { sourceHash: string; rootDir: string; include
 export interface CoverageRange { startOffset: number; endOffset: number; count: number }
 export interface CoverageFunction { functionName: string; ranges: CoverageRange[] }
 export interface CoverageScript { url: string; functions: CoverageFunction[] }
-export interface CoverageFragment { runId: string; executionId: string; provider: "node-v8"; sourceHash: string; capturedAt: string; scripts: CoverageScript[]; status: "final" | "partial" | "unavailable" }
+export interface CoverageFragment { runId: string; executionId: string; provider: "node-v8"; sourceHash: string; capturedAt: string; scripts: CoverageScript[]; status: "final" | "partial" | "unavailable"; reason?: string }
 export interface CoverageProvider { readonly id: "node-v8"; start(): Promise<void>; sample(): Promise<CoverageFragment>; stop(): Promise<CoverageFragment> }
 
 export interface CoverageSummary {
@@ -56,7 +56,7 @@ export interface CoverageSummary {
   statements: CoverageMetric;
   functions: CoverageMetric;
   branches: CoverageMetric;
-  featureChains: Array<{ featureId: string; name: string; coverage: CoverageMetric }>;
+  featureChains: FeatureCoverage[];
 }
 
 export interface EvalResult {
