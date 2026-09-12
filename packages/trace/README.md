@@ -7,5 +7,6 @@
 ## 边界
 
 - 只采集、校验、脱敏、持久化和查询事件。
+- 提供 FileArtifactRepository 与 RunStore；SSE 游标只在当前进程有效，重启后从 artifact 重建快照，不恢复同一批 event id。
 - 不负责判断通过/失败，不修改 coverage，不启动 Web Server。
 - 事件必须带 runId、executionId、caseId 或可由上下文补齐；大字段必须截断或转 artifact。
