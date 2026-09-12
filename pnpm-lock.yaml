@@ -56,6 +56,9 @@ importers:
       '@canary/coverage':
         specifier: workspace:*
         version: link:../coverage
+      '@canary/evaluators':
+        specifier: workspace:*
+        version: link:../evaluators
       '@canary/improvement':
         specifier: workspace:*
         version: link:../improvement
@@ -75,7 +78,11 @@ importers:
         specifier: ^4.19.0
         version: 4.23.13
 
-  packages/core: {}
+  packages/core:
+    dependencies:
+      zod:
+        specifier: ^3.25.76
+        version: 3.25.76
 
   packages/coverage:
     dependencies:
@@ -697,6 +704,9 @@ packages:
     engines: {node: '>=8'}
     hasBin: true
 
+  zod@3.25.76:
+    resolution: {integrity: sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ==}
+
 snapshots:
 
   '@esbuild/aix-ppc64@0.28.2':
@@ -1150,3 +1160,5 @@ snapshots:
     dependencies:
       siginfo: 2.0.0
       stackback: 0.0.2
+
+  zod@3.25.76: {}
