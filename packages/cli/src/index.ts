@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { missingConfigMessage, resolveCanaryProjectRoot, resolveConfigFile } from "./home.js";
 import { readdir } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -102,13 +103,13 @@ export async function loadCases(pattern: string | string[], cwd: string, exclude
 }
 
 function resolveCwd(cwd?: string): string {
-  return resolve(cwd ?? process.env.INIT_CWD ?? process.cwd());
+  return resolveCanaryProjectRoot(cwd);
 }
 export function artifactRoot(cwd?: string): string {
-  return resolve(resolveCwd(cwd), ".canary/artifacts");
+  return resolve(resolveCanaryProjectRoot(cwd), ".canary/artifacts");
 }
 export function defaultRegressionDir(cwd?: string): string {
-  const root = resolveCwd(cwd);
+  const root = resolveCanaryProjectRoot(cwd);
   if (existsSync(resolve(root, "cases/regression"))) return resolve(root, "cases/regression");
   if (existsSync(resolve(root, "examples/local-agent/cases"))) return resolve(root, "examples/local-agent/cases/regression");
   return resolve(root, "cases/regression");
@@ -348,9 +349,10 @@ async function persistExecution(input: {
 }
 
 export async function runCommandDetailed(options: CliOptions = {}): Promise<RunCommandResult> {
-  const artifactCwd = resolveCwd(options.cwd);
-  const configFile = resolve(artifactCwd, options.configPath ?? "canary.config.ts");
+  const configFile = resolveConfigFile(options);
+  if (!existsSync(configFile)) throw new Error(missingConfigMessage(configFile));
   const cwd = dirname(configFile);
+  const artifactCwd = cwd;
   const config = await loadConfig(configFile);
   const cases = await loadCases(config.cases, cwd, config.coverage.exclude);
   const selected = selectCases(cases, options);
@@ -395,6 +397,8 @@ function parseArgv(argv: string[]): { command: string; rest: string[] } {
   const command = args[0] && !args[0].startsWith("-") ? args[0] : "run";
   return { command, rest: command === args[0] ? args.slice(1) : args };
 }
+
+export { CANARY_HOME_FILE, missingConfigMessage, readInstalledHome, resolveCanaryProjectRoot, resolveConfigFile } from "./home.js";
 
 export async function main(argv = process.argv.slice(2)): Promise<number> {
   const { command, rest } = parseArgv(argv);

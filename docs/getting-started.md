@@ -1,46 +1,65 @@
 # Getting Started
 
-canary is meant to run **from this repository** on your machine. You do **not** need `npm i -g @canary/cli` or `npx canary run` for day-to-day work.
+## One-line global install (recommended)
 
-## Prerequisites
+After this, open a **new terminal** and run `canary run` from **any directory**.
 
-- Node.js **22+** (24 LTS recommended)
-- [pnpm](https://pnpm.io/) **10** — enable once with Corepack:
+### Windows (PowerShell)
 
 ```powershell
-corepack enable
-corepack prepare pnpm@10.15.0 --activate
+git clone https://github.com/EVEDensity/Canary.git "$env:USERPROFILE\Canary"; node "$env:USERPROFILE\Canary\scripts\install-global.mjs"
 ```
 
-## Personal developer workflow (recommended)
+### macOS / Linux
+
+```bash
+git clone https://github.com/EVEDensity/Canary.git "$HOME/Canary" && node "$HOME/Canary/scripts/install-global.mjs"
+```
+
+The installer will:
+
+1. Install workspace dependencies and build packages
+2. Register the project at `~/.canary/home.json`
+3. Add a global `canary` command to your user `PATH`
+
+Then:
 
 ```powershell
-git clone https://github.com/EVEDensity/Canary.git
-cd Canary
+canary run
+```
+
+This runs the default 15-case demo, opens the local UI, and writes artifacts under `%USERPROFILE%\Canary\.canary\artifacts\` (or `$HOME/Canary/.canary/artifacts/`).
+
+Headless:
+
+```powershell
+canary run --headless --no-open
+```
+
+## Already cloned the repo?
+
+From the repository root:
+
+```powershell
+node scripts/install-global.mjs
+# or
+pnpm install:global
+```
+
+## Repo-only workflow (no global command)
+
+If you prefer not to install globally:
+
+```powershell
 pnpm install
 pnpm demo
 ```
 
-`pnpm demo` runs the default 15-case suite, writes artifacts to `.canary/artifacts/<runId>/`, and opens the local UI in your browser.
+## Requirements
 
-Headless check (same path CI uses):
-
-```powershell
-pnpm demo:headless
-```
-
-Other commands still go through the workspace CLI when you need flags:
-
-```powershell
-pnpm canary -- report <runId> --format markdown
-pnpm canary -- compare <baselineRunId> <candidateRunId>
-pnpm canary -- replay <runId> --headless --no-open
-pnpm canary -- run --headless --no-open --config examples/mcp-agent/canary.config.ts
-```
-
-## What gets exercised
-
-The root `canary.config.ts` targets `examples/local-agent` with cases under `cases/smoke/`, `cases/regression/`, and `cases/holdout/`. No API keys or external models are required.
+- Node.js **22+**
+- Git
+- pnpm **10** (the installer enables Corepack automatically if pnpm is missing)
 
 ## Next steps
 

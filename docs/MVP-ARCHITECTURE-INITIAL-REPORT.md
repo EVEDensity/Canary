@@ -257,12 +257,13 @@ features: [
 
 ### 6.1 一键运行体验
 
-```bash
-git clone https://github.com/EVEDensity/Canary
-cd Canary && pnpm install && pnpm demo
+```powershell
+git clone https://github.com/EVEDensity/Canary.git "$env:USERPROFILE\Canary"; node "$env:USERPROFILE\Canary\scripts\install-global.mjs"
+# new terminal:
+canary run
 ```
 
-个人开发者从仓库根目录运行，**不需要** `npm i -g @canary/cli` 或 `npx canary run`。交互运行：启动本地服务、绑定 `127.0.0.1`、选择可用端口、打印地址并默认自动打开浏览器。CI 与脚本使用 `pnpm demo:headless`（等价 `--no-open --headless`），只产出 artifacts 和退出码。
+个人开发者一行安装后，全局命令 `canary run` 可在任意目录运行默认 Demo（注册表 `~/.canary/home.json`）。**不需要** `npm i -g @canary/cli` 或 `npx canary run`。交互运行：启动本地服务、绑定 `127.0.0.1`、选择可用端口、打印地址并默认自动打开浏览器。CI 使用 `pnpm demo:headless` 或全局 `canary run --headless --no-open`。
 
 页面包含 Overview、Run Timeline、Feature Coverage、Case Detail、Improvement Queue 五个视图。实时通道优先使用 SSE；事件包括 `run.started`、`case.started`、`trace.event`、`coverage.updated`、`case.finished`、`run.finished` 和 `run.error`。浏览器重连后用 `lastEventId` 或 run 快照补齐，不重复累计 coverage fragment。
 

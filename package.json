@@ -21,6 +21,7 @@
     "demo": "pnpm --filter @canary/cli canary run",
     "demo:headless": "pnpm --filter @canary/cli canary run --headless --no-open",
     "check:demo": "pnpm demo:headless",
+    "install:global": "node scripts/install-global.mjs",
     "canary": "pnpm --filter @canary/cli canary"
   },
   "devDependencies": {

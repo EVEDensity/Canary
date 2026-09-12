@@ -1,6 +1,5 @@
 <div align="center">
   <img src="docs/images/logo-hero.png" height="200" align="middle" />
-  <h1 style="display:inline-block; margin:0 0 0 24px; vertical-align:middle; font-size:72px; letter-spacing:-3px; font-weight:800;">Canary</h1>
 </div>
 
 <div align="center">
@@ -46,30 +45,43 @@ Agent runs locally and you think it works? Not quite. `canary` treats your Agent
 
 ## 🚀 Quick Start
 
-> **Personal developers:** clone this repo and use pnpm scripts. No global npm install or `npx` required.
+> **One-line install → global `canary run` from anywhere.** No `npm i -g` or `npx` required.
 
-Requires [pnpm](https://pnpm.io/) 10 and Node ≥22. Enable Corepack once: `corepack enable`.
+Requires Node ≥22 and Git.
 
-```bash
-git clone https://github.com/EVEDensity/Canary
-cd Canary
-pnpm install
-pnpm demo
+**Windows (PowerShell):**
+
+```powershell
+git clone https://github.com/EVEDensity/Canary.git "$env:USERPROFILE\Canary"; node "$env:USERPROFILE\Canary\scripts\install-global.mjs"
 ```
 
-`pnpm demo` runs the default suite and opens the local UI. Headless (CI-style): `pnpm demo:headless`.
+**macOS / Linux:**
+
+```bash
+git clone https://github.com/EVEDensity/Canary.git "$HOME/Canary" && node "$HOME/Canary/scripts/install-global.mjs"
+```
+
+Open a **new terminal**, then:
+
+```bash
+canary run
+```
+
+Runs the default 15-case demo and opens the local UI. Headless: `canary run --headless --no-open`.
+
+Already inside the repo? `node scripts/install-global.mjs` or `pnpm install:global`.
 
 Default suite: 15 deterministic cases under `cases/` against `examples/local-agent` — no API keys needed. Artifacts land at `.canary/artifacts/<runId>/`.
 
 ### Common Commands
 
 ```bash
-pnpm demo                              # Interactive run + browser
-pnpm demo:headless                     # No browser; exit code for gates
-pnpm canary -- report <runId> --format markdown
-pnpm canary -- compare <baselineId> <candidateId>
-pnpm canary -- replay <runId> --headless --no-open
-pnpm canary -- run --repetitions 3 --tag nightly
+canary run                             # Global command after install:global
+canary run --headless --no-open
+canary report <runId> --format markdown
+canary compare <baselineId> <candidateId>
+canary replay <runId> --headless --no-open
+canary run --repetitions 3 --tag nightly
 ```
 
 ## 📦 Monorepo Structure
