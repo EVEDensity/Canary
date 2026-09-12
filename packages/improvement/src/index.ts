@@ -1,4 +1,6 @@
-﻿import type { CoverageSummary, EvalResult, TestCase } from "@canary/core";
+﻿import { mkdirSync, writeFileSync } from "node:fs";
+import { resolve } from "node:path";
+import type { CoverageSummary, EvalResult, TestCase } from "@canary/core";
 
 export interface ImprovementEvidence { type: "trace" | "assertion" | "coverage" | "state"; ref: string }
 export interface ImprovementSuggestion {
@@ -58,7 +60,11 @@ export function proposeFromResults(runId: string, results: EvalResult[]): Improv
   }));
 }
 
-export function compareRuns(baseline: ComparableRun, candidate: ComparableRun, holdoutIds: string[] = []): RunComparison {
+export function holdoutCaseIds(results: EvalResult[]): string[] {
+  return [...new Set(results.filter((result) => result.caseId.startsWith("holdout")).map((result) => result.caseId))];
+}
+
+export function compareRuns(baseline: ComparableRun, candidate: ComparableRun, holdoutIds: string[] = holdoutCaseIds([...baseline.results, ...candidate.results])): RunComparison {
   const baseById = new Map(baseline.results.map((result) => [result.caseId, result]));
   const candById = new Map(candidate.results.map((result) => [result.caseId, result]));
   const ids = [...new Set([...baseById.keys(), ...candById.keys()])];
@@ -83,4 +89,29 @@ export function compareRuns(baseline: ComparableRun, candidate: ComparableRun, h
 export function decideSuggestion(suggestion: ImprovementSuggestion, status: ImprovementSuggestion["status"]): ImprovementSuggestion {
   if (status === "verified" && suggestion.status !== "accepted") throw new Error("Only accepted suggestions can be verified");
   return { ...suggestion, status };
+}
+
+function safeFileStem(value: string): string {
+  return value.replace(/[^A-Za-z0-9._-]+/g, "-").replace(/^\.+/, "") || "regression";
+}
+
+/** Serializes a proposed regression TestCase. Never writes Agent source. */
+export function renderRegressionDraft(suggestion: ImprovementSuggestion): string {
+  const testCase = {
+    id: suggestion.proposedCase?.id ?? `${suggestion.caseId}.regression`,
+    input: suggestion.proposedCase?.input ?? suggestion.caseId,
+    assertions: suggestion.proposedCase?.assertions?.length ? suggestion.proposedCase.assertions : [{ type: "output.exists" }],
+  };
+  return `/** Regression draft from canary improve (${suggestion.id}). Status: proposed — not an accepted Agent patch. */\nexport default ${JSON.stringify(testCase, null, 2)};\n`;
+}
+
+export function writeRegressionDrafts(suggestions: ImprovementSuggestion[], outDir: string): string[] {
+  mkdirSync(outDir, { recursive: true });
+  const written: string[] = [];
+  for (const suggestion of suggestions) {
+    const file = resolve(outDir, `${safeFileStem(suggestion.proposedCase?.id ?? `${suggestion.caseId}.regression`)}.ts`);
+    writeFileSync(file, renderRegressionDraft(suggestion), "utf8");
+    written.push(file);
+  }
+  return written;
 }

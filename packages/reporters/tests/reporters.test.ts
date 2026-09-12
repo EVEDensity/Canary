@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { renderJunit, renderMarkdown, renderReport } from "../src/index.js";
+import { countJunitFailures, renderJunit, renderMarkdown, renderReport } from "../src/index.js";
 import type { EvalResult } from "@canary/core";
 
 const result = (caseId: string, passed: boolean): EvalResult => ({
@@ -29,6 +29,17 @@ describe("run reporters", () => {
     expect(xml).toContain('failures="1"');
     expect(xml).toContain("<failure");
     expect(xml).toContain("bad");
+  });
+
+  it("counts JUnit failures and includes a coverage.gate case when the shared gate fails", () => {
+    const xml = renderJunit({
+      ...run,
+      status: "failed",
+      gate: { passed: false, reason: "behavior_passed_coverage_insufficient", failureCategory: "coverage_below_threshold", failures: [{ code: "below_threshold", target: "lines", required: 80, actual: 50, message: "lines 50% < 80%" }] },
+    });
+    expect(countJunitFailures(xml)).toBe(2);
+    expect(xml).toContain("coverage.gate");
+    expect(xml).toContain("lines 50%");
   });
 
   it("selects json as the machine-readable format", () => {
