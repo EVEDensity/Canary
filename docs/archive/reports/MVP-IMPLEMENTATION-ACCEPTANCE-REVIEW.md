@@ -1,10 +1,12 @@
+> **历史档案，非当前规范。** 以下正文保留当时结论/数据；当前能力以[源码审计](../../evidence/code-audit.md)为准，后续安排见[任务目录](../../roadmap/README.md)。归档仅新增本提示、修复导航及规范格式。
+
 ﻿# canary MVP 实现验收清单与风险审阅
 
 > 审阅对象：`docs/MVP-ARCHITECTURE-INITIAL-REPORT.md` 及 `canary` 实现
 >
 > 原稿日期：2026-09-12（骨架审阅）｜**状态更新：2026-09-12 晚，MVP 已落地**
 >
-> 说明：§1 原结论针对当时 scaffold，保留为历史。当前工程验收见 [`acceptance-10-min.md`](./acceptance-10-min.md)。
+> 说明：§1 原结论针对当时 scaffold，保留为历史。当前工程验收见 [当前验收指南](../../guides/ci-and-validation.md)。
 
 ## 0. 当前结论（取代骨架判定）
 

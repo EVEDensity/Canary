@@ -1,3 +1,5 @@
+> **历史档案，非当前规范。** 以下正文保留当时结论/数据；当前能力以[源码审计](../../evidence/code-audit.md)为准，后续安排见[任务目录](../../roadmap/README.md)。归档仅新增本提示、修复导航及规范格式。
+
 # Canary Week 2 — Real Validation Results
 
 > Validation date: **September 12, 2026**
