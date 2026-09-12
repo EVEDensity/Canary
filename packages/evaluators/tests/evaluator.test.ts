@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { evaluateAgent, evaluateCoverageGates, exitCodeForRun } from "../src/index.js";
-import type { CoverageSummary, Trajectory } from "@canary/core";
+import { evaluateAgent, evaluateCoverageGates, evaluateHardGates, mergeQualityGates, exitCodeForRun, attributeFailure, DeterministicJudgeProvider, HttpJudgeProvider } from "../src/index.js";
+import type { CoverageSummary, EvalResult, Trajectory } from "@canary/core";
 
 const trajectory = (events: Trajectory["events"], termination: Trajectory["termination"] = "completed"): Trajectory => ({
   id: "t1", runId: "r1", caseId: "c1", events, stepCount: 3, termination,
@@ -54,6 +54,39 @@ describe("deterministic Agent evaluator", () => {
     expect(result.passed).toBe(false);
     expect(result.diagnostics?.[0]).toContain("Unsupported assertion");
   });
+
+  it("evaluates dedicated tool name, args, order and state assertions", async () => {
+    const result = await evaluateAgent({
+      context: { state: { lastTool: "lookup", lastResult: "found:alpha" } },
+      trajectory: trajectory([
+        event("tool.call", { name: "parse", args: { text: "a b" } }),
+        event("tool.call", { name: "compute", args: { tokens: ["a", "b"] } }),
+        event("tool.call", { name: "lookup", args: { q: "alpha" } }),
+        event("tool_call", { name: "lookup", args: { q: "ignored-duplicate" } }),
+      ]),
+      assertions: [
+        { type: "tool.called", name: "lookup" },
+        { type: "tool.args", name: "lookup", contains: { q: "alpha" } },
+        { type: "tool.order", names: ["parse", "compute"] },
+        { type: "state.has", key: "lastTool" },
+        { type: "state.equals", key: "lastTool", value: "lookup" },
+        { type: "state.contains", contains: { lastResult: "found:alpha" } },
+      ],
+    });
+    expect(result.passed).toBe(true);
+
+    const failed = await evaluateAgent({
+      context: { state: { other: 1 } },
+      trajectory: trajectory([event("tool_call", { name: "lookup", args: { q: "alpha" } })]),
+      assertions: [
+        { type: "tool.called", name: "lookup" },
+        { type: "state.has", key: "lastTool" },
+      ],
+    });
+    expect(failed.passed).toBe(false);
+    expect(failed.assertions.find((item) => item.id.startsWith("tool.called"))?.passed).toBe(false);
+    expect(failed.assertions.find((item) => item.id.startsWith("state.has"))?.passed).toBe(false);
+  });
 });
 
 const coverage = (status: CoverageSummary["status"], pct = 90): CoverageSummary => ({
@@ -71,6 +104,7 @@ describe("coverage / feature gates", () => {
   it("fails required coverage when status is unavailable or partial", () => {
     expect(evaluateCoverageGates(undefined, { lines: 80 }).failures[0]?.code).toBe("unavailable");
     expect(evaluateCoverageGates(coverage("unavailable"), { lines: 80 }).passed).toBe(false);
+    expect(evaluateCoverageGates(coverage("preparing"), { lines: 80 }).passed).toBe(false);
     expect(evaluateCoverageGates(coverage("partial", 99), { lines: 80 }).passed).toBe(false);
     expect(evaluateCoverageGates(coverage("final", 79), { lines: 80 }).failures[0]?.code).toBe("below_threshold");
     expect(evaluateCoverageGates(coverage("final", 80), { lines: 80, branches: 70, functions: 75 }).passed).toBe(true);
@@ -80,8 +114,13 @@ describe("coverage / feature gates", () => {
     const missing = coverage("final", 90);
     missing.featureChains = [];
     expect(evaluateCoverageGates(missing, { featureChains: { planning: 70 } }).failures[0]?.code).toBe("feature_unavailable");
-    expect(evaluateCoverageGates(coverage("final", 90), { featureChains: { planning: 70 } }).passed).toBe(true);
-    expect(evaluateCoverageGates(coverage("final", 90), { featureChains: { planning: 90 } }).passed).toBe(false);
+    const partialPass = evaluateCoverageGates(coverage("final", 90), { featureChains: { planning: 70 } });
+    expect(partialPass.passed).toBe(true);
+    expect(partialPass.featureChainSemantics).toEqual({ mode: "source_pct", partialDoesNotFail: true });
+    expect(coverage("final", 90).featureChains[0]?.status).toBe("partial");
+    const partialFail = evaluateCoverageGates(coverage("final", 90), { featureChains: { planning: 90 } });
+    expect(partialFail.passed).toBe(false);
+    expect(partialFail.featureChainSemantics).toEqual({ mode: "source_pct", partialDoesNotFail: true });
   });
 
   it("shares the CI exit rule: failed run, failed gate, or JUnit failures all return 1", () => {
@@ -89,5 +128,94 @@ describe("coverage / feature gates", () => {
     expect(exitCodeForRun({ runFailed: true, gatePassed: true, junitFailures: 0 })).toBe(1);
     expect(exitCodeForRun({ runFailed: false, gatePassed: false, junitFailures: 0 })).toBe(1);
     expect(exitCodeForRun({ runFailed: false, gatePassed: true, junitFailures: 2 })).toBe(1);
+  });
+
+  it("fails the hard gate on unexpected policy violations and unexpected loops", () => {
+    const result: EvalResult = {
+      runId: "r", executionId: "e", caseId: "leaky", passed: true,
+      assertions: [{ id: "output.exists", passed: true }],
+      coverage: coverage("final", 90),
+      trajectory: trajectory([event("policy.violation", { rule: "no-exfil" })]),
+    };
+    const hard = evaluateHardGates({ results: [result], coverage: coverage("final", 90), coreFeatures: ["planning"] });
+    expect(hard.passed).toBe(false);
+    expect(hard.policyViolations).toBe(1);
+    const merged = mergeQualityGates(evaluateCoverageGates(coverage("final", 90), { lines: 80 }), hard);
+    expect(merged.passed).toBe(false);
+    expect(merged.reason).toBe("hard_gate_failed");
+    const expectedLoop: EvalResult = {
+      ...result, caseId: "loop-ok",
+      assertions: [{ id: "trajectory.required_event#1", passed: true, details: { event: "loop_detected" } }],
+      trajectory: trajectory([event("loop_detected")]),
+    };
+    expect(evaluateHardGates({ results: [expectedLoop], coverage: coverage("final", 90) }).passed).toBe(true);
+  });
+
+  it("attributes wrong_output vs policy_violation", async () => {
+    const outputFail = await evaluateAgent({ output: null, assertions: [{ type: "output.exists" }] });
+    const attributed = attributeFailure({
+      runId: "r", executionId: "e", caseId: "c", passed: false,
+      assertions: outputFail.assertions, coverage: coverage("final", 90),
+    });
+    expect(attributed.kind).toBe("wrong_output");
+    expect(attributed.category).toBe("prompt");
+  });
+});
+
+describe("coverage.atLeast and LLM-as-Judge", () => {
+  it("passes coverage.atLeast when the feature pct meets the threshold", async () => {
+    const passed = await evaluateAgent({
+      context: { coverage: coverage("final", 90) },
+      assertions: [{ type: "coverage.atLeast", featureId: "planning", minPct: 60 }],
+    });
+    expect(passed.passed).toBe(true);
+    const failed = await evaluateAgent({
+      context: { coverage: coverage("final", 90) },
+      assertions: [{ type: "coverage.atLeast", featureId: "planning", minPct: 90 }],
+    });
+    expect(failed.passed).toBe(false);
+    const missing = await evaluateAgent({
+      assertions: [{ type: "coverage.atLeast", featureId: "planning", minPct: 60 }],
+    });
+    expect(missing.passed).toBe(false);
+  });
+
+  it("never treats judge error, timeout, or low confidence as a pass", async () => {
+    const errored = await evaluateAgent({
+      output: { ok: true },
+      context: { judge: new DeterministicJudgeProvider({ verdict: "error" }) },
+      assertions: [{ type: "judge.score", minScore: 0.1, minConfidence: 0.1 }],
+    });
+    expect(errored.passed).toBe(false);
+    expect(errored.assertions[0]?.details).toMatchObject({ verdict: "error" });
+
+    const timedOut = await evaluateAgent({
+      output: { ok: true },
+      context: { judge: new DeterministicJudgeProvider({ delayMs: 40 }) },
+      assertions: [{ type: "judge.score", minScore: 0.1, timeoutMs: 5 }],
+    });
+    expect(timedOut.passed).toBe(false);
+    expect((timedOut.assertions[0]?.details as { verdict?: string }).verdict).toBe("timeout");
+
+    const low = await evaluateAgent({
+      output: { ok: true },
+      context: { judge: new DeterministicJudgeProvider({ verdict: "low_confidence" }) },
+      assertions: [{ type: "judge.score", minScore: 0.1, minConfidence: 0.8 }],
+    });
+    expect(low.passed).toBe(false);
+    expect((low.assertions[0]?.details as { verdict?: string }).verdict).toBe("low_confidence");
+
+    const ok = await evaluateAgent({
+      output: { ok: true },
+      assertions: [{ type: "judge.score", minScore: 0.5, minConfidence: 0.5 }],
+    });
+    expect(ok.passed).toBe(true);
+
+    const http = new HttpJudgeProvider("https://judge.example/score", (async () => ({
+      ok: false,
+      status: 500,
+      json: async () => ({}),
+    })) as typeof fetch);
+    expect((await http.score({ input: "x", output: "y" })).verdict).toBe("error");
   });
 });
