@@ -136,6 +136,7 @@ const send = (message) => new Promise((resolve) => {
     }
     const mod = await import(entryUrl); const agent = mod[payload.exportName || "default"];
     if (typeof agent !== "function") throw new Error("Agent export is not a function");
+    // Module-load window: sample then let V8 reset counters before the agent task.
     if (useIstanbul) {
       await send(Object.assign({ type: "coverage", scripts: istanbulScripts(), phase: "init" }, coverageMeta()));
     } else if (coverageStarted) {
@@ -217,8 +218,8 @@ function spawnExecution(options: ExecutionOptions, executionId: string): ChildPr
     stdio: ["ignore", "ignore", "pipe", "ipc"],
   });
 }
-function makeCoverage(options: ExecutionOptions, scripts: CoverageScript[], partial: boolean, events: TrajectoryEvent[]): CoverageSummary {
-  if (!scripts.length) return emptyCoverage(options.runId);
+function makeCoverage(options: ExecutionOptions, scripts: CoverageScript[], partial: boolean, events: TrajectoryEvent[], initCaptured = false): CoverageSummary {
+  if (!scripts.length) return { ...emptyCoverage(options.runId), lifecycle: { initCaptured, taskWindow: "reset-after-init" } };
   const base = summarizeCoverage(options.runId, scripts, { ...options.coverage, features: options.features });
   const featureEvents: FeatureEvent[] = [];
   for (const event of events) {
@@ -226,7 +227,7 @@ function makeCoverage(options: ExecutionOptions, scripts: CoverageScript[], part
     if (event.type === "feature.exit") featureEvents.push({ featureId: String(event.featureId ?? ""), status: event.status === "failed" ? "failed" : "completed", caseId: options.caseId });
   }
   const enriched = assignFeatureCoverage(base, options.features ?? [], featureEvents, options.testCase?.expectedFeatures ?? [], options.caseId, options.coverage.rootDir ?? options.cwd ?? process.cwd());
-  return { ...enriched, status: partial ? "partial" : enriched.status };
+  return { ...enriched, status: partial ? "partial" : enriched.status, lifecycle: { initCaptured, taskWindow: "reset-after-init" } };
 }
 function budgetUsed(events: TrajectoryEvent[]): number {
   return events.reduce((total, event) => total + (typeof event.cost === "number" ? event.cost : typeof event.budgetUsed === "number" ? event.budgetUsed : 0), 0);
@@ -268,13 +269,14 @@ export async function runExecution(options: ExecutionOptions): Promise<EvalResul
       else if (message.type === "error") failure ??= message.error;
       else if (message.type === "coverage") {
         if (message.phase === "init") { initScripts = message.scripts; return; }
+        // takePreciseCoverage resets after init; recombine so module-load hits stay in the reported set.
         scripts = mergeV8Scripts([initScripts, message.scripts]); coveragePartial = Boolean(message.partial);
         if (message.provisional) {
           const now = Date.now();
           const key = JSON.stringify(scripts.map((script) => ({ url: script.url, functions: script.functions })));
           if (key === lastProvisionalKey || now - lastProvisionalAt < sampleMinIntervalMs) return;
           lastProvisionalKey = key; lastProvisionalAt = now;
-          const provisional = makeCoverage(options, scripts, false, events);
+          const provisional = makeCoverage(options, scripts, false, events, initScripts.length > 0);
           options.onCoverage?.({ ...provisional, status: "provisional" });
           options.onEvent?.({ type: "coverage.updated", executionId, coverage: { ...provisional, status: "provisional" } });
         }
@@ -286,7 +288,7 @@ export async function runExecution(options: ExecutionOptions): Promise<EvalResul
   if (killTimer) clearTimeout(killTimer);
   clearTimeout(timeout); options.signal?.removeEventListener("abort", cancel);
   const termination: Trajectory["termination"] = didTimeout ? "timeout" : didCancel ? "cancelled" : failure ? "error" : "completed";
-  const coverage = makeCoverage(options, scripts, coveragePartial || didTimeout || didCancel, events);
+  const coverage = makeCoverage(options, scripts, coveragePartial || didTimeout || didCancel, events, initScripts.length > 0);
   options.onCoverage?.(coverage); options.onEvent?.({ type: "coverage.updated", executionId, coverage });
   if (failure) options.onEvent?.({ type: "execution.failed", executionId, error: failure });
   return finishEvaluation(options, executionId, startedAt, events, output, failure, coverage, termination);

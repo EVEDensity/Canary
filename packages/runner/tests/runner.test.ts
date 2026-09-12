@@ -17,6 +17,7 @@ describe("runner lifecycle", () => {
     expect(result.passed).toBe(true); expect(events).toContain("execution.started"); expect(events).toContain("execution.finished"); expect(result.metrics?.steps).toBe(1);
     expect(result.trajectory?.events.some((event) => event.type === "tool_call")).toBe(true);
     expect(result.stateDiff?.changed).toBeDefined();
+    expect(result.coverage.lifecycle).toEqual({ initCaptured: true, taskWindow: "reset-after-init" });
   });
   it("records an agent exception", async () => {
     const cwd = mkdtempSync(join(tmpdir(), "canary-runner-"));
@@ -211,5 +212,16 @@ describe("mcp agent adapter and process pool", () => {
     });
     expect(result).toEqual([2, 4, 6, 8]);
     expect(seen.sort((a, b) => a - b)).toEqual([1, 2, 3, 4]);
+  });
+
+  it("overlaps work when mapLimit concurrency is greater than 1", async () => {
+    const started: number[] = [];
+    const finished: number[] = [];
+    await mapLimit([1, 2], 2, async () => {
+      started.push(Date.now());
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      finished.push(Date.now());
+    });
+    expect(Math.min(...finished) - Math.max(...started)).toBeGreaterThan(20);
   });
 });
