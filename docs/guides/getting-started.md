@@ -30,13 +30,11 @@ curl -fsSL https://raw.githubusercontent.com/EVEDensity/Canary/main/install.sh |
 
 脚本 clone/update 仓库，安装依赖、build、写入用户级 home 注册文件和启动器，并修改用户 PATH；不是独立二进制安装。克隆目录可用 `CANARY_DIR` 配置。已克隆仓库可执行 `node scripts/install-global.mjs`。不要把源码中的发布 workflow 当成 npm 包当前可用性的证明。
 
-**当前全局启动器把子进程 cwd 固定到安装仓库。** 因此通常在任意目录输入 `canary run` 会运行安装仓库的 Demo，而不是当前项目；`INIT_CWD` 等环境因素还可能影响解析。目录自动解析本身也会回退到 `CANARY_HOME` 或用户 home 注册项。这两个行为都已列为待修正任务。
+**当前全局启动器保留调用目录（`process.cwd()`），并把 `CANARY_HOME` 设为安装仓库。** 若当前目录（或向上）存在 `canary.config.ts`，则运行该项目并把产物写到该项目的 `.canary/artifacts`。没有本地配置时才回退到安装仓库的 Demo。`runs` / `show` / `report` / `compare` / `improve` 与 `run` 使用同一套 `ProjectContext`；可用 `--config` 显式指定。
 
 ## 接入另一个项目
 
-1. 明确被测项目中的配置、Agent entry、用例与 coverage scope，参考 [适配器说明](adapters-and-environment.md)。不要把无法识别的项目当成自动完成了接入。
-2. 当前全局启动器下，运行目标项目应传入配置的**绝对路径**：`canary run --config <absolute-config-path> --headless --no-open`。尖括号内容需要替换。
-3. 相对 entry/cases/coverage 路径及 artifacts 以该配置所在目录为根。运行后核对终端打印的 artifact 路径。
-4. 历史命令 `runs/show/report/compare/improve` 当前没有统一 `--config/--project` 入口；不要假设它们会自动找到第 2 步的外部项目。可在正确项目目录直接调用已构建 CLI，而不是使用会重置 cwd 的全局启动器。
-
-未来目标是“全局安装 → 在当前项目执行 → 无配置时引导，不静默 Demo”，见 [产品架构](../design/product-architecture.md)；目前尚未实现。
+1. 在目标项目放置 `canary.config.ts`、Agent entry、用例与 coverage scope，参考 [适配器说明](adapters-and-environment.md)。
+2. 在该项目目录执行 `canary run`，或从任意目录传入 `--config <path>`（相对路径相对调用目录）。
+3. 相对 entry/cases/coverage 路径及 artifacts 以配置所在目录为根。运行后核对终端打印的 artifact 路径。
+4. 历史命令可加同样的 `--config`，读写同一产物根。

@@ -18,15 +18,17 @@ repetitions 运行 case × N；用例自身 options.repetitions 优先于 CLI/�
 ## UI 生命周期
 
 - 默认 loopback host 为 `127.0.0.1`、port 0 表示由系统分配；可配置 host/port，不建议暴露公网。
-- 当前先 listen → 执行 → 打印 URL / 自动开浏览器。`--no-open` 不开浏览器但保留服务；`--headless` 在完成后关闭服务，并非从不监听。
+- 非 headless 且 `web.enabled !== false` 时，先创建 runId、监听、打印 `canary UI` 再执行用例，因此长运行期间可以打开页面看 SSE。
+- `--headless` 或 `web.enabled: false` **不创建监听、不打开浏览器**。`--no-open` 仍监听但不自动打开。
 - 页面包含运行概览/时间线、case 断言与轨迹、source/feature coverage、建议队列与 compare。现有截图是界面参考，不是本轮浏览器验收证据。
-- SSE 支持事件 ID、重连与心跳；断连有 snapshot/poll 路径。当前事件记录在内存中，历史 artifacts 可重新加载，但不能承诺跨进程重启保留同一 SSE 游标和完整事件日志。
+- 端口占用会以 `Port N is already in use` 失败退出。
+- POST replay / improvements 需要 `x-canary-write-token`（页面由 CLI 注入）。CORS 不是写授权。
+- SSE 支持事件 ID、重连与心跳；断连有 snapshot/poll 路径。SSE 游标只在当前进程有效；跨重启从 artifact 恢复快照，不恢复同一套 event id。
 - Replay 的 HTTP hook 可执行新运行；没有 hook 时返回 CLI 命令。当前 hook 等待执行结束才返回，不是未来异步 task API。
-- 当前 UI 写接口没有形成未来权限、审批和抗重放控制面；不要以 CORS 头当作完整安全隔离。
 
 ## 产物
 
-当前写入**配置文件所在目录**的 `.canary/artifacts/<runId>/`：
+当前写入**项目根（配置文件所在目录）**的 `.canary/artifacts/<runId>/`：
 
 - run.json、coverage.json、coverage-manifest.json；
 - trajectory.json、trace.jsonl、evaluator.json；
