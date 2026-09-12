@@ -1,6 +1,7 @@
 ﻿import { createHash } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import { resolve, relative } from "node:path";
+import { fileURLToPath } from "node:url";
 import { Session } from "node:inspector";
 import type { CoverageFile, CoverageFragment, CoverageManifest, CoverageMetric, CoverageProvider, CoverageScript, CoverageSummary, FeatureCoverage, SourceLocation } from "@canary/core";
 
@@ -24,13 +25,25 @@ export function emptyCoverage(runId: string, sourceHash = "unknown"): CoverageSu
 
 function normalizeFile(url: string, rootDir: string): string | undefined {
   if (!url || url.startsWith("node:") || url.startsWith("internal:")) return undefined;
-  try { return url.startsWith("file:") ? resolve(new URL(url)) : resolve(rootDir, url); } catch { return undefined; }
+  try {
+    if (!url.startsWith("file:")) return resolve(rootDir, url);
+    try { return resolve(fileURLToPath(url)); }
+    catch { return resolve(new URL(url).pathname); }
+  } catch { return undefined; }
 }
 function patternToRegExp(pattern: string): RegExp {
   const normalized = pattern.replaceAll("\\", "/").replace(/^\.\//, "");
-  const escaped = normalized.replace(/[.+^${}()|[\]\\]/g, "\\$&");
-  const wildcard = escaped.replaceAll("**", "??").replaceAll("*", "[^/]*").replaceAll("??", ".*");
-  return new RegExp(`^${wildcard}$`);
+  let expression = "";
+  for (let index = 0; index < normalized.length; index += 1) {
+    const char = normalized[index] ?? "";
+    if (char === "*" && normalized[index + 1] === "*") {
+      if (normalized[index + 2] === "/") { expression += "(?:.*/)?"; index += 2; }
+      else { expression += ".*"; index += 1; }
+    } else if (char === "*") expression += "[^/]*";
+    else if (char === "?") expression += "[^/]";
+    else expression += char.replace(/[.+^${}()|[\]\\]/g, "\\$&");
+  }
+  return new RegExp(`^${expression}$`);
 }
 function matches(filePath: string, patterns: string[], rootDir: string): boolean { const value = relative(rootDir, filePath).replaceAll("\\", "/"); return patterns.some((pattern) => patternToRegExp(pattern).test(value)); }
 function sourceFor(filePath: string, options: CoverageSourceConfig): string | undefined { if (options.sourceText) { const supplied = options.sourceText(filePath); if (supplied !== undefined) return supplied; } try { return existsSync(filePath) ? readFileSync(filePath, "utf8") : undefined; } catch { return undefined; } }
@@ -38,7 +51,21 @@ function hash(text: string): string { return createHash("sha256").update(text).d
 function sourceHash(files: string[], options: CoverageSourceConfig): string { const h = createHash("sha256"); for (const file of files.sort()) h.update(file).update("\\0").update(sourceFor(file, options) ?? ""); return h.digest("hex").slice(0, 16); }
 function lineAt(source: string, offset: number): number { return source.slice(0, Math.max(0, offset)).split("\\n").length; }
 function executableLines(source: string): number[] { const result: number[] = []; source.split("\\n").forEach((line, index) => { const trimmed = line.trim(); if (trimmed && !trimmed.startsWith("//") && !trimmed.startsWith("/*") && !trimmed.startsWith("*") && !/^import\\b/.test(trimmed) && !/^export\\s*\{/.test(trimmed)) result.push(index + 1); }); return result; }
-function inferUnits(source: string): { functions: SourceLocation[]; branches: SourceLocation[]; statements: SourceLocation[] } { const functions: SourceLocation[] = []; const branches: SourceLocation[] = []; const statements: SourceLocation[] = []; const lines = source.split("\\n"); lines.forEach((line, index) => { const lineNo = index + 1; if (/\\bfunction\\s+\\w+|=>\\s*[{(]|(?:const|let|var)\\s+\\w+\\s*=\\s*(?:async\\s*)?\(/.test(line)) functions.push({ filePath: "", line: lineNo }); if (/\\bif\\s*\\(|\\bswitch\\s*\\(|\\?/.test(line)) { branches.push({ filePath: "", line: lineNo, symbol: "branch.true" }); branches.push({ filePath: "", line: lineNo, symbol: "branch.false" }); } if (/\\b(if|else|for|while|return|throw|const|let|var|await)\\b|[;{}]/.test(line)) statements.push({ filePath: "", line: lineNo }); }); return { functions, branches, statements }; }
+function inferUnits(source: string): { functions: SourceLocation[]; branches: SourceLocation[]; statements: SourceLocation[] } {
+  const functions: SourceLocation[] = [];
+  const branches: SourceLocation[] = [];
+  const statements: SourceLocation[] = [];
+  for (const [index, line] of source.split("\n").entries()) {
+    const lineNo = index + 1;
+    if (/\bfunction\s+\w+|=>\s*[{(]|(?:const|let|var)\s+\w+\s*=\s*(?:async\s*)?\(/.test(line)) functions.push({ filePath: "", line: lineNo });
+    if (/\bif\s*\(|\bswitch\s*\(|\?/.test(line)) {
+      branches.push({ filePath: "", line: lineNo, symbol: "branch.true" });
+      branches.push({ filePath: "", line: lineNo, symbol: "branch.false" });
+    }
+    if (/\b(if|else|for|while|return|throw|const|let|var|await)\b|[;{}]/.test(line)) statements.push({ filePath: "", line: lineNo });
+  }
+  return { functions, branches, statements };
+}
 function configuredFiles(options: CoverageSourceConfig, observed: string[]): string[] { const root = resolve(options.rootDir ?? process.cwd()); const manifest = options.manifest?.files.map((f) => resolve(f.filePath)) ?? []; const explicit = options.include.filter((p) => !p.includes("*")).map((p) => resolve(root, p)); return [...new Set([...observed.filter((f) => matches(f, options.include, root)), ...explicit, ...manifest])].filter((f) => matches(f, options.include, root) && !matches(f, options.exclude ?? [], root)); }
 function fileUnits(filePath: string, source: string, options: CoverageSourceConfig): { lines: number[]; functions: SourceLocation[]; branches: SourceLocation[]; statements: SourceLocation[] } { const configured = options.manifest?.files.find((f) => resolve(f.filePath) === filePath); const inferred = inferUnits(source); return { lines: configured?.executableLines ?? executableLines(source), functions: configured?.functionLocations ?? inferred.functions.map((x) => ({ ...x, filePath })), branches: configured?.branchLocations ?? inferred.branches.map((x) => ({ ...x, filePath })), statements: configured?.statementLocations ?? inferred.statements.map((x) => ({ ...x, filePath })) }; }
 export function feature<T>(_name: string, run: () => T): T { return run(); }
@@ -52,12 +79,16 @@ export class V8CoverageCollector implements CoverageProvider {
   private readonly session = new Session(); private readonly options: CoverageOptions; private timer?: NodeJS.Timeout; private started = false; private stopping?: Promise<CoverageFragment>; private latest: CoverageScript[] = []; private lastFragment?: CoverageFragment;
   constructor(options: CoverageOptions) { this.options = options; }
   async start(): Promise<void> { if (this.started) return; await this.session.connect(); try { await this.session.post("Profiler.enable"); await this.session.post("Profiler.startPreciseCoverage", { callCount: true, detailed: true }); this.started = true; this.timer = setInterval(() => { void this.sample().catch(() => undefined); }, this.options.sampleIntervalMs ?? 1000); } catch (error) { await this.cleanup(); throw error; } }
-  async sample(): Promise<CoverageFragment> { if (!this.started) return this.lastFragment ?? this.fragment("unavailable"); try { const response = await this.session.post("Profiler.takePreciseCoverage") as { result: CoverageScript[] }; this.latest = response.result; const fragment = this.fragment("final"); this.options.onUpdate?.(summarizeCoverage(this.options.runId, this.latest, this.options)); return fragment; } catch { return this.fragment("partial"); } }
+  async sample(): Promise<CoverageFragment> { if (!this.started) return this.lastFragment ?? this.fragment("unavailable"); try { const response = await this.session.post("Profiler.takePreciseCoverage") as unknown as { result?: CoverageScript[] }; this.latest = response.result ?? []; const fragment = this.fragment("final"); this.options.onUpdate?.(summarizeCoverage(this.options.runId, this.latest, this.options)); return fragment; } catch { return this.fragment("partial"); } }
   async stop(): Promise<CoverageFragment> { if (this.lastFragment) return this.lastFragment; if (this.stopping) return this.stopping; this.stopping = this.finish(); this.lastFragment = await this.stopping; return this.lastFragment; }
   private async finish(): Promise<CoverageFragment> { if (!this.started) return this.fragment("unavailable"); if (this.timer) clearInterval(this.timer); try { await this.sample(); await this.session.post("Profiler.stopPreciseCoverage"); await this.session.post("Profiler.disable"); const fragment = this.fragment("final"); this.options.onUpdate?.(summarizeCoverage(this.options.runId, this.latest, this.options)); return fragment; } catch { return this.fragment("partial"); } finally { await this.cleanup(); } }
   private fragment(status: CoverageFragment["status"], reason?: string): CoverageFragment { const root = resolve(this.options.rootDir ?? process.cwd()); const observed = this.latest.map((s) => normalizeFile(s.url, root)).filter((x): x is string => Boolean(x)); return { runId: this.options.runId, executionId: this.options.executionId, provider: "node-v8", sourceHash: sourceHash(configuredFiles(this.options, observed), this.options), capturedAt: new Date().toISOString(), scripts: this.latest, status, reason }; }
   private async cleanup(): Promise<void> { if (this.timer) { clearInterval(this.timer); this.timer = undefined; } if (this.started) this.started = false; try { await this.session.disconnect(); } catch { /* already disconnected */ } }
 }
+
+
+
+
 
 
 
