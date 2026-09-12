@@ -1,50 +1,50 @@
 ﻿# canary
 
-`canary` 是 Agent 的本地评测与改进控制台：一键运行可本地观测的 TypeScript Agent，关联执行轨迹、行为断言与源码覆盖率，并把失败转为可检查的 artifact。
+`canary` runs a local TypeScript Agent like an end-to-end test, records trajectory + source coverage, and turns failures into auditable regression work. It does not edit Agent source.
 
-架构说明见 [`docs/MVP-ARCHITECTURE-INITIAL-REPORT.md`](./docs/MVP-ARCHITECTURE-INITIAL-REPORT.md)。Week 2 见 [`docs/WEEK-2-PLAN.md`](./docs/WEEK-2-PLAN.md) / [`docs/WEEK-2-ISSUES.md`](./docs/WEEK-2-ISSUES.md)；Week 3 见 [`docs/WEEK-3-PLAN.md`](./docs/WEEK-3-PLAN.md) / [`docs/WEEK-3-ISSUES.md`](./docs/WEEK-3-ISSUES.md)。
+![Local UI overview](docs/images/ui-overview.png)
 
-## 当前能力
-
-- `packages/core`：配置、TestCase、Coverage、Feature、断言契约
-- `packages/coverage`：Coverage Manifest、TypeScript AST、V8 / source-map 映射、Feature Coverage
-- `packages/runner`：每 case 独立子进程、timeout/cancel、provisional Coverage 采样
-- `packages/evaluators`：断言与 Coverage/Feature 门槛（CLI 与 CI 共用）
-- `packages/cli`：`canary run` / `runs` / `show` / `report` / `improve` / `compare` / `replay`
-- `apps/web`：Overview / Run Timeline / Feature Coverage / Case Detail / Improvement Queue；SSE 断线重连；报告下载
-- GitHub Actions：Node 22/24，`typecheck` → `test` → `build` → `canary run --headless --no-open`
-- `examples/local-agent`：无外部密钥的最小 Agent
-
-## 运行
-
-Node.js 22+。常用命令：
+## Quick Start
 
 ```powershell
 pnpm install
-pnpm typecheck
-pnpm test
-pnpm build
+pnpm canary -- run
+```
+
+Headless (CI):
+
+```powershell
 pnpm canary -- run --headless --no-open
-pnpm canary -- runs
+```
+
+Default suite: 15 deterministic cases under `cases/` against `examples/local-agent` (no API keys). Artifacts: `.canary/artifacts/<runId>/`.
+
+```powershell
 pnpm canary -- show <runId>
-pnpm canary -- report <runId> --format junit
-pnpm canary -- improve <runId>
-pnpm canary -- compare <baselineRunId> <candidateRunId>
+pnpm canary -- report <runId> --format markdown
 pnpm canary -- replay <runId> --headless --no-open
 ```
 
-根配置 `canary.config.ts` 指向 `examples/local-agent`（规划 / 工具路由 / 失败恢复）。产物写入 `.canary/artifacts/<runId>/`：
+## Support matrix
 
-```text
-run.json
-coverage.json
-coverage-manifest.json
-trajectory.json
-evaluator.json
-improvement.json
-report.json
-report.md
-report.xml
-```
+| Target         | Adapter                  | Coverage                                     |
+| -------------- | ------------------------ | -------------------------------------------- |
+| Local TS Agent | `function`               | V8 lines / branches / functions / statements |
+| HTTP Agent     | `http`                   | `unavailable`                                |
+| MCP Agent      | `mcp` stdio              | `unavailable`                                |
+| MCP tools      | `mcp-stdio` / `mcp-http` | N/A (tools)                                  |
+| Bun            | CLI smoke only           | not claimed                                  |
 
-Coverage P0 只针对可本地观测的 Node/TypeScript Agent。没有源码插桩的黑盒 HTTP Agent 必须报告 `unavailable`，不能伪造百分比。
+Coverage is never faked: missing instrumentation is `unavailable`, not 0% or 100%. Feature hit-rate is not “model intelligence”.
+
+## Cannot measure
+
+Remote black-box reasoning quality, non-Node languages, browsers, or Docker sandboxes. Judge scores are optional and fail closed on error, timeout, or low confidence.
+
+## Security
+
+Local-first. No default outbound model. The runner is not a sandbox. See [SECURITY.md](./SECURITY.md).
+
+## Docs
+
+[Getting Started](docs/getting-started.md) · [Agent Adapter](docs/agent-adapter.md) · [MCP](docs/mcp.md) · [Mock Environment](docs/mock-environment.md) · [Feature Coverage](docs/feature-coverage.md) · [Local UI](docs/local-ui.md) · [CI](docs/ci.md) · [Replay](docs/replay.md) · [Self-improvement](docs/self-improvement.md) · [Troubleshooting](docs/troubleshooting.md) · [Architecture](docs/architecture.md) · [10-minute acceptance](docs/acceptance-10-min.md)
