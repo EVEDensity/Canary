@@ -61,6 +61,79 @@ describe("canary run --headless", () => {
     expect(result.store.get(result.runId)?.coverage?.lines.total).toBeGreaterThan(0);
     expect(listRunArtifacts(cwd).some((run) => run.runId === result.runId)).toBe(true);
     expect(readRunArtifact(result.runId, cwd)?.coverage?.status).toBe("final");
+    expect(result.uiUrl).toBe("");
+  });
+
+  it("writes artifacts to the --config project, not the invocation directory", async () => {
+    const invocation = mkdtempSync(join(tmpdir(), "canary-invoke-run-"));
+    const project = mkdtempSync(join(tmpdir(), "canary-target-run-"));
+    writeFileSync(join(project, "agent.mjs"), "export default async (input) => ({ value: input });", "utf8");
+    writeFileSync(join(project, "cases.ts"), "export default [{ id: 'smoke', input: 'ok' }];", "utf8");
+    writeFileSync(join(project, "canary.config.ts"), `export default { agent: { adapter: 'function', entry: './agent.mjs' }, cases: './cases.ts', coverage: { include: ['agent.mjs'], exclude: [] }, web: { host: '127.0.0.1', open: false } };`, "utf8");
+    const result = await runCommandDetailed({ cwd: invocation, configPath: join(project, "canary.config.ts"), headless: true, noOpen: true });
+    expect(result.exitCode).toBe(0);
+    expect(result.artifactPath.startsWith(join(project, ".canary", "artifacts"))).toBe(true);
+    expect(existsSync(join(invocation, ".canary"))).toBe(false);
+    expect(listRunArtifacts(invocation, join(project, "canary.config.ts")).some((run) => run.runId === result.runId)).toBe(true);
+  });
+
+  it("does not bind a UI port in headless mode", async () => {
+    const cwd = mkdtempSync(join(tmpdir(), "canary-cli-headless-"));
+    writeFileSync(join(cwd, "agent.mjs"), "export default async (input) => ({ value: input });", "utf8");
+    writeFileSync(join(cwd, "cases.ts"), "export default [{ id: 'smoke', input: 'ok' }];", "utf8");
+    writeFileSync(join(cwd, "canary.config.ts"), `export default { agent: { adapter: 'function', entry: './agent.mjs' }, cases: './cases.ts', coverage: { include: ['agent.mjs'], exclude: [] }, web: { enabled: true, host: '127.0.0.1', port: 1, open: true } };`, "utf8");
+    const logs: string[] = [];
+    const original = console.log;
+    console.log = (...args: unknown[]) => { logs.push(args.map(String).join(" ")); };
+    try {
+      const result = await runCommandDetailed({ cwd, headless: true, noOpen: true });
+      expect(result.exitCode).toBe(0);
+      expect(result.uiUrl).toBe("");
+      expect(logs.some((line) => line.startsWith("runId: "))).toBe(true);
+      expect(logs.some((line) => line.includes("canary UI:"))).toBe(false);
+    } finally {
+      console.log = original;
+    }
+  });
+
+  it("honors web.enabled: false without --headless", async () => {
+    const cwd = mkdtempSync(join(tmpdir(), "canary-cli-disabled-web-"));
+    writeFileSync(join(cwd, "agent.mjs"), "export default async (input) => ({ value: input });", "utf8");
+    writeFileSync(join(cwd, "cases.ts"), "export default [{ id: 'smoke', input: 'ok' }];", "utf8");
+    writeFileSync(join(cwd, "canary.config.ts"), `export default { agent: { adapter: 'function', entry: './agent.mjs' }, cases: './cases.ts', coverage: { include: ['agent.mjs'], exclude: [] }, web: { enabled: false, host: '127.0.0.1', port: 1, open: true } };`, "utf8");
+    const result = await runCommandDetailed({ cwd, noOpen: true });
+    expect(result.exitCode).toBe(0);
+    expect(result.uiUrl).toBe("");
+  });
+
+  it("prints the UI address before cases finish so SSE is reachable mid-run", async () => {
+    const cwd = mkdtempSync(join(tmpdir(), "canary-cli-live-ui-"));
+    writeFileSync(join(cwd, "agent.mjs"), "export default async (input) => { await new Promise((resolve) => setTimeout(resolve, 1200)); return { value: input }; };", "utf8");
+    writeFileSync(join(cwd, "cases.ts"), "export default [{ id: 'slow', input: 'ok' }];", "utf8");
+    writeFileSync(join(cwd, "canary.config.ts"), `export default { agent: { adapter: 'function', entry: './agent.mjs' }, cases: './cases.ts', coverage: { include: ['agent.mjs'], exclude: [] }, web: { host: '127.0.0.1', open: false } };`, "utf8");
+    const logs: string[] = [];
+    const original = console.log;
+    console.log = (...args: unknown[]) => { logs.push(args.map(String).join(" ")); };
+    const pending = runCommandDetailed({ cwd, noOpen: true });
+    try {
+      let uiLine = "";
+      for (let i = 0; i < 80 && !uiLine; i += 1) {
+        uiLine = logs.find((line) => line.includes("canary UI:")) ?? "";
+        if (!uiLine) await new Promise((resolve) => setTimeout(resolve, 50));
+      }
+      expect(uiLine).toContain("canary UI:");
+      const url = uiLine.replace(/^.*canary UI:\s*/, "").trim();
+      const snapshot = await fetch(new URL("/api/runs", url).href);
+      expect(snapshot.ok).toBe(true);
+      const runs = await snapshot.json() as Array<{ status: string }>;
+      expect(runs[0]?.status).toBe("running");
+    } finally {
+      console.log = original;
+      const result = await pending;
+      await result.close();
+      expect(result.exitCode).toBe(0);
+      expect(result.uiUrl).toContain("http://");
+    }
   });
 
   it("fails the shared coverage gate when required coverage is below threshold", async () => {
@@ -76,6 +149,17 @@ describe("canary run --headless", () => {
     const xml = readFileSync(join(cwd, ".canary/artifacts", result.runId, "report.xml"), "utf8");
     expect(xml).toContain("coverage.gate");
     expect(xml).toMatch(/failures="[1-9]/);
+  });
+
+  it("fails closed when judge.score is required and no provider is configured", async () => {
+    const cwd = mkdtempSync(join(tmpdir(), "canary-judge-missing-"));
+    writeFileSync(join(cwd, "agent.mjs"), "export default async (input) => ({ value: input });", "utf8");
+    writeFileSync(join(cwd, "cases.ts"), "export default [{ id: 'scored', input: 'ok', assertions: [{ type: 'judge.score', minScore: 0.5 }] }];", "utf8");
+    writeFileSync(join(cwd, "canary.config.ts"), `export default { agent: { adapter: 'function', entry: './agent.mjs' }, cases: './cases.ts', coverage: { include: ['agent.mjs'], exclude: [] }, web: { host: '127.0.0.1', open: false } };`, "utf8");
+    const result = await runCommandDetailed({ cwd, headless: true, noOpen: true });
+    expect(result.exitCode).toBe(1);
+    const artifact = JSON.parse(readFileSync(result.artifactPath, "utf8"));
+    expect(artifact.results[0].assertions.some((item: { message?: string }) => item.message?.includes("Required Judge provider is missing"))).toBe(true);
   });
 });
 
@@ -99,7 +183,7 @@ describe("improvement CLI loop", () => {
     }
 
     writeFileSync(join(cwd, "agent.mjs"), "export default async (input) => ({ value: input });", "utf8");
-    writeFileSync(join(cwd, "cases.ts"), "export default [{ id: 'safe', input: 'ok', assertions: [{ type: 'output.exists' }] }, { id: 'holdout-planning', input: 'holdout', assertions: [{ type: 'output.exists' }] }];", "utf8");
+    writeFileSync(join(cwd, "cases.ts"), "export default [{ id: 'safe', input: 'ok', assertions: [{ type: 'output.exists' }] }, { id: 'holdout-planning', input: 'holdout', tags: ['holdout'], dataset: { split: 'holdout' }, assertions: [{ type: 'output.exists' }] }];", "utf8");
     const baseline = await runCommandDetailed({ cwd, headless: true, noOpen: true });
     expect(baseline.exitCode).toBe(0);
     writeFileSync(join(cwd, "agent.mjs"), "export default async (input) => String(input).includes('holdout') ? null : { value: input };", "utf8");
@@ -118,7 +202,7 @@ describe("improvement CLI loop", () => {
     const cwd = mkdtempSync(join(tmpdir(), "canary-candidate-"));
     writeFileSync(join(cwd, "broken.mjs"), "export default async (input) => input === 'broken' ? null : { value: input };", "utf8");
     writeFileSync(join(cwd, "fixed.mjs"), "export default async (input) => ({ value: input });", "utf8");
-    writeFileSync(join(cwd, "cases.ts"), "export default [{ id: 'safe', input: 'ok', assertions: [{ type: 'output.exists' }] }, { id: 'broken', input: 'broken', assertions: [{ type: 'output.exists' }] }, { id: 'holdout-planning', input: 'holdout', assertions: [{ type: 'output.exists' }] }];", "utf8");
+    writeFileSync(join(cwd, "cases.ts"), "export default [{ id: 'safe', input: 'ok', assertions: [{ type: 'output.exists' }] }, { id: 'broken', input: 'broken', assertions: [{ type: 'output.exists' }] }, { id: 'holdout-planning', input: 'holdout', tags: ['holdout'], dataset: { split: 'holdout' }, assertions: [{ type: 'output.exists' }] }];", "utf8");
     writeFileSync(join(cwd, "canary.config.ts"), `export default { agent: { adapter: 'function', entry: './broken.mjs' }, cases: './cases.ts', coverage: { include: ['broken.mjs', 'fixed.mjs'], exclude: [] }, web: { host: '127.0.0.1', open: false } };`, "utf8");
     const baseline = await runCommandDetailed({ cwd, headless: true, noOpen: true });
     expect(baseline.exitCode).toBe(1);
