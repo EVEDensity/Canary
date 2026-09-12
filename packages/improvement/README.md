@@ -1,29 +1,11 @@
-﻿# @canary/improvement
+# @canary/improvement
 
-## 目标
+当前提供失败归因、建议状态迁移、回归草稿和运行比较。**不生成或应用 Agent 源码补丁，不提供可信自动发布门禁。**
 
-根据失败断言、Trace、状态差异和覆盖率缺口生成有证据的改进建议与回归 Case 草稿。
+## 使用与边界
 
-## 失败归因
+完整命令见[当前 improvement 指南](../../docs/guides/improvement.md)。`suggest --accept/--reject/--verify` 改变建议状态；`verified` 不证明独立验证通过。`improve` 也可以导出草稿，因此不能概括成“只有 verified 才能写出草稿”。
 
-`attributeFailure` 将失败分为：wrong output/tool/arguments、schema error、unrecovered error、loop、timeout、state mismatch、coverage gap、policy violation。每条建议带 evidence（assertion / trace / state / coverage）和 `kind`。
+当前草稿可能丢失断言参数或用 output 兜底 input，需要人工对照原 case；holdout 按 ID 字符串识别，不构成隐藏集保护；compare 会覆盖同 caseId 的 repetitions，且缺失候选结果可能未被判退化。请勿据其 verdict 自动修改项目。
 
-## 批准流
-
-`proposed → accepted | rejected → verified`。CLI：
-
-```bash
-canary suggest <runId>
-canary suggest <runId> --accept <suggestionId>
-canary suggest <runId> --verify <suggestionId>
-canary candidate <baselineRunId> --entry ./fixed-agent.mjs --headless
-```
-
-只有 `verified` 写入默认 `cases/regression/`。端到端演示见 `examples/improvement-demo/`。
-
-## 边界
-
-- MVP 只提议，不自动修改用户源码、Prompt 或生产配置。
-- 改进必须在 regression 和 holdout 上重新验证；建议不能修改自己的评测门槛。
-- 外发模型前必须经过脱敏；Suggestion 必须保存证据引用和状态。
-- 硬门槛：policy violations = 0，unexpected loops = 0，state assertions = 100%，核心 feature 不得 unavailable。
+源码缺口见[审计](../../docs/evidence/code-audit.md)，修补任务见[Q 系列](../../docs/roadmap/02-evaluation-integrity.md)。未来受控软/硬进化是[设计目标](../../docs/design/agent-loop.md)，尚未实现。
