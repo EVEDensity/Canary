@@ -5,7 +5,7 @@ import { createWebServer, RunStore } from "@canary/web";
 import { runExecution } from "@canary/runner";
 import type { CanaryConfig, TestCase } from "@canary/core";
 
-export interface CliOptions { configPath?: string; headless?: boolean; noOpen?: boolean; port?: number; caseId?: string }
+export interface CliOptions { configPath?: string; cwd?: string; headless?: boolean; noOpen?: boolean; port?: number; caseId?: string }
 
 async function loadConfig(configPath: string): Promise<CanaryConfig> {
   const module = await import(pathToFileURL(resolve(configPath)).href);
@@ -37,8 +37,10 @@ function openBrowser(url: string): void {
   else void import("node:child_process").then(({ spawn }) => spawn("xdg-open", [url], { detached: true, stdio: "ignore" }));
 }
 
-export async function runCommand(options: CliOptions = {}): Promise<number> {
-  const cwd = process.cwd();
+export interface RunCommandResult { exitCode: number; runId: string; artifactPath: string; uiUrl: string; store: RunStore }
+
+export async function runCommandDetailed(options: CliOptions = {}): Promise<RunCommandResult> {
+  const cwd = resolve(options.cwd ?? process.cwd());
   const configPath = resolve(cwd, options.configPath ?? "canary.config.ts");
   const config = await loadConfig(configPath);
   const cases = await loadCases(config.cases, cwd);
@@ -69,8 +71,12 @@ export async function runCommand(options: CliOptions = {}): Promise<number> {
   const final = store.finish(run.runId);
   mkdirSync(resolve(cwd, ".canary/artifacts", run.runId), { recursive: true });
   writeFileSync(resolve(cwd, ".canary/artifacts", run.runId, "run.json"), JSON.stringify(final, null, 2), "utf8");
-  if (options.headless) web.server.close();
-  return final.status === "completed" ? 0 : 1;
+  if (options.headless) await new Promise<void>((resolveClose) => web.server.close(() => resolveClose()));
+  return { exitCode: final.status === "completed" ? 0 : 1, runId: run.runId, artifactPath: resolve(cwd, ".canary/artifacts", run.runId, "run.json"), uiUrl: url, store };
+}
+
+export async function runCommand(options: CliOptions = {}): Promise<number> {
+  return (await runCommandDetailed(options)).exitCode;
 }
 
 export async function main(argv = process.argv.slice(2)): Promise<number> {
@@ -84,3 +90,7 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
 }
 
 if (process.argv[1]?.endsWith("index.ts") || process.argv[1]?.endsWith("index.js")) process.exitCode = await main();
+
+
+
+
