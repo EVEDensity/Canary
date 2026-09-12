@@ -2,8 +2,10 @@
 
 import { parseCanaryConfig } from "./schema.js";
 
+export { IPC_PROTOCOL_VERSION, IPC_MAX_BYTES } from "./schema.js";
+
 export type AgentAdapterKind = "function" | "http" | "mcp";
-export type CoverageStatus = "provisional" | "final" | "partial" | "unavailable";
+export type CoverageStatus = "preparing" | "provisional" | "final" | "partial" | "unavailable";
 export type CoverageMappingMode = "source-map" | "ast" | "heuristic";
 export type CoveragePrecision = "exact" | "approximate" | "unknown";
 export type FeatureCoverageStatus = "covered" | "partial" | "uncovered" | "unavailable" | "failed";
@@ -23,7 +25,7 @@ export interface CoverageThresholds {
 }
 
 export interface CoverageGateFailure {
-  code: "unavailable" | "partial" | "below_threshold" | "feature_unavailable";
+  code: "unavailable" | "partial" | "below_threshold" | "feature_unavailable" | "policy_violation" | "loop" | "state_mismatch";
   target: string;
   required?: number;
   actual?: number;
@@ -33,18 +35,50 @@ export interface CoverageGateFailure {
 
 export interface CoverageGateResult {
   passed: boolean;
-  reason?: "behavior_passed_coverage_insufficient";
-  failureCategory?: "coverage_below_threshold";
+  reason?: "behavior_passed_coverage_insufficient" | "hard_gate_failed";
+  failureCategory?: "coverage_below_threshold" | "policy_violation" | "loop" | "state_mismatch";
   failures: CoverageGateFailure[];
+  featureChainSemantics?: {
+    mode: "source_pct";
+    partialDoesNotFail: true;
+  };
+  hardGate?: {
+    passed: boolean;
+    policyViolations: number;
+    unexpectedLoops: number;
+    stateFailures: number;
+    unavailableCoreFeatures: string[];
+  };
 }
+
+export type ToolAdapterKind = "mock" | "mcp-stdio" | "mcp-http";
+export type ModelProviderKind = "deterministic" | "echo";
+
+export interface CanaryToolsConfig {
+  adapter: ToolAdapterKind;
+  entry?: string;
+  export?: string;
+  command?: string;
+  args?: string[];
+  url?: string;
+}
+
+export interface CanaryModelConfig {
+  provider: ModelProviderKind;
+  responses?: Record<string, string>;
+}
+
+export type CoverageProviderKind = "v8" | "istanbul";
 
 export interface CanaryConfig {
   agent: { adapter: AgentAdapterKind; entry: string; export?: string };
   cases: string | string[];
-  coverage: { include: string[]; exclude?: string[] } & CoverageThresholds;
+  coverage: { include: string[]; exclude?: string[]; sampleIntervalMs?: number; provider?: CoverageProviderKind } & CoverageThresholds;
   features?: FeatureDefinition[];
-  runtime?: { timeoutMs?: number; maxSteps?: number; maxToolCalls?: number; maxBudget?: number };
-  reporters?: Array<"json" | "markdown" | "junit">;
+  tools?: CanaryToolsConfig;
+  model?: CanaryModelConfig;
+  runtime?: { timeoutMs?: number; maxSteps?: number; maxToolCalls?: number; maxBudget?: number; repetitions?: number; concurrency?: number };
+  reporters?: Array<"json" | "markdown" | "junit" | "console">;
   web?: { enabled?: boolean; host?: string; port?: number; open?: boolean };
 }
 
@@ -67,14 +101,25 @@ export type AssertionSpec =
   | { type: "execution.max_latency"; id?: string; maxMs: number }
   | { type: "execution.max_budget"; id?: string; max: number }
   | { type: "feature.expected"; id?: string; featureId: string }
+  | { type: "coverage.atLeast"; id?: string; featureId: string; minPct: number }
+  | { type: "judge.score"; id?: string; minScore?: number; minConfidence?: number; rubric?: string; timeoutMs?: number }
+  | { type: "tool.called"; id?: string; name: string; minCount?: number }
+  | { type: "tool.args"; id?: string; name: string; equals?: unknown; contains?: Record<string, unknown> }
+  | { type: "tool.order"; id?: string; names: string[] }
+  | { type: "state.equals"; id?: string; key?: string; value: unknown }
+  | { type: "state.has"; id?: string; key: string }
+  | { type: "state.contains"; id?: string; value?: Record<string, unknown>; contains?: Record<string, unknown> }
+  | { type: "policy.none"; id?: string }
   | { type: string; id?: string; [key: string]: unknown };
 
 export interface TestCase {
   id: string;
   input: unknown;
+  tags?: string[];
   expectedFeatures?: string[];
   assertions?: AssertionSpec[];
-  options?: { timeoutMs?: number; maxSteps?: number; maxToolCalls?: number; maxBudget?: number };
+  environment?: { state?: Record<string, unknown>; tools?: unknown[] };
+  options?: { timeoutMs?: number; maxSteps?: number; maxToolCalls?: number; maxBudget?: number; repetitions?: number };
 }
 
 export interface TrajectoryEvent { type: string; timestamp: string; [key: string]: unknown }
@@ -98,6 +143,7 @@ export interface CoverageFile {
   functions: CoverageMetric;
   branches: CoverageMetric;
   uncoveredLocations: SourceLocation[];
+  sourceText?: string;
   executableLineNumbers?: number[];
   coveredLineNumbers?: number[];
   coveredStatementIds?: string[];
@@ -151,14 +197,18 @@ export interface CoverageScript { scriptId?: string; url: string; source?: strin
 export interface CoverageFragment {
   runId: string;
   executionId: string;
-  provider: "node-v8";
+  provider: "node-v8" | "istanbul";
+  processId?: number;
+  isolateId?: string;
+  sequence?: number;
+  phase?: "init" | "task" | "final";
   sourceHash: string;
   capturedAt: string;
   scripts: CoverageScript[];
   status: "final" | "partial" | "unavailable";
   reason?: string;
 }
-export interface CoverageProvider { readonly id: "node-v8"; start(): Promise<void>; sample(): Promise<CoverageFragment>; stop(): Promise<CoverageFragment> }
+export interface CoverageProvider { readonly id: "node-v8" | "istanbul"; start(): Promise<void>; sample(): Promise<CoverageFragment>; stop(): Promise<CoverageFragment> }
 
 export interface CoverageSummary {
   runId: string;
@@ -172,18 +222,28 @@ export interface CoverageSummary {
   featureChains: FeatureCoverage[];
 }
 
+export interface StateDiff {
+  before?: unknown;
+  after?: unknown;
+  changed: string[];
+}
+
 export interface EvalResult {
   runId: string;
   executionId: string;
   caseId: string;
+  repetition?: number;
+  repetitionTotal?: number;
   passed: boolean;
   assertions: Array<{ id: string; passed: boolean; message?: string; details?: unknown }>;
   coverage: CoverageSummary;
   output?: unknown;
+  input?: unknown;
   metrics?: { latencyMs: number; steps: number; toolCalls: number; budgetUsed?: number };
   failureCategory?: string;
   trajectoryId?: string;
   trajectory?: Trajectory;
+  stateDiff?: StateDiff;
   createdAt?: string;
 }
 
@@ -206,6 +266,8 @@ export function defineConfig(config: CanaryConfig): CanaryConfig {
   return parseCanaryConfig(config) as CanaryConfig;
 }
 
+export { defineCase, defineCases, expect, canaryExpect } from "./dsl.js";
+
 export {
   SchemaValidationError,
   invalidInput,
@@ -218,6 +280,7 @@ export {
   parseReplayResponse,
   parseReportFormat,
   parseRunSnapshot,
+  parseSuggestionDecision,
   parseTestCase,
   replayRequestSchema,
   reportFormatSchema,

@@ -1,5 +1,8 @@
 import { z, ZodError } from "zod";
 
+export const IPC_PROTOCOL_VERSION = 1;
+export const IPC_MAX_BYTES = 8 * 1024 * 1024;
+
 export class SchemaValidationError extends Error {
   readonly issues: ZodError["issues"];
   constructor(context: string, error: ZodError) {
@@ -16,9 +19,9 @@ function parsed<T>(context: string, result: z.SafeParseReturnType<unknown, T>): 
 }
 
 const adapterSchema = z.enum(["function", "http", "mcp"]);
-const coverageStatusSchema = z.enum(["provisional", "final", "partial", "unavailable"]);
-const runStatusSchema = z.enum(["idle", "running", "completed", "failed"]);
-const reporterSchema = z.enum(["json", "markdown", "junit"]);
+const coverageStatusSchema = z.enum(["preparing", "provisional", "final", "partial", "unavailable"]);
+const runStatusSchema = z.enum(["idle", "running", "completed", "failed", "cancelled"]);
+const reporterSchema = z.enum(["json", "markdown", "junit", "console"]);
 
 export const coverageMetricSchema = z.object({
   covered: z.number(),
@@ -41,6 +44,8 @@ export const canaryConfigSchema = z.object({
     functions: z.number().min(0).max(100).optional(),
     statements: z.number().min(0).max(100).optional(),
     featureChains: z.record(z.number().min(0).max(100)).optional(),
+    sampleIntervalMs: z.number().int().nonnegative().optional(),
+    provider: z.enum(["v8", "istanbul"]).optional(),
   }),
   features: z.array(z.object({
     id: z.string().min(1),
@@ -50,11 +55,25 @@ export const canaryConfigSchema = z.object({
     lines: z.array(z.object({ start: z.number(), end: z.number() })).optional(),
     tags: z.array(z.string()).optional(),
   })).optional(),
+  tools: z.object({
+    adapter: z.enum(["mock", "mcp-stdio", "mcp-http"]),
+    entry: z.string().min(1).optional(),
+    export: z.string().min(1).optional(),
+    command: z.string().min(1).optional(),
+    args: z.array(z.string()).optional(),
+    url: z.string().min(1).optional(),
+  }).strict().optional(),
+  model: z.object({
+    provider: z.enum(["deterministic", "echo"]),
+    responses: z.record(z.string()).optional(),
+  }).strict().optional(),
   runtime: z.object({
     timeoutMs: z.number().positive().optional(),
     maxSteps: z.number().int().positive().optional(),
     maxToolCalls: z.number().int().nonnegative().optional(),
     maxBudget: z.number().nonnegative().optional(),
+    repetitions: z.number().int().positive().optional(),
+    concurrency: z.number().int().positive().optional(),
   }).optional(),
   reporters: z.array(reporterSchema).optional(),
   web: z.object({
@@ -68,13 +87,19 @@ export const canaryConfigSchema = z.object({
 export const testCaseSchema = z.object({
   id: z.string().min(1),
   input: z.any(),
+  tags: z.array(z.string().min(1)).optional(),
   expectedFeatures: z.array(z.string()).optional(),
   assertions: z.array(z.object({ type: z.string().min(1) }).passthrough()).optional(),
+  environment: z.object({
+    state: z.record(z.unknown()).optional(),
+    tools: z.array(z.unknown()).optional(),
+  }).optional(),
   options: z.object({
     timeoutMs: z.number().positive().optional(),
     maxSteps: z.number().int().positive().optional(),
     maxToolCalls: z.number().int().nonnegative().optional(),
     maxBudget: z.number().nonnegative().optional(),
+    repetitions: z.number().int().positive().optional(),
   }).optional(),
 }).strict().refine((value) => value.input !== undefined, { message: "input is required", path: ["input"] });
 
@@ -91,15 +116,20 @@ export const coverageScriptSchema = z.object({
 }).passthrough();
 
 export const childMessageSchema = z.discriminatedUnion("type", [
-  z.object({ type: z.literal("ready") }),
-  z.object({ type: z.literal("event"), event: trajectoryEventSchema }),
-  z.object({ type: z.literal("result"), value: z.unknown() }),
-  z.object({ type: z.literal("error"), error: z.string() }),
+  z.object({ v: z.literal(IPC_PROTOCOL_VERSION), type: z.literal("ready") }),
+  z.object({ v: z.literal(IPC_PROTOCOL_VERSION), type: z.literal("event"), event: trajectoryEventSchema }),
+  z.object({ v: z.literal(IPC_PROTOCOL_VERSION), type: z.literal("result"), value: z.unknown() }),
+  z.object({ v: z.literal(IPC_PROTOCOL_VERSION), type: z.literal("error"), error: z.string() }),
   z.object({
+    v: z.literal(IPC_PROTOCOL_VERSION),
     type: z.literal("coverage"),
     scripts: z.array(coverageScriptSchema),
     partial: z.boolean().optional(),
     provisional: z.boolean().optional(),
+    phase: z.enum(["init", "task", "final"]).optional(),
+    processId: z.number().int().optional(),
+    isolateId: z.string().optional(),
+    sequence: z.number().int().nonnegative().optional(),
   }),
 ]);
 
@@ -119,6 +149,8 @@ export const evalResultSchema = z.object({
   runId: z.string().min(1),
   executionId: z.string().min(1),
   caseId: z.string().min(1),
+  repetition: z.number().int().positive().optional(),
+  repetitionTotal: z.number().int().positive().optional(),
   passed: z.boolean(),
   assertions: z.array(z.object({
     id: z.string(),
@@ -168,7 +200,7 @@ export const replayResponseSchema = z.object({
   events: z.number().int().nonnegative(),
 });
 
-export const reportFormatSchema = z.enum(["json", "markdown", "junit"]);
+export const reportFormatSchema = z.enum(["json", "markdown", "junit", "console"]);
 
 export function invalidInput(context: string, message: string): never {
   throw new SchemaValidationError(context, new ZodError([{ code: "custom", path: [], message }]));
@@ -183,6 +215,10 @@ export function parseTestCase(input: unknown, context = "TestCase") {
 }
 
 export function parseChildMessage(input: unknown): z.infer<typeof childMessageSchema> {
+  const encoded = JSON.stringify(input);
+  if (Buffer.byteLength(encoded) > IPC_MAX_BYTES) {
+    throw new SchemaValidationError("IPC payload", new ZodError([{ code: "custom", path: ["size"], message: `exceeds ${IPC_MAX_BYTES} bytes` }]));
+  }
   return parsed("IPC payload", childMessageSchema.safeParse(input));
 }
 
@@ -204,4 +240,12 @@ export function parseReplayResponse(input: unknown) {
 
 export function parseReportFormat(input: unknown) {
   return parsed("report format", reportFormatSchema.safeParse(input));
+}
+
+export const suggestionDecisionSchema = z.object({
+  status: z.enum(["proposed", "accepted", "rejected", "verified"]),
+}).strict();
+
+export function parseSuggestionDecision(input: unknown) {
+  return parsed("suggestion decision", suggestionDecisionSchema.safeParse(input ?? {}));
 }
