@@ -1,4 +1,4 @@
-{
+﻿{
     "extends":  "../../tsconfig.base.json",
     "compilerOptions":  {
                             "rootDir":  "src",
@@ -11,6 +11,9 @@
     "references":  [
                        {
                            "path":  "../core"
+                       },
+                       {
+                           "path":  "../coverage"
                        },
                        {
                            "path":  "../runner"

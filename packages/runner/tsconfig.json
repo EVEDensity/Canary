@@ -1,4 +1,4 @@
-{
+﻿{
     "extends":  "../../tsconfig.base.json",
     "compilerOptions":  {
                             "rootDir":  "src",
@@ -14,6 +14,9 @@
                        },
                        {
                            "path":  "../coverage"
+                       },
+                       {
+                           "path":  "../evaluators"
                        }
                    ]
 }

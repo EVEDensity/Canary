@@ -50,6 +50,9 @@ importers:
       '@canary/core':
         specifier: workspace:*
         version: link:../core
+      '@canary/coverage':
+        specifier: workspace:*
+        version: link:../coverage
       '@canary/runner':
         specifier: workspace:*
         version: link:../runner
@@ -67,6 +70,12 @@ importers:
       '@canary/core':
         specifier: workspace:*
         version: link:../core
+      source-map-js:
+        specifier: 1.2.1
+        version: 1.2.1
+      typescript:
+        specifier: ^5.7.0
+        version: 5.9.3
 
   packages/environment:
     dependencies:
@@ -100,6 +109,9 @@ importers:
       '@canary/coverage':
         specifier: workspace:*
         version: link:../coverage
+      '@canary/evaluators':
+        specifier: workspace:*
+        version: link:../evaluators
       tsx:
         specifier: ^4.19.0
         version: 4.23.13
