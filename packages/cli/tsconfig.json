@@ -20,6 +20,15 @@
                        },
                        {
                            "path":  "../../apps/web"
+                       },
+                       {
+                           "path":  "../reporters"
+                       },
+                       {
+                           "path":  "../improvement"
+                       },
+                       {
+                           "path":  "../trace"
                        }
                    ]
 }

@@ -26,6 +26,9 @@ importers:
       '@canary/core':
         specifier: workspace:*
         version: link:../../packages/core
+      '@canary/reporters':
+        specifier: workspace:*
+        version: link:../../packages/reporters
       '@canary/runner':
         specifier: workspace:*
         version: link:../../packages/runner
@@ -53,9 +56,18 @@ importers:
       '@canary/coverage':
         specifier: workspace:*
         version: link:../coverage
+      '@canary/improvement':
+        specifier: workspace:*
+        version: link:../improvement
+      '@canary/reporters':
+        specifier: workspace:*
+        version: link:../reporters
       '@canary/runner':
         specifier: workspace:*
         version: link:../runner
+      '@canary/trace':
+        specifier: workspace:*
+        version: link:../trace
       '@canary/web':
         specifier: workspace:*
         version: link:../../apps/web
@@ -103,6 +115,9 @@ importers:
 
   packages/runner:
     dependencies:
+      '@canary/adapters':
+        specifier: workspace:*
+        version: link:../adapters
       '@canary/core':
         specifier: workspace:*
         version: link:../core

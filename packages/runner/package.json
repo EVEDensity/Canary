@@ -16,7 +16,8 @@
                          "@canary/core":  "workspace:*",
                          "@canary/coverage":  "workspace:*",
                          "tsx":  "^4.19.0",
-                         "@canary/evaluators":  "workspace:*"
+                         "@canary/evaluators":  "workspace:*",
+                         "@canary/adapters":  "workspace:*"
                      },
     "scripts":  {
                     "build":  "tsc -p tsconfig.json",
