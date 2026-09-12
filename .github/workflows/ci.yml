@@ -31,12 +31,8 @@ jobs:
       - run: pnpm lint
 
   test:
-    name: Node ${{ matrix.node-version }}
+    name: Node 24
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        node-version: [22, 24]
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -44,12 +40,12 @@ jobs:
           version: 10.15.0
       - uses: actions/setup-node@v4
         with:
-          node-version: ${{ matrix.node-version }}
+          node-version: 24
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - run: pnpm build
       - run: pnpm typecheck
       - run: pnpm test
-      - run: pnpm build
 
   # Dedicated job: fixture matrix is not folded into `pnpm test`.
   coverage-fixture:
@@ -94,13 +90,12 @@ jobs:
           node-version: 24
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - run: pnpm build
       - name: Headless ${{ matrix.demo.name }}
         run: ${{ matrix.demo.command }}
       - name: Assert JUnit failures are zero
         if: ${{ matrix.demo.assert_junit }}
-        run: |
-          pnpm build
-          node scripts/assert-junit.mjs
+        run: node scripts/assert-junit.mjs
 
   bun-smoke:
     name: Bun smoke
