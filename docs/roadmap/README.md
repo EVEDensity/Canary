@@ -1,6 +1,6 @@
 # 后续任务总表
 
-> 本目录是后续实施的唯一任务入口。全部任务当前为 **待实施**；已有代码只是起点，不代表满足下列验收。文档重构不构成实施授权，不自动启用软/硬进化。
+> 本目录是后续实施的唯一任务入口。**F-01 到 F-05 与 Q-01 到 Q-04 已实施**；其余任务仍为待实施。已有代码只是起点，不代表满足未勾选任务的验收。文档重构不构成实施授权，不自动启用软/硬进化。
 
 先读[工作协议](00-working-protocol.md)，再领取一个明确 ID。当前能力见[代码审计](../evidence/code-audit.md)，理想终态见[自循环设计](../design/agent-loop.md)。不设未经估算的周数和发布日期。
 
@@ -8,15 +8,15 @@
 
 | ID   | 优先级 | 任务                                                               | 前置依赖                          | 状态   |
 | ---- | ------ | ------------------------------------------------------------------ | --------------------------------- | ------ |
-| F-01 | P0     | [统一项目定位与全局入口](01-foundation-and-entry.md#f-01)          | 无                                | 待实施 |
-| F-02 | P0     | [Web/headless 生命周期](01-foundation-and-entry.md#f-02)           | 无，可与 F-01 分开                | 待实施 |
-| Q-01 | P0     | [比较完整性与退出码](02-evaluation-integrity.md#q-01)              | 无                                | 待实施 |
-| Q-02 | P0     | [Judge 显式配置与缺失语义](02-evaluation-integrity.md#q-02)        | 无                                | 待实施 |
-| Q-03 | P0     | [回归草稿与数据集身份](02-evaluation-integrity.md#q-03)            | 无；集成时依赖 Q-01               | 待实施 |
-| F-03 | P1     | [core 机械拆分与新契约](01-foundation-and-entry.md#f-03)           | 无；冻结当时兼容基线              | 待实施 |
-| F-04 | P1     | [Trace、存储及脱敏边界](01-foundation-and-entry.md#f-04)           | F-03 的稳定契约                   | 待实施 |
-| F-05 | P1     | [Runner 端口与应用服务](01-foundation-and-entry.md#f-05)           | F-03；存储接入依赖 F-04           | 待实施 |
-| Q-04 | P1     | [评估注册、指标及准入决策](02-evaluation-integrity.md#q-04)        | Q-01/02/03、F-03；注册拆分可先做  | 待实施 |
+| F-01 | P0     | [统一项目定位与全局入口](01-foundation-and-entry.md#f-01)          | 无                                | 已实施 |
+| F-02 | P0     | [Web/headless 生命周期](01-foundation-and-entry.md#f-02)           | 无，可与 F-01 分开                | 已实施 |
+| Q-01 | P0     | [比较完整性与退出码](02-evaluation-integrity.md#q-01)              | 无                                | 已实施 |
+| Q-02 | P0     | [Judge 显式配置与缺失语义](02-evaluation-integrity.md#q-02)        | 无                                | 已实施 |
+| Q-03 | P0     | [回归草稿与数据集身份](02-evaluation-integrity.md#q-03)            | 无；集成时依赖 Q-01               | 已实施 |
+| F-03 | P1     | [core 机械拆分与新契约](01-foundation-and-entry.md#f-03)           | 无；冻结当时兼容基线              | 已实施 |
+| F-04 | P1     | [Trace、存储及脱敏边界](01-foundation-and-entry.md#f-04)           | F-03 的稳定契约                   | 已实施 |
+| F-05 | P1     | [Runner 端口与应用服务](01-foundation-and-entry.md#f-05)           | F-03；存储接入依赖 F-04           | 已实施 |
+| Q-04 | P1     | [评估注册、指标及准入决策](02-evaluation-integrity.md#q-04)        | Q-01/02/03、F-03；注册拆分可先做  | 已实施 |
 | S-01 | P1     | [一个宿主的 Skill 闭环](03-host-and-soft-evolution.md#s-01)        | F-01、Q-01/02/03                  | 待实施 |
 | S-02 | P1     | [可选 MCP Server 与兼容矩阵](03-host-and-soft-evolution.md#s-02)   | F-05；宿主需求已确认              | 待实施 |
 | S-03 | P1     | [版本化经验与加载器](03-host-and-soft-evolution.md#s-03)           | Q-03/04、F-04                     | 待实施 |

@@ -1,6 +1,6 @@
 # Q：评估可信度与准入门禁
 
-> 全部待实施。这组任务是自循环前置条件；不能把现有 compare 的 `improve` 或 suggestion 的 `verified` 当成安全证明。
+> Q-01 到 Q-04 已落地到当前代码。compare 的 `improve` 与 suggestion 的 `verified` 仍不是安全证明或发布许可。
 
 <a id="q-01"></a>
 
