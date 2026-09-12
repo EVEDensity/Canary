@@ -29,6 +29,7 @@ export interface CoverageSourceConfig {
   manifest?: CoverageManifest;
   features?: FeatureDefinition[];
   sampleIntervalMs?: number;
+  sampleMinIntervalMs?: number;
   /** @deprecated Use features. Retained for pre-P0 configuration compatibility. */
   featureChains?: Record<string, { name?: string; files: string[]; lines?: Array<{ start: number; end: number }> }>;
 }

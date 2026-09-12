@@ -1,7 +1,7 @@
-export function calledFunction(): string {
-  return "called";
+export function executed(value: number): number {
+  return value + 1;
 }
 
-export function uncalledFunction(): string {
-  return "uncalled";
+export function idle(): number {
+  return 0;
 }

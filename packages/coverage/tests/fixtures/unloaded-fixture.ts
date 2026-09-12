@@ -1,3 +1,3 @@
-export function unloadedFunction(): string {
-  return "never loaded";
+export function neverLoaded(): number {
+  return 0;
 }
