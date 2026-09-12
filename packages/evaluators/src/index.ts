@@ -4,122 +4,29 @@
   CoverageSummary,
   CoverageThresholds,
   EvalResult,
-  ExecutionTermination,
   TestCase,
   Trajectory,
   TrajectoryEvent,
 } from "@canary/core";
+import { scoreWithTimeout } from "./judge.js";
+import type { EvaluationContext, Evaluator } from "./evaluator-types.js";
+import { defaultEvaluatorRegistry } from "./registry.js";
 
-export interface EvaluationContext {
-  testCase?: TestCase;
-  output?: unknown;
-  trajectory?: Trajectory;
-  executionStatus?: ExecutionTermination;
-  latencyMs?: number;
-  toolCalls?: number;
-  budgetUsed?: number;
-  expectedFeatures?: readonly string[];
-  featureStatuses?: Readonly<Record<string, string>>;
-  coverage?: CoverageSummary;
-  judge?: JudgeProvider;
-  state?: unknown;
-}
-export interface Evaluator {
-  id: string;
-  evaluate(input: { assertions: AssertionSpec[]; context?: EvaluationContext; trajectory?: Trajectory; output?: unknown }): Promise<Pick<EvalResult, "passed" | "assertions"> & { diagnostics?: string[] }>;
-}
-export type JudgeVerdict = "pass" | "fail" | "error" | "timeout" | "low_confidence";
-export interface JudgeScore {
-  verdict: JudgeVerdict;
-  score?: number;
-  confidence?: number;
-  rationale?: string;
-  provider: string;
-  error?: string;
-}
-export interface JudgeRequest {
-  input: unknown;
-  output: unknown;
-  rubric?: string;
-  timeoutMs?: number;
-}
-export interface JudgeProvider {
-  readonly id: string;
-  score(request: JudgeRequest): Promise<JudgeScore>;
-}
-
-export class DeterministicJudgeProvider implements JudgeProvider {
-  readonly id = "deterministic";
-  constructor(private readonly options: { verdict?: JudgeVerdict; score?: number; confidence?: number; delayMs?: number; error?: string } = {}) {}
-  async score(request: JudgeRequest): Promise<JudgeScore> {
-    if (this.options.delayMs) await new Promise((resolve) => setTimeout(resolve, this.options.delayMs));
-    if (this.options.verdict === "error") return { verdict: "error", provider: this.id, error: this.options.error ?? "judge provider error" };
-    if (this.options.verdict === "timeout") return { verdict: "timeout", provider: this.id, error: this.options.error ?? "judge timed out" };
-    if (this.options.verdict === "low_confidence") {
-      return { verdict: "low_confidence", provider: this.id, score: this.options.score ?? 0.9, confidence: this.options.confidence ?? 0.2, rationale: "insufficient evidence" };
-    }
-    if (this.options.verdict === "fail") {
-      return { verdict: "fail", provider: this.id, score: this.options.score ?? 0.1, confidence: this.options.confidence ?? 0.9, rationale: "does not meet rubric" };
-    }
-    const hasOutput = request.output !== undefined && request.output !== null;
-    return {
-      verdict: hasOutput ? "pass" : "fail",
-      score: this.options.score ?? (hasOutput ? 1 : 0),
-      confidence: this.options.confidence ?? 1,
-      provider: this.id,
-      rationale: hasOutput ? "output present" : "output missing",
-    };
-  }
-}
-
-export class HttpJudgeProvider implements JudgeProvider {
-  readonly id = "http";
-  constructor(private readonly url: string, private readonly fetchImpl: typeof fetch = fetch) {}
-  async score(request: JudgeRequest): Promise<JudgeScore> {
-    try {
-      const response = await this.fetchImpl(this.url, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ input: request.input, output: request.output, rubric: request.rubric }),
-      });
-      if (!response.ok) return { verdict: "error", provider: this.id, error: `HTTP ${response.status}` };
-      const body = await response.json() as { score?: unknown; confidence?: unknown; rationale?: unknown; verdict?: unknown };
-      if (body.verdict === "error" || body.verdict === "timeout" || body.verdict === "low_confidence") {
-        return {
-          verdict: body.verdict,
-          provider: this.id,
-          score: typeof body.score === "number" ? body.score : undefined,
-          confidence: typeof body.confidence === "number" ? body.confidence : undefined,
-          rationale: typeof body.rationale === "string" ? body.rationale : undefined,
-          error: typeof body.rationale === "string" ? body.rationale : `judge ${body.verdict}`,
-        };
-      }
-      if (typeof body.score !== "number") return { verdict: "error", provider: this.id, error: "Judge response missing numeric score" };
-      const confidence = typeof body.confidence === "number" ? body.confidence : undefined;
-      const rationale = typeof body.rationale === "string" ? body.rationale : undefined;
-      if (body.verdict === "fail") return { verdict: "fail", provider: this.id, score: body.score, confidence, rationale };
-      return { verdict: "pass", provider: this.id, score: body.score, confidence, rationale };
-    } catch (error) {
-      return { verdict: "error", provider: this.id, error: error instanceof Error ? error.message : String(error) };
-    }
-  }
-}
-
-async function scoreWithTimeout(judge: JudgeProvider, request: JudgeRequest, timeoutMs: number): Promise<JudgeScore> {
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  try {
-    return await Promise.race([
-      judge.score(request),
-      new Promise<JudgeScore>((resolve) => {
-        timer = setTimeout(() => resolve({ verdict: "timeout", provider: judge.id, error: `judge timed out after ${timeoutMs}ms` }), timeoutMs);
-      }),
-    ]);
-  } catch (error) {
-    return { verdict: "error", provider: judge.id, error: error instanceof Error ? error.message : String(error) };
-  } finally {
-    if (timer) clearTimeout(timer);
-  }
-}
+export type { EvaluationContext, Evaluator } from "./evaluator-types.js";
+export {
+  DeterministicJudgeProvider,
+  HttpJudgeProvider,
+  createJudgeProvider,
+  redactJudgePayload,
+  scoreWithTimeout,
+  type JudgePolicy,
+  type JudgeProvider,
+  type JudgeRequest,
+  type JudgeScore,
+  type JudgeVerdict,
+} from "./judge.js";
+export { EvaluatorRegistry, defaultEvaluatorRegistry, type EvaluatorDescriptor } from "./registry.js";
+export { decideAdmission, coverageQualityMetric, type AdmissionDecision, type AdmissionInput, type AdmissionVerdict, type ComparisonVerdict } from "./admission.js";
 
 type Outcome = { id: string; passed: boolean; message?: string; details?: unknown };
 type AnyAssertion = AssertionSpec & Record<string, unknown>;
@@ -224,7 +131,14 @@ export async function evaluateAgent(input: { assertions?: AssertionSpec[]; conte
         break;
       }
       case "judge.score": {
-        const judge = context.judge ?? new DeterministicJudgeProvider();
+        const required = assertion.required ?? context.judgePolicy?.required ?? true;
+        const judge = context.judge;
+        if (!judge) {
+          details = { status: required ? "unavailable" : "skipped", provider: "none" };
+          if (required) message = "Required Judge provider is missing";
+          else passed = true;
+          break;
+        }
         const timeoutMs = numberValue(assertion.timeoutMs) ?? 5_000;
         const minScore = numberValue(assertion.minScore) ?? 0.7;
         const minConfidence = numberValue(assertion.minConfidence) ?? 0.5;
@@ -296,6 +210,15 @@ export async function evaluateAgent(input: { assertions?: AssertionSpec[]; conte
 }
 export const deterministicAgentEvaluator: Evaluator = { id: "canary.deterministic-agent", evaluate: evaluateAgent };
 export const passEmptyEvaluation = async (): Promise<Pick<EvalResult, "passed" | "assertions">> => ({ passed: true, assertions: [] });
+
+if (!defaultEvaluatorRegistry.get(deterministicAgentEvaluator.id)) {
+  defaultEvaluatorRegistry.register(deterministicAgentEvaluator, {
+    id: "canary.deterministic-agent",
+    kind: "deterministic",
+    capabilities: ["output", "trajectory", "tool", "state", "coverage", "judge.score", "policy"],
+    cost: "none",
+  });
+}
 
 function hasGlobalThresholds(thresholds: CoverageThresholds): boolean {
   return thresholds.lines != null || thresholds.branches != null || thresholds.functions != null || thresholds.statements != null;

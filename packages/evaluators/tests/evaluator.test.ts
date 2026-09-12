@@ -149,6 +149,12 @@ describe("coverage / feature gates", () => {
       trajectory: trajectory([event("loop_detected")]),
     };
     expect(evaluateHardGates({ results: [expectedLoop], coverage: coverage("final", 90) }).passed).toBe(true);
+    const unexpectedOnSibling: EvalResult = {
+      ...result, caseId: "leaky-2",
+      assertions: [{ id: "output.exists", passed: true }],
+      trajectory: trajectory([event("policy.violation")]),
+    };
+    expect(evaluateHardGates({ results: [expectedLoop, unexpectedOnSibling], coverage: coverage("final", 90) }).passed).toBe(false);
   });
 
   it("attributes wrong_output vs policy_violation", async () => {
@@ -207,9 +213,27 @@ describe("coverage.atLeast and LLM-as-Judge", () => {
 
     const ok = await evaluateAgent({
       output: { ok: true },
+      context: { judge: new DeterministicJudgeProvider({ verdict: "pass", score: 0.9 }) },
       assertions: [{ type: "judge.score", minScore: 0.5, minConfidence: 0.5 }],
     });
     expect(ok.passed).toBe(true);
+
+    const missing = await evaluateAgent({
+      output: { ok: true },
+      assertions: [{ type: "judge.score", minScore: 0.5, minConfidence: 0.5 }],
+    });
+    expect(missing.passed).toBe(false);
+    expect(missing.assertions[0]?.message).toMatch(/Required Judge provider is missing/);
+
+    const optional = await evaluateAgent({
+      output: { ok: true },
+      assertions: [{ type: "judge.score", required: false, minScore: 0.5 }],
+    });
+    expect(optional.passed).toBe(true);
+    expect(optional.assertions[0]?.details).toMatchObject({ status: "skipped" });
+
+    const stub = new DeterministicJudgeProvider();
+    expect((await stub.score({ input: "x", output: { ok: true } })).verdict).toBe("error");
 
     const http = new HttpJudgeProvider("https://judge.example/score", (async () => ({
       ok: false,
@@ -217,5 +241,43 @@ describe("coverage.atLeast and LLM-as-Judge", () => {
       json: async () => ({}),
     })) as typeof fetch);
     expect((await http.score({ input: "x", output: "y" })).verdict).toBe("error");
+  });
+
+  it("aborts an in-flight HTTP judge request instead of only stopping the waiter", async () => {
+    const { createServer } = await import("node:http");
+    let aborted = false;
+    const server = createServer((request, response) => {
+      request.on("aborted", () => { aborted = true; });
+      request.on("close", () => { if (!response.writableEnded) aborted = true; });
+    });
+    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", () => resolve()));
+    const address = server.address();
+    const port = typeof address === "object" && address ? address.port : 0;
+    try {
+      const judge = new HttpJudgeProvider(`http://127.0.0.1:${port}/score`);
+      const scored = await judge.score({ input: "x", output: "y", timeoutMs: 30 });
+      expect(scored.verdict).toBe("timeout");
+      await new Promise((resolve) => setTimeout(resolve, 40));
+      expect(aborted).toBe(true);
+    } finally {
+      await new Promise<void>((resolve) => server.close(() => resolve()));
+    }
+  });
+});
+
+describe("evaluator registry and judge composition", () => {
+  it("registers the deterministic evaluator without changing assertion semantics", async () => {
+    const { defaultEvaluatorRegistry, createJudgeProvider } = await import("../src/index.js");
+    const listed = defaultEvaluatorRegistry.list().map((item) => item.id);
+    expect(listed).toContain("canary.deterministic-agent");
+    const evaluated = await defaultEvaluatorRegistry.evaluate("canary.deterministic-agent", {
+      output: { ok: true },
+      assertions: [{ type: "output.exists" }],
+    });
+    expect(evaluated.passed).toBe(true);
+    expect(() => createJudgeProvider({ provider: "http", url: "http://127.0.0.1/score" })).toThrow(/allowOutbound/);
+    const stub = createJudgeProvider({ provider: "deterministic" });
+    expect(stub.stub).toBe(true);
+    expect((await stub.score({ input: "x", output: "y" })).verdict).toBe("pass");
   });
 });
