@@ -1,4 +1,4 @@
-import { spawn, type ChildProcess } from "node:child_process";
+﻿import { spawn, type ChildProcess } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { resolve } from "node:path";
 import type { CanaryConfig, CoverageScript, CoverageSummary, EvalResult, Trajectory, TrajectoryEvent } from "@canary/core";
@@ -18,6 +18,7 @@ export interface ExecutionOptions {
   coverage: CoverageSourceConfig;
   onEvent?: (event: RunnerEvent) => void;
   onCoverage?: (summary: CoverageSummary) => void;
+  signal?: AbortSignal;
 }
 
 export type RunnerEvent =
@@ -37,18 +38,21 @@ type ChildMessage =
 function createChildScript(): string {
   return String.raw`
 const { Worker } = require("node:worker_threads");
-const { Session } = require("node:inspector/promises");
+const { Session } = require("node:inspector");
 
 (async () => {
-  const payload = JSON.parse(process.env.CANARY_WORKER_DATA);
+  const payload = JSON.parse(process.env.CANARY_WORKER_DATA || "{}");
   const session = new Session();
   let coverageStarted = false;
   let scripts = [];
   let workerError;
+  const post = (method, params) => new Promise((resolve, reject) => {
+    session.post(method, params || {}, (error, result) => error ? reject(error) : resolve(result));
+  });
   try {
-    await session.connect();
-    await session.post("Profiler.enable");
-    await session.post("Profiler.startPreciseCoverage", { callCount: true, detailed: true });
+    await new Promise((resolve, reject) => session.connect((error) => error ? reject(error) : resolve()));
+    await post("Profiler.enable");
+    await post("Profiler.startPreciseCoverage", { callCount: true, detailed: true });
     coverageStarted = true;
     const workerSource = String.raw\`
       const { parentPort, workerData } = require("node:worker_threads");
@@ -56,7 +60,7 @@ const { Session } = require("node:inspector/promises");
         try {
           const mod = await import(workerData.entry);
           const agent = mod[workerData.exportName || "default"];
-          if (typeof agent !== "function") throw new Error("Agent export is not a function: " + (workerData.exportName || "default"));
+          if (typeof agent !== "function") throw new Error("Agent export is not a function");
           const emit = (event) => parentPort.postMessage({ type: "event", event: { ...event, timestamp: new Date().toISOString() } });
           parentPort.postMessage({ type: "ready" });
           const value = await agent(workerData.input, { executionId: workerData.executionId, emit });
@@ -70,21 +74,20 @@ const { Session } = require("node:inspector/promises");
     worker.on("message", (message) => process.send?.(message));
     worker.on("error", (error) => { workerError = error; process.send?.({ type: "error", error: error.stack || error.message }); });
     await new Promise((resolve) => worker.once("exit", resolve));
-    try { scripts = (await session.post("Profiler.takePreciseCoverage")).result || []; } catch (error) { workerError = workerError || error; }
+    try { scripts = (await post("Profiler.takePreciseCoverage")).result || []; } catch (error) { workerError = workerError || error; }
   } catch (error) {
     workerError = workerError || error;
     process.send?.({ type: "error", error: error && (error.stack || error.message) || String(error) });
   } finally {
     if (coverageStarted) {
-      try { await session.post("Profiler.stopPreciseCoverage"); } catch {}
-      try { await session.post("Profiler.disable"); } catch {}
+      try { await post("Profiler.stopPreciseCoverage"); } catch {}
+      try { await post("Profiler.disable"); } catch {}
     }
-    try { await session.disconnect(); } catch {}
+    try { session.disconnect(); } catch {}
     process.send?.({ type: "coverage", scripts, partial: Boolean(workerError) && scripts.length === 0 });
   }
 })();`;
 }
-
 function spawnExecution(options: ExecutionOptions, executionId: string): ChildProcess {
   const cwd = options.cwd ?? process.cwd();
   const workerData = JSON.stringify({
@@ -116,9 +119,17 @@ export async function runExecution(options: ExecutionOptions): Promise<EvalResul
   let scripts: CoverageScript[] = [];
   let coveragePartial = false;
   let didTimeout = false;
+  let didCancel = false;
   let exitCode: number | null = null;
 
   options.onEvent?.({ type: "execution.started", runId: options.runId, executionId, caseId: options.caseId });
+  const cancel = (): void => {
+    if (settled) return;
+    didCancel = true;
+    failure = "Execution cancelled";
+    child.kill();
+  };
+  options.signal?.addEventListener("abort", cancel, { once: true });
   const timeout = setTimeout(() => {
     if (settled) return;
     didTimeout = true;
@@ -139,12 +150,13 @@ export async function runExecution(options: ExecutionOptions): Promise<EvalResul
         coveragePartial = Boolean(message.partial);
       }
     });
-    child.once("error", (error) => { failure ??= error.stack ?? error.message; done(); });
-    child.once("close", (code) => { exitCode = code; if (code && !failure) failure = `Execution child exited with code ${code}`; done(); });
+    child.once("error", (error: Error) => { failure ??= error.stack ?? error.message; done(); });
+    child.once("close", (code: number | null) => { exitCode = code; if (code && !failure) failure = `Execution child exited with code ${code}`; done(); });
   });
   clearTimeout(timeout);
+  options.signal?.removeEventListener("abort", cancel);
 
-  const coverage = makeCoverage(options, scripts, coveragePartial || didTimeout);
+  const coverage = makeCoverage(options, scripts, coveragePartial || didTimeout || didCancel);
   options.onCoverage?.(coverage);
   options.onEvent?.({ type: "coverage.updated", executionId, coverage });
   if (failure) options.onEvent?.({ type: "execution.failed", executionId, error: failure });
@@ -155,7 +167,7 @@ export async function runExecution(options: ExecutionOptions): Promise<EvalResul
     caseId: options.caseId,
     events,
     stepCount: events.filter((event) => event.type === "tool_call").length,
-    termination: didTimeout ? "timeout" : failure ? "error" : "completed",
+    termination: didTimeout ? "timeout" : didCancel ? "cancelled" : failure ? "error" : "completed",
   };
   const result: EvalResult = {
     runId: options.runId,
@@ -165,7 +177,7 @@ export async function runExecution(options: ExecutionOptions): Promise<EvalResul
     assertions: [{ id: "agent.completed", passed: !failure && exitCode === 0, message: failure ?? "Agent completed" }],
     coverage,
     metrics: { latencyMs: Date.now() - startedAt, steps: trajectory.stepCount, toolCalls: trajectory.stepCount },
-    failureCategory: didTimeout ? "timeout" : failure ? "runtime_error" : undefined,
+    failureCategory: didTimeout ? "timeout" : didCancel ? "cancelled" : failure ? "runtime_error" : undefined,
     trajectoryId: trajectory.id,
     createdAt: new Date().toISOString(),
   };
@@ -188,3 +200,16 @@ export async function runConfiguredCase(options: RunOptions, testCase: { id: str
     onCoverage: options.onCoverage,
   });
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
