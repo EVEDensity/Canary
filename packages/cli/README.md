@@ -2,7 +2,7 @@
 
 ## 目标
 
-提供 `canary init/run/open/replay/report/doctor`，把配置、Runner、Coverage、Web UI 和 Reporters 编排成一条本地用户路径。
+提供 `canary run` / `canary runs` / `canary show`，把配置、Runner、Coverage、Web UI 和本地 artifact 编排成一条本地用户路径。
 
 ## 边界
 
