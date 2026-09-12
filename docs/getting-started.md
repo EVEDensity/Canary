@@ -7,13 +7,21 @@ After this, open a **new terminal** and run `canary run` from **any directory**.
 ### Windows (PowerShell)
 
 ```powershell
-git clone https://github.com/EVEDensity/Canary.git "$env:USERPROFILE\Canary"; node "$env:USERPROFILE\Canary\scripts\install-global.mjs"
+iwr -useb https://raw.githubusercontent.com/EVEDensity/Canary/main/install.ps1 | iex
 ```
 
 ### macOS / Linux
 
 ```bash
-git clone https://github.com/EVEDensity/Canary.git "$HOME/Canary" && node "$HOME/Canary/scripts/install-global.mjs"
+curl -fsSL https://raw.githubusercontent.com/EVEDensity/Canary/main/install.sh | bash
+```
+
+The scripts clone to `~/Canary` (or `%USERPROFILE%\Canary` on Windows), then run `scripts/install-global.mjs`. Override with `CANARY_DIR` / `CANARY_REPO_URL` if needed.
+
+### Manual clone (alternative)
+
+```powershell
+git clone https://github.com/EVEDensity/Canary.git "$env:USERPROFILE\Canary"; node "$env:USERPROFILE\Canary\scripts\install-global.mjs"
 ```
 
 The installer will:

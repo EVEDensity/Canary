@@ -52,13 +52,19 @@ Requires Node ≥22 and Git.
 **Windows (PowerShell):**
 
 ```powershell
-git clone https://github.com/EVEDensity/Canary.git "$env:USERPROFILE\Canary"; node "$env:USERPROFILE\Canary\scripts\install-global.mjs"
+iwr -useb https://raw.githubusercontent.com/EVEDensity/Canary/main/install.ps1 | iex
 ```
 
 **macOS / Linux:**
 
 ```bash
-git clone https://github.com/EVEDensity/Canary.git "$HOME/Canary" && node "$HOME/Canary/scripts/install-global.mjs"
+curl -fsSL https://raw.githubusercontent.com/EVEDensity/Canary/main/install.sh | bash
+```
+
+Already cloned? Run `node scripts/install-global.mjs` from the repo root, or use the manual clone path:
+
+```powershell
+git clone https://github.com/EVEDensity/Canary.git "$env:USERPROFILE\Canary"; node "$env:USERPROFILE\Canary\scripts\install-global.mjs"
 ```
 
 Open a **new terminal**, then:
