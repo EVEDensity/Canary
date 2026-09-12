@@ -570,6 +570,7 @@ if(runId){
     liveSource.addEventListener('run.replay',function(e){handle('run.replay',e,render);});
     liveSource.addEventListener('run.error',function(e){handle('run.error',e);});
     liveSource.addEventListener('case.started',function(e){handle('case.started',e);});
+    liveSource.addEventListener('trace.event',function(e){handle('trace.event',e);});
     liveSource.addEventListener('case.finished',function(e){handle('case.finished',e);fetch('/api/runs/'+runId).then(function(r){return r.json();}).then(render);});
     liveSource.addEventListener('coverage.updated',function(e){handle('coverage.updated',e,coverage);});
     liveSource.onmessage=function(e){log(JSON.parse(e.data));};

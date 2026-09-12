@@ -86,6 +86,9 @@ export interface SseEvent {
   payload: unknown;
 }
 
+export { CANONICAL_SSE_EVENTS } from "@canary/core";
+export const SSE_HEARTBEAT_MS = 15_000;
+
 type Subscriber = ServerResponse<IncomingMessage>;
 
 export class RunStore {
@@ -180,6 +183,10 @@ export class RunStore {
     this.subscribers.set(runId, set);
     const snapshot = this.get(runId);
     if (snapshot) this.writeEvent(response, { id: 0, type: "run.snapshot", runId, payload: snapshot });
+    this.writeHeartbeat(response);
+    const heartbeatMs = Number(process.env.CANARY_SSE_HEARTBEAT_MS) || SSE_HEARTBEAT_MS;
+    const heartbeat = setInterval(() => this.writeHeartbeat(response), heartbeatMs);
+    heartbeat.unref();
     if (lastEventId !== undefined && Number.isFinite(lastEventId)) {
       for (const event of this.sseLog.get(runId) ?? []) {
         if (event.id > lastEventId) this.writeEvent(response, event);
@@ -189,6 +196,7 @@ export class RunStore {
     const unsubscribe = (): void => {
       if (!active) return;
       active = false;
+      clearInterval(heartbeat);
       set.delete(response);
       if (set.size === 0) this.subscribers.delete(runId);
     };
@@ -232,6 +240,11 @@ export class RunStore {
     log.push(envelope);
     this.sseLog.set(runId, log);
     for (const response of this.subscribers.get(runId) ?? []) this.writeEvent(response, envelope);
+  }
+
+  private writeHeartbeat(response: Subscriber): void {
+    if (response.writableEnded || response.destroyed) return;
+    try { response.write(": ping\n\n"); } catch { /* client disconnected */ }
   }
 
   private writeEvent(response: Subscriber, event: SseEvent): void {

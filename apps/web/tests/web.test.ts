@@ -274,4 +274,50 @@ describe("web run store and HTTP/SSE", () => {
       expect(events).toContain("case.finished");
     } finally { await close(web.server); }
   });
+
+  it("emits canonical SSE names, heartbeats, and trace.event", async () => {
+    const previous = process.env.CANARY_SSE_HEARTBEAT_MS;
+    process.env.CANARY_SSE_HEARTBEAT_MS = "25";
+    const store = new RunStore();
+    const run = store.create(1, "run_sse_canonical");
+    store.appendEvent(run.runId, { type: "trace.event", executionId: "exec_1", event: { type: "tool.call", timestamp: "2026-01-01T00:00:00.000Z" } });
+    store.appendEvent(run.runId, { type: "execution.started", runId: run.runId, executionId: "exec_1", caseId: "smoke" });
+    store.appendEvent(run.runId, { type: "execution.finished", executionId: "exec_1", result: { runId: run.runId, executionId: "exec_1", caseId: "smoke", passed: true, assertions: [], coverage: coverage(run.runId), createdAt: "2026-01-01T00:00:00.000Z" } });
+    store.appendEvent(run.runId, { type: "execution.failed", executionId: "exec_1", error: "none" });
+    store.setCoverage(run.runId, coverage(run.runId, "final", 2));
+    store.finish(run.runId);
+    const types = store.eventLog(run.runId).map((event) => event.type);
+    const { CANONICAL_SSE_EVENTS } = await import("@canary/core");
+    for (const name of CANONICAL_SSE_EVENTS) expect(types).toContain(name);
+    const web = createWebServer(store);
+    const listening = await web.listen();
+    try {
+      const page = await get(`${listening.url}/?runId=${run.runId}`);
+      expect(page.body).toContain("trace.event");
+      expect(page.body).toContain("Snapshot (no JavaScript)");
+      expect(page.body).toContain("Live stream disconnected. Polling snapshot");
+      expect(page.body).toContain("Cannot reach canary UI. Showing last known snapshot.");
+      expect(page.body).toContain("EventSource unavailable");
+      const streamed = await new Promise<string>((resolvePromise, reject) => {
+        const req = request(`${listening.url}/api/runs/${run.runId}/events`);
+        req.on("response", (res) => {
+          let data = "";
+          res.setEncoding("utf8");
+          res.on("data", (chunk) => {
+            data += chunk;
+            if (data.includes(": ping")) { res.destroy(); resolvePromise(data); }
+          });
+        });
+        req.on("error", (error: NodeJS.ErrnoException) => { if (error.code !== "ECONNRESET") reject(error); });
+        req.end();
+        setTimeout(() => reject(new Error("heartbeat timeout")), 2000);
+      });
+      expect(streamed).toContain(": ping");
+      expect(streamed).toContain("event: run.snapshot");
+    } finally {
+      if (previous === undefined) delete process.env.CANARY_SSE_HEARTBEAT_MS;
+      else process.env.CANARY_SSE_HEARTBEAT_MS = previous;
+      await close(web.server);
+    }
+  });
 });
