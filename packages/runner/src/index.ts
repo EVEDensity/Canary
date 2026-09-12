@@ -1,6 +1,8 @@
-﻿import { spawn, type ChildProcess } from "node:child_process";
+import { spawn, type ChildProcess } from "node:child_process";
+import { createRequire } from "node:module";
 import { randomUUID } from "node:crypto";
-import { resolve } from "node:path";
+import { extname, resolve } from "node:path";
+import { pathToFileURL } from "node:url";
 import type { CanaryConfig, CoverageScript, CoverageSummary, EvalResult, Trajectory, TrajectoryEvent } from "@canary/core";
 import { emptyCoverage, summarizeCoverage } from "@canary/coverage";
 import type { CoverageSourceConfig } from "@canary/coverage";
@@ -37,66 +39,76 @@ type ChildMessage =
 
 function createChildScript(): string {
   return String.raw`
-const { Worker } = require("node:worker_threads");
 const { Session } = require("node:inspector");
+
+const send = (message) => new Promise((resolve) => {
+  if (typeof process.send !== "function" || !process.connected) return resolve();
+  try { process.send(message, undefined, undefined, () => resolve()); } catch { resolve(); }
+});
 
 (async () => {
   const payload = JSON.parse(process.env.CANARY_WORKER_DATA || "{}");
   const session = new Session();
   let coverageStarted = false;
   let scripts = [];
-  let workerError;
-  const post = (method, params) => new Promise((resolve, reject) => {
-    session.post(method, params || {}, (error, result) => error ? reject(error) : resolve(result));
-  });
+  let partial = false;
+  const keepAlive = setInterval(() => {}, 2_147_483_647);
   try {
-    await new Promise((resolve, reject) => session.connect((error) => error ? reject(error) : resolve()));
+    session.connect();
+    const post = (method, params) => new Promise((resolve, reject) => {
+      session.post(method, params || {}, (error, result) => error ? reject(error) : resolve(result));
+    });
     await post("Profiler.enable");
     await post("Profiler.startPreciseCoverage", { callCount: true, detailed: true });
     coverageStarted = true;
-    const workerSource = String.raw\`
-      const { parentPort, workerData } = require("node:worker_threads");
-      (async () => {
-        try {
-          const mod = await import(workerData.entry);
-          const agent = mod[workerData.exportName || "default"];
-          if (typeof agent !== "function") throw new Error("Agent export is not a function");
-          const emit = (event) => parentPort.postMessage({ type: "event", event: { ...event, timestamp: new Date().toISOString() } });
-          parentPort.postMessage({ type: "ready" });
-          const value = await agent(workerData.input, { executionId: workerData.executionId, emit });
-          parentPort.postMessage({ type: "result", value });
-        } catch (error) {
-          parentPort.postMessage({ type: "error", error: error && (error.stack || error.message) || String(error) });
-        }
-      })();
-    \`;
-    const worker = new Worker(workerSource, { eval: true, workerData: payload });
-    worker.on("message", (message) => process.send?.(message));
-    worker.on("error", (error) => { workerError = error; process.send?.({ type: "error", error: error.stack || error.message }); });
-    await new Promise((resolve) => worker.once("exit", resolve));
-    try { scripts = (await post("Profiler.takePreciseCoverage")).result || []; } catch (error) { workerError = workerError || error; }
+
+    const mod = await import(payload.entry);
+    const agent = mod[payload.exportName || "default"];
+    if (typeof agent !== "function") throw new Error("Agent export is not a function");
+    const emit = (event) => send({ type: "event", event: { ...event, timestamp: new Date().toISOString() } });
+    await send({ type: "ready" });
+    const value = await agent(payload.input, { executionId: payload.executionId, emit });
+    await send({ type: "result", value });
   } catch (error) {
-    workerError = workerError || error;
-    process.send?.({ type: "error", error: error && (error.stack || error.message) || String(error) });
+    partial = true;
+    await send({ type: "error", error: error && (error.stack || error.message) || String(error) });
   } finally {
+    clearInterval(keepAlive);
     if (coverageStarted) {
-      try { await post("Profiler.stopPreciseCoverage"); } catch {}
-      try { await post("Profiler.disable"); } catch {}
+      try {
+        const response = await new Promise((resolve, reject) => {
+          session.post("Profiler.takePreciseCoverage", {}, (error, result) => error ? reject(error) : resolve(result));
+        });
+        scripts = response.result || [];
+      } catch { partial = true; }
+      try { await new Promise((resolve) => session.post("Profiler.stopPreciseCoverage", {}, () => resolve())); } catch { partial = true; }
+      try { await new Promise((resolve) => session.post("Profiler.disable", {}, () => resolve())); } catch { partial = true; }
     }
     try { session.disconnect(); } catch {}
-    process.send?.({ type: "coverage", scripts, partial: Boolean(workerError) && scripts.length === 0 });
+    await send({ type: "coverage", scripts, partial });
+    if (process.connected) process.disconnect();
   }
-})();`;
+})().catch(async (error) => {
+  await send({ type: "error", error: error && (error.stack || error.message) || String(error) });
+  if (process.connected) process.disconnect();
+});`;
 }
 function spawnExecution(options: ExecutionOptions, executionId: string): ChildProcess {
   const cwd = options.cwd ?? process.cwd();
   const workerData = JSON.stringify({
-    entry: new URL(resolve(cwd, options.entry), "file:").href,
+    entry: pathToFileURL(resolve(cwd, options.entry)).href,
     exportName: options.exportName,
     input: options.input,
     executionId,
   });
-  return spawn(options.nodeExecutable ?? process.execPath, ["-e", createChildScript()], {
+  const isTypeScriptEntry = [".ts", ".mts", ".cts", ".tsx"].includes(extname(options.entry));
+  const args = ["-e", createChildScript()];
+  if (isTypeScriptEntry) {
+    const require = createRequire(import.meta.url);
+    const tsxLoader = require.resolve("tsx");
+    args.unshift("--import", pathToFileURL(tsxLoader).href);
+  }
+  return spawn(options.nodeExecutable ?? process.execPath, args, {
     cwd,
     env: { ...process.env, CANARY_WORKER_DATA: workerData },
     stdio: ["ignore", "ignore", "pipe", "ipc"],
@@ -121,8 +133,11 @@ export async function runExecution(options: ExecutionOptions): Promise<EvalResul
   let didTimeout = false;
   let didCancel = false;
   let exitCode: number | null = null;
+  let stderr = "";
 
   options.onEvent?.({ type: "execution.started", runId: options.runId, executionId, caseId: options.caseId });
+  child.stderr?.setEncoding("utf8");
+  child.stderr?.on("data", (chunk: string) => { stderr += chunk; });
   const cancel = (): void => {
     if (settled) return;
     didCancel = true;
@@ -151,7 +166,14 @@ export async function runExecution(options: ExecutionOptions): Promise<EvalResul
       }
     });
     child.once("error", (error: Error) => { failure ??= error.stack ?? error.message; done(); });
-    child.once("close", (code: number | null) => { exitCode = code; if (code && !failure) failure = `Execution child exited with code ${code}`; done(); });
+    child.once("close", (code: number | null) => {
+      exitCode = code;
+      if (code && !failure) {
+        const diagnostic = stderr.trim();
+        failure = diagnostic ? `Execution child exited with code ${code}: ${diagnostic}` : `Execution child exited with code ${code}`;
+      }
+      done();
+    });
   });
   clearTimeout(timeout);
   options.signal?.removeEventListener("abort", cancel);
