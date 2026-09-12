@@ -18,6 +18,7 @@ describe("web run store and HTTP/SSE", () => {
     try {
       const coverage = await get(`${listening.url}/api/runs/${run.runId}/coverage`);
       expect(coverage.status).toBe(200); expect(JSON.parse(coverage.body).lines.pct).toBe(50);
+      expect(JSON.parse(coverage.body).featureChains).toEqual([]);
       const page = await get(`${listening.url}/?runId=${run.runId}`);
       expect(page.body).toContain("Coverage"); expect(page.body).toContain("coverage.updated");
     } finally { await close(web.server); }
@@ -36,3 +37,4 @@ describe("web run store and HTTP/SSE", () => {
     } finally { await close(web.server); }
   });
 });
+
