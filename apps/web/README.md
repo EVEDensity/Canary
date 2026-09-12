@@ -7,5 +7,6 @@
 ## 边界
 
 - 页面只通过本地 API/SSE 消费 Result Store；不直接调用模型、工具或 Node inspector。
+- POST replay / 建议写接口需要 `x-canary-write-token`（CLI 会注入页面）。CORS 不是授权。
 - provisional、final、partial、unavailable 必须可见；UI 不改变评测结果。
 - 默认不暴露到局域网，不保存 API Key，不把原始敏感 Trace 默认上传云端。

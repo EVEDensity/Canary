@@ -18,7 +18,7 @@
   },
   "dependencies": {
     "@canary/core": "workspace:*",
-    "@canary/runner": "workspace:*",
+    "@canary/trace": "workspace:*",
     "@canary/reporters": "workspace:*",
     "@canary/improvement": "workspace:*"
   },

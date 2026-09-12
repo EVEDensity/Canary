@@ -13,7 +13,7 @@
                            "path":  "../../packages/core"
                        },
                        {
-                           "path":  "../../packages/runner"
+                           "path":  "../../packages/trace"
                        },
                        {
                            "path":  "../../packages/reporters"
