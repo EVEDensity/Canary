@@ -1,6 +1,6 @@
 ﻿import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { randomUUID } from "node:crypto";
-import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { join, resolve } from "node:path";
 import type { CoverageGateResult, CoverageSummary, EvalResult } from "@canary/core";
 import {
@@ -9,12 +9,14 @@ import {
   parseReplayResponse,
   parseReportFormat,
   parseRunSnapshot,
+  parseSuggestionDecision,
   SchemaValidationError,
   invalidInput,
 } from "@canary/core";
 import type { RunnerEvent } from "@canary/runner";
 import { renderReport } from "@canary/reporters";
-import { html } from "./ui.js";
+import { compareRuns, decideSuggestion, holdoutCaseIds, writeRegressionDrafts, type ImprovementSuggestion } from "@canary/improvement";
+import { renderPage } from "./ui.js";
 
 export interface ArtifactRepository {
   listRuns(): RunSnapshot[];
@@ -52,11 +54,16 @@ export class FileArtifactRepository implements ArtifactRepository {
     if (!existsSync(file)) return undefined;
     try { return JSON.parse(readFileSync(file, "utf8")) as T; } catch { return undefined; }
   }
+  writeJson(runId: string, name: string, value: unknown): void {
+    const dir = join(this.rootDir, runId);
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, name), JSON.stringify(value, null, 2), "utf8");
+  }
 }
 
 export interface RunSnapshot {
   runId: string;
-  status: "idle" | "running" | "completed" | "failed";
+  status: "idle" | "running" | "completed" | "failed" | "cancelled";
   startedAt: string;
   finishedAt?: string;
   totalCases: number;
@@ -68,6 +75,7 @@ export interface RunSnapshot {
   improvements?: unknown[];
   gate?: CoverageGateResult;
   replayOf?: string;
+  candidateOf?: string;
 }
 
 export interface SseEvent {
@@ -130,6 +138,13 @@ export class RunStore {
       current.results.push(event.result);
     }
     this.publish(runId, { type: event.type, runId, payload: event });
+    if (event.type === "execution.started") this.publish(runId, { type: "case.started", runId, payload: event });
+    if (event.type === "execution.finished") this.publish(runId, { type: "case.finished", runId, payload: event });
+    if (event.type === "execution.failed") this.publish(runId, { type: "run.error", runId, payload: event });
+  }
+
+  reportError(runId: string, error: string): void {
+    this.publish(runId, { type: "run.error", runId, payload: { error } });
   }
 
   setCoverage(runId: string, coverage: CoverageSummary): void {
@@ -142,10 +157,10 @@ export class RunStore {
     this.publish(runId, { type: "coverage.updated", runId, payload: coverage });
   }
 
-  finish(runId: string): RunSnapshot {
+  finish(runId: string, status?: "completed" | "failed" | "cancelled"): RunSnapshot {
     const current = this.runs.get(runId);
     if (!current) throw new Error(`Unknown run: ${runId}`);
-    current.status = current.results.every((result) => result.passed) ? "completed" : "failed";
+    current.status = status ?? (current.results.every((result) => result.passed) ? "completed" : "failed");
     current.finishedAt = new Date().toISOString();
     this.publish(runId, { type: "run.finished", runId, payload: current });
     return current;
@@ -184,9 +199,14 @@ export class RunStore {
     const events: SseEvent[] = [];
     let id = 0;
     events.push({ id: ++id, type: "run.started", runId: run.runId, payload: { runId: run.runId, startedAt: run.startedAt } });
-    for (const event of run.events) events.push({ id: ++id, type: event.type, runId: run.runId, payload: event });
+    for (const event of run.events) {
+      events.push({ id: ++id, type: event.type, runId: run.runId, payload: event });
+      if (event.type === "execution.started") events.push({ id: ++id, type: "case.started", runId: run.runId, payload: event });
+      if (event.type === "execution.finished") events.push({ id: ++id, type: "case.finished", runId: run.runId, payload: event });
+      if (event.type === "execution.failed") events.push({ id: ++id, type: "run.error", runId: run.runId, payload: event });
+    }
     if (run.coverage) events.push({ id: ++id, type: "coverage.updated", runId: run.runId, payload: run.coverage });
-    if (run.status === "completed" || run.status === "failed") events.push({ id: ++id, type: "run.finished", runId: run.runId, payload: run });
+    if (run.status === "completed" || run.status === "failed" || run.status === "cancelled") events.push({ id: ++id, type: "run.finished", runId: run.runId, payload: run });
     this.sseLog.set(run.runId, events);
     this.sseSeq.set(run.runId, id);
     if (run.coverage) this.coverageFingerprints.set(run.runId, this.coverageKey(run.coverage));
@@ -251,18 +271,36 @@ function writeError(response: ServerResponse<IncomingMessage>, error: unknown): 
 
 export function createWebServer(store: RunStore, host = "127.0.0.1", port = 0, artifactRoot?: string, hooks?: WebServerHooks) {
   if (artifactRoot) store.hydrate(new FileArtifactRepository(resolve(artifactRoot)));
+  const artifacts = artifactRoot ? new FileArtifactRepository(resolve(artifactRoot)) : undefined;
   const server = createServer((request: IncomingMessage, response: ServerResponse<IncomingMessage>) => {
-    void handleRequest(store, request, response, hooks);
+    void handleRequest(store, request, response, hooks, artifacts);
   });
   return { server, listen: () => new Promise<{ url: string; port: number }>((resolveListen) => server.listen(port, host, () => { const address = server.address(); const actualPort = typeof address === "object" && address ? address.port : port; resolveListen({ url: `http://${host}:${actualPort}`, port: actualPort }); })) };
 }
 
-async function handleRequest(store: RunStore, request: IncomingMessage, response: ServerResponse<IncomingMessage>, hooks?: WebServerHooks): Promise<void> {
+async function handleRequest(store: RunStore, request: IncomingMessage, response: ServerResponse<IncomingMessage>, hooks?: WebServerHooks, artifacts?: FileArtifactRepository): Promise<void> {
   try {
     const url = new URL(request.url ?? "/", "http://127.0.0.1");
     const parts = url.pathname.split("/").filter(Boolean);
     response.setHeader("Access-Control-Allow-Origin", "http://127.0.0.1");
-    if (url.pathname === "/" || url.pathname === "/index.html") { response.writeHead(200, { "content-type": "text/html; charset=utf-8" }); response.end(html); return; }
+    if (url.pathname === "/" || url.pathname === "/index.html") {
+      const runId = url.searchParams.get("runId");
+      const run = runId ? store.get(runId) : undefined;
+      response.writeHead(200, { "content-type": "text/html; charset=utf-8" });
+      response.end(renderPage(run));
+      return;
+    }
+    if (parts[0] === "api" && parts[1] === "compare") {
+      const baselineId = url.searchParams.get("baseline");
+      const candidateId = url.searchParams.get("candidate");
+      if (!baselineId || !candidateId) { writeJson(response, 400, { error: "baseline and candidate query parameters are required" }); return; }
+      const baseline = store.get(baselineId);
+      const candidate = store.get(candidateId);
+      if (!baseline || !candidate) { writeJson(response, 404, { error: "Both baseline and candidate runs must exist" }); return; }
+      const holdout = holdoutCaseIds([...baseline.results, ...candidate.results]);
+      writeJson(response, 200, compareRuns(baseline, candidate, holdout));
+      return;
+    }
     if (parts[0] === "api" && parts[1] === "runs" && parts.length === 2) {
       writeJson(response, 200, store.list().map((run) => parseRunSnapshot(run, "GET /api/runs")));
       return;
@@ -273,6 +311,7 @@ async function handleRequest(store: RunStore, request: IncomingMessage, response
       if (!run) { response.writeHead(404); response.end("Not found"); return; }
       if (parts[3] === "events") {
         response.writeHead(200, { "content-type": "text/event-stream", "cache-control": "no-cache", connection: "keep-alive" });
+        response.write("retry: 2000\n\n");
         const rawId = request.headers["last-event-id"];
         const lastEventId = rawId === undefined || rawId === "" ? undefined : Number.parseInt(String(rawId), 10);
         const unsubscribe = store.subscribe(runId, response, lastEventId);
@@ -295,6 +334,26 @@ async function handleRequest(store: RunStore, request: IncomingMessage, response
         return;
       }
       if (parts[3] === "improvements") {
+        if (request.method === "POST" && parts[4]) {
+          const decision = parseSuggestionDecision(await readJsonBody(request));
+          const list = [...((run.improvements ?? []) as ImprovementSuggestion[])];
+          const index = list.findIndex((item) => item.id === parts[4]);
+          if (index < 0) { writeJson(response, 404, { error: "Suggestion not found" }); return; }
+          list[index] = decideSuggestion(list[index]!, decision.status);
+          store.update(runId, { improvements: list });
+          artifacts?.writeJson(runId, "improvement.json", list);
+          if (decision.status === "verified" && artifacts) {
+            const projectRoot = resolve(artifacts.rootDir, "..", "..");
+            const regressionDir = existsSync(resolve(projectRoot, "cases/regression"))
+              ? resolve(projectRoot, "cases/regression")
+              : existsSync(resolve(projectRoot, "examples/local-agent/cases"))
+                ? resolve(projectRoot, "examples/local-agent/cases/regression")
+                : resolve(projectRoot, "cases/regression");
+            writeRegressionDrafts(list.filter((item) => item.status === "verified"), regressionDir);
+          }
+          writeJson(response, 200, list[index]);
+          return;
+        }
         writeJson(response, 200, run.improvements ?? []);
         return;
       }

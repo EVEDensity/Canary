@@ -11,6 +11,15 @@ function get(url: string): Promise<{ status: number; body: string }> {
     req.on("error", reject); req.end();
   });
 }
+function post(url: string, body: unknown): Promise<{ status: number; body: string }> {
+  return new Promise((resolvePromise, reject) => {
+    const req = request(url, { method: "POST", headers: { "content-type": "application/json" } }, (response) => {
+      let data = ""; response.setEncoding("utf8"); response.on("data", (part) => data += part); response.on("end", () => resolvePromise({ status: response.statusCode ?? 0, body: data }));
+    });
+    req.on("error", reject);
+    req.end(JSON.stringify(body));
+  });
+}
 function close(server: ReturnType<typeof createWebServer>["server"]): Promise<void> {
   return new Promise((resolvePromise) => server.close(() => resolvePromise()));
 }
@@ -30,6 +39,10 @@ describe("web run store and HTTP/SSE", () => {
       const page = await get(`${listening.url}/?runId=${run.runId}`);
       expect(page.body).toContain("Coverage"); expect(page.body).toContain("coverage.updated");
       expect(page.body).toContain("history");
+      expect(page.body).toContain("Snapshot (no JavaScript)");
+      expect(page.body).toContain("status-running");
+      expect(page.body).toContain("Live stream disconnected. Polling snapshot");
+      expect(page.body).toContain("EventSource unavailable");
     } finally { await close(web.server); }
   });
 
@@ -74,6 +87,10 @@ describe("web run store and HTTP/SSE", () => {
       expect(home.body).toContain("canary replay");
       expect(home.body).toContain("/report/json");
       expect(home.body).toContain("/report/junit");
+      expect(home.body).toContain("Compare");
+      expect(home.body).toContain("case.started");
+      expect(home.body).toContain("preparing");
+      expect(home.body).toContain("state diff");
       const report = await get(`${listening.url}/api/runs/run_hist/report/markdown`);
       expect(report.status).toBe(200);
       expect(report.body).toContain("run_hist");
@@ -153,6 +170,12 @@ describe("web run store and HTTP/SSE", () => {
       const page = await get(`${listening.url}/?runId=run_imp`);
       expect(page.body).toContain("Improvement Queue");
       expect(page.body).toContain("/api/runs/'+runId+'/improvements");
+      const accepted = await post(`${listening.url}/api/runs/run_imp/improvements/s1`, { status: "accepted" });
+      expect(accepted.status).toBe(200);
+      expect(JSON.parse(accepted.body).status).toBe("accepted");
+      const verified = await post(`${listening.url}/api/runs/run_imp/improvements/s1`, { status: "verified" });
+      expect(verified.status).toBe(200);
+      expect(JSON.parse(verified.body).status).toBe("verified");
     } finally { await close(web.server); }
   });
 
@@ -228,6 +251,27 @@ describe("web run store and HTTP/SSE", () => {
       expect(bad.body).toContain("report format");
       const page = await get(`${listening.url}/?runId=${run.runId}`);
       expect(page.body).toContain("/api/runs/'+runId+'/replay");
+    } finally { await close(web.server); }
+  });
+
+  it("compares baseline and candidate runs and emits case.started aliases", async () => {
+    const store = new RunStore();
+    const baseline = store.create(1, "run_base");
+    store.appendEvent(baseline.runId, { type: "execution.started", runId: baseline.runId, executionId: "exec_1", caseId: "smoke" });
+    store.appendEvent(baseline.runId, { type: "execution.finished", executionId: "exec_1", result: { runId: baseline.runId, executionId: "exec_1", caseId: "smoke", passed: true, assertions: [], coverage: coverage(baseline.runId), createdAt: "2026-01-01T00:00:00.000Z" } });
+    store.finish(baseline.runId);
+    const candidate = store.create(1, "run_cand");
+    store.appendEvent(candidate.runId, { type: "execution.finished", executionId: "exec_2", result: { runId: candidate.runId, executionId: "exec_2", caseId: "smoke", passed: false, assertions: [{ id: "output.exists", passed: false }], coverage: coverage(candidate.runId), failureCategory: "assertion_failed" } });
+    store.finish(candidate.runId);
+    const web = createWebServer(store);
+    const listening = await web.listen();
+    try {
+      const compared = await get(`${listening.url}/api/compare?baseline=${baseline.runId}&candidate=${candidate.runId}`);
+      expect(compared.status).toBe(200);
+      expect(JSON.parse(compared.body).verdict).toBe("reject");
+      const events = store.eventLog(baseline.runId).map((event) => event.type);
+      expect(events).toContain("case.started");
+      expect(events).toContain("case.finished");
     } finally { await close(web.server); }
   });
 });
