@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import { Session } from "node:inspector";
 import ts from "typescript";
 import { canonicalPath, prepareScript, scriptTargets, createProbe } from "./source-mapping.js";
+import { istanbulToScripts, readIstanbulCoverage } from "./istanbul.js";
 import type {
   CoverageFile,
   CoverageFragment,
@@ -30,6 +31,7 @@ export interface CoverageSourceConfig {
   features?: FeatureDefinition[];
   sampleIntervalMs?: number;
   sampleMinIntervalMs?: number;
+  provider?: "v8" | "istanbul";
   /** @deprecated Use features. Retained for pre-P0 configuration compatibility. */
   featureChains?: Record<string, { name?: string; files: string[]; lines?: Array<{ start: number; end: number }> }>;
 }
@@ -50,6 +52,9 @@ export function metric(covered: number, total: number): CoverageMetric {
 export function createCoverageSession(executionId: string): CoverageSession { return { executionId, startedAt: new Date().toISOString(), status: "running" }; }
 export function emptyCoverage(runId: string, sourceHash = "unknown"): CoverageSummary {
   return { runId, sourceHash, status: "unavailable", lines: emptyMetric(), statements: emptyMetric(), functions: emptyMetric(), branches: emptyMetric(), files: [], featureChains: [] };
+}
+export function preparingCoverage(runId: string, sourceHash = "pending"): CoverageSummary {
+  return { ...emptyCoverage(runId, sourceHash), status: "preparing" };
 }
 
 /** Canonical absolute path used for both Windows paths and file URLs. */
@@ -212,6 +217,7 @@ function coverageForFile(manifestFile: CoverageManifestFile, prepared: ReturnTyp
     statements: metric(statements.length, manifestFile.statementLocations.length),
     functions: metric(functions.length, manifestFile.functionLocations.length),
     branches: metric(branches.length, manifestFile.branchLocations.length), uncoveredLocations,
+    sourceText: manifestFile.sourceText,
     executableLineNumbers: manifestFile.executableLines, coveredLineNumbers: [...lineHits],
     coveredStatementIds: statements.map((location) => location.id!),
     coveredFunctionIds: functions.map((location) => location.id!),
@@ -279,7 +285,7 @@ export function mergeCoverageSummaries(runId: string, summaries: CoverageSummary
     const branch = new Set(items.flatMap((item) => item.coveredBranchIds ?? []));
     return { ...base, status: items.some((item) => item.status === "final") ? "final" as const : base.status, lines: metric(line.size, base.lines.total), statements: metric(statement.size, base.statements.total), functions: metric(fn.size, base.functions.total), branches: metric(branch.size, base.branches.total), coveredLineNumbers: [...line], coveredStatementIds: [...statement], coveredFunctionIds: [...fn], coveredBranchIds: [...branch] };
   });
-  const merged: CoverageSummary = { runId, sourceHash: summaries[0]!.sourceHash, status: summaries.every((summary) => summary.status === "final") ? "final" : "partial", lines: aggregate(files, "lines"), statements: aggregate(files, "statements"), functions: aggregate(files, "functions"), branches: aggregate(files, "branches"), files, featureChains: [] };
+  const merged: CoverageSummary = { runId, sourceHash: summaries[0]!.sourceHash, status: summaries.every((summary) => summary.status === "unavailable") ? "unavailable" : summaries.every((summary) => summary.status === "final") ? "final" : "partial", lines: aggregate(files, "lines"), statements: aggregate(files, "statements"), functions: aggregate(files, "functions"), branches: aggregate(files, "branches"), files, featureChains: [] };
   const sourceFeatures = features.length ? features : summaries.flatMap((summary) => summary.featureChains.map((feature) => ({ id: feature.featureId, name: feature.name, files: feature.filePaths })));
   const featureChains: FeatureCoverage[] = sourceFeatures.map((feature) => {
     const items = summaries.flatMap((summary) => summary.featureChains.filter((item) => item.featureId === feature.id));
@@ -344,10 +350,48 @@ export class V8CoverageCollector implements CoverageProvider {
     catch { return this.fragment("partial"); }
     finally { await this.cleanup(); }
   }
-  private fragment(status: CoverageFragment["status"]): CoverageFragment { return { runId: this.options.runId, executionId: this.options.executionId, provider: "node-v8", sourceHash: summarizeCoverage(this.options.runId, this.latest, this.options).sourceHash, capturedAt: new Date().toISOString(), scripts: this.latest, status }; }
+  private fragment(status: CoverageFragment["status"]): CoverageFragment { return { runId: this.options.runId, executionId: this.options.executionId, provider: "node-v8", processId: process.pid, isolateId: String(process.pid), sequence: Date.now(), sourceHash: summarizeCoverage(this.options.runId, this.latest, this.options).sourceHash, capturedAt: new Date().toISOString(), scripts: this.latest, status }; }
   private post(method: string, params: object = {}): Promise<unknown> { return new Promise((resolvePromise, reject) => this.session.post(method, params, (error, result) => error ? reject(error) : resolvePromise(result))); }
   private async cleanup(): Promise<void> { if (this.timer) clearInterval(this.timer); this.timer = undefined; this.started = false; try { this.session.disconnect(); } catch { /* disconnected */ } }
 }
+
+export function summarizeIstanbulCoverage(runId: string, coverage: import("./istanbul.js").IstanbulCoverageMap, options: CoverageSourceConfig): CoverageSummary {
+  const summary = summarizeCoverage(runId, istanbulToScripts(coverage), options);
+  return {
+    ...summary,
+    files: summary.files?.map((file) => ({
+      ...file,
+      quality: { mappingMode: "ast" as const, precision: "exact" as const, diagnostics: ["ISTANBUL_INSTRUMENTATION"] },
+    })),
+  };
+}
+
+export class IstanbulCoverageProvider implements CoverageProvider {
+  readonly id = "istanbul" as const;
+  constructor(private readonly options: CoverageOptions) {}
+  async start(): Promise<void> { /* counters live on the instrumented module */ }
+  async sample(): Promise<CoverageFragment> { return this.fragment(); }
+  async stop(): Promise<CoverageFragment> { return this.fragment(); }
+  private fragment(): CoverageFragment {
+    const coverage = readIstanbulCoverage();
+    return {
+      runId: this.options.runId,
+      executionId: this.options.executionId,
+      provider: "istanbul",
+      processId: process.pid,
+      isolateId: String(process.pid),
+      sequence: 1,
+      phase: "final",
+      sourceHash: summarizeIstanbulCoverage(this.options.runId, coverage, this.options).sourceHash,
+      capturedAt: new Date().toISOString(),
+      scripts: istanbulToScripts(coverage),
+      status: "final",
+    };
+  }
+}
+
+export { instrumentIstanbul, istanbulToScripts, readIstanbulCoverage, ISTANBUL_GLOBAL } from "./istanbul.js";
+export { dedupeCoverageFragments, mergeCoverageFragments, mergeV8Scripts, fragmentKey } from "./fragments.js";
 
 export function benchmarkCoverageSummarize(iterations = 250): { opsPerSec: number; elapsedMs: number; iterations: number } {
   const source = "function one(value) {\n  if (value) return true;\n  return false;\n}\nfunction two() { return 0; }\n";

@@ -110,9 +110,12 @@ export function createProbe(file: CoverageManifestFile, prepared?: PreparedScrip
   return { available: true, quality, count(location) {
     const start = anchor(location);
     const end = location.end.offset ?? start;
-    const point = points.find((item) => item.original >= start && item.original < end);
-    if (!point) { if (!quality.diagnostics.includes("LOCATION_NOT_MAPPED")) quality.diagnostics.push("LOCATION_NOT_MAPPED"); return 0; }
-    // Multiple generated copies of the same original token are unioned, not summed.
-    return Math.max(...points.filter((item) => item.original === point.original).map((item) => countAt(script, item.generated)));
+    const generated = points.filter((item) => item.original >= start && item.original <= end).map((item) => countAt(script, item.generated));
+    if (!generated.length) {
+      const nearest = points.find((item) => item.original >= start);
+      if (!nearest) { if (!quality.diagnostics.includes("LOCATION_NOT_MAPPED")) quality.diagnostics.push("LOCATION_NOT_MAPPED"); return 0; }
+      return countAt(script, nearest.generated);
+    }
+    return Math.max(0, ...generated);
   } };
 }
