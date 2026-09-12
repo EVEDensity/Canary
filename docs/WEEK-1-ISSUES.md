@@ -144,3 +144,51 @@ pnpm: 10.15.0
 TypeScript: 5.9.3
 Vitest: 3.2.7
 ```
+
+
+## Follow-up validation after P0 continuation (2026-09-12)
+
+### Source mapping and Feature Coverage
+
+- Added `packages/coverage/src/source-mapping.ts` with local inline/external source-map loading, Windows/file URL canonicalization, source-content hash validation, and explicit `exact`/`approximate`/`unknown` quality diagnostics.
+- Added generated/original source-map regression coverage. The test confirms a shifted generated V8 range is attributed to the original TypeScript file and is marked `source-map` + `approximate` rather than falsely claiming exactness.
+- Added branch/function/error/unloaded fixture files and an expected coverage matrix under `packages/coverage/tests/fixtures/`.
+- Added Feature status matrix tests for covered/partial/uncovered/failed/unavailable and multi-case identity union.
+
+### Real command results
+
+| Command | Result | Details |
+|---|---|---|
+| `pnpm typecheck` | PASS | All 12 participating workspace projects passed. |
+| `pnpm test` | PASS | Coverage: 3 files / 13 tests; Runner: 1 / 4; Web: 1 / 2; CLI: 1 / 1; evaluator: 1 / 4. Empty packages use `--passWithNoTests`. |
+| `pnpm build` | PASS | All workspace builds passed. |
+| `pnpm canary -- --headless --no-open` | PASS | Run `run_08987f4d-f336-4fb3-88c4-5dfdb0753d78`; status `completed`; coverage `final`; lines `2/2`. |
+| artifact validation | PASS | `.canary/artifacts/run_08987f4d-f336-4fb3-88c4-5dfdb0753d78/run.json`, `coverage.json`, and `coverage-manifest.json` exist. |
+| Web coverage API | PASS | Run `run_d5aaf817-ecff-4411-93ee-98db10331cbd`; HTTP `200`; `/api/runs/:runId/coverage` returned `status: final`. |
+| SSE subscriber cleanup | PASS | Direct HTTP validation confirmed zero subscribers after client close; Web test also passes. |
+
+### Current limitations
+
+1. Source-map location attribution is deliberately `approximate` at token/segment granularity; exact branch/function mapping still requires a compiler-specific instrumenter or richer generated-range metadata.
+2. The generated child currently supplies `Debugger.getScriptSource`; source-map URL discovery is supported, but remote maps are rejected and no network fetch is attempted.
+3. Feature `covered` requires both a completed feature event and complete selected coverage; completion alone is classified as `partial` when source coverage is incomplete.
+4. RunStore remains in-memory; artifacts are persisted but not replayed automatically at Web startup.
+5. The subprocess boundary is not a security sandbox and does not yet enforce filesystem/network quotas.
+
+## P1 continuation validation (2026-09-12)
+
+Implemented:
+- provisional V8 coverage sampling over child IPC with configurable `sampleIntervalMs` and final coverage cleanup;
+- RunStore coverage fingerprint de-duplication and subscriber count diagnostics;
+- file-backed `FileArtifactRepository` with `listRuns`, `readRun`, `readCoverage`, and Web startup hydration;
+- CLI artifact emission for `trajectory.json` and `evaluator.json`;
+- case discovery supporting include arrays, stable ordering, duplicate IDs, schema diagnostics, no-match errors, and `.ts/.mts/.cts/.js/.mjs` files.
+
+Validation:
+- `pnpm typecheck`: PASS
+- `pnpm build`: PASS
+- `pnpm --filter @canary/runner test`: PASS (4 tests)
+- `pnpm --filter @canary/cli test` after build: PASS (1 test)
+- Full `pnpm test` before rebuilding package dist: FAIL due stale workspace dist consuming pre-change Runner output; rebuilding with `pnpm build` then rerunning affected CLI test: PASS.
+
+Known limitation: workspace package tests that import package exports require a current build because package exports resolve `dist`; CI must run build before cross-package tests or use source aliases.
