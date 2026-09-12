@@ -1,12 +1,13 @@
-<div align="center">
-<img src="docs/images/logo.png" height="90" align="middle" />
-<h1 align="center" style="display:inline-block; margin:0 0 0 16px; vertical-align:middle; font-size:48px; letter-spacing:-1px;">Canary</h1>
-</div>
+<p align="center">
+  <img src="docs/images/logo-hero.png" height="200" align="middle" />
+  <span style="font-size:96px; font-weight:800; letter-spacing:-3px; margin-left:24px; vertical-align:middle;">Canary</span>
+</p>
 
 <div align="center">
 
 <div>
 <a href="https://github.com/EVEDensity/Canary/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/EVEDensity/Canary/ci.yml?label=ci&style=flat-square" alt="CI" /></a>
+<a href="https://github.com/EVEDensity/Canary/releases/latest"><img src="https://img.shields.io/github/v/release/EVEDensity/Canary?color=76bad9&style=flat-square" alt="Release" /></a>
 <img src="https://img.shields.io/badge/license-Apache--2.0-blue?style=flat-square" alt="License: Apache-2.0" />
 <img src="https://img.shields.io/badge/pnpm-10-orange?logo=pnpm&style=flat-square" alt="pnpm" />
 <img src="https://img.shields.io/badge/node-%E2%89%A522-green?logo=node.js&style=flat-square" alt="Node ≥22" />
