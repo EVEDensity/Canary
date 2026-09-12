@@ -25,7 +25,7 @@ export interface Trajectory {
   caseId: string;
   events: TrajectoryEvent[];
   stepCount: number;
-  termination: "completed" | "timeout" | "budget_exceeded" | "error" | "loop_detected";
+  termination: "completed" | "timeout" | "cancelled" | "budget_exceeded" | "error" | "loop_detected";
 }
 
 export interface CoverageMetric { covered: number; total: number; pct: number }
@@ -73,3 +73,4 @@ export interface EvalResult {
 }
 
 export function defineConfig(config: CanaryConfig): CanaryConfig { return config; }
+
