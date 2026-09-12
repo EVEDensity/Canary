@@ -214,6 +214,8 @@ const page = `
 const client = `
 const params=new URLSearchParams(location.search);
 const runId=params.get('runId');
+const writeToken=params.get('token')||window.__CANARY_WRITE_TOKEN__||'';
+function writeHeaders(){var h={'content-type':'application/json'};if(writeToken)h['x-canary-write-token']=writeToken;return h;}
 const $=id=>document.getElementById(id);
 let coverageFingerprint='';
 let current=null;
@@ -407,7 +409,7 @@ function improvements(items){
 $('improvements').onclick=function(e){
   var btn=e.target.closest('[data-suggest]');
   if(!btn||!runId)return;
-  fetch('/api/runs/'+runId+'/improvements/'+encodeURIComponent(btn.getAttribute('data-suggest')),{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({status:btn.getAttribute('data-status')})}).then(function(r){return r.json().then(function(data){return {ok:r.ok,data:data};});}).then(function(res){
+  fetch('/api/runs/'+runId+'/improvements/'+encodeURIComponent(btn.getAttribute('data-suggest')),{method:'POST',headers:writeHeaders(),body:JSON.stringify({status:btn.getAttribute('data-status')})}).then(function(r){return r.json().then(function(data){return {ok:r.ok,data:data};});}).then(function(res){
     if(!res.ok){$('improvements').insertAdjacentHTML('afterbegin','<div class=bad>'+esc(res.data.error||'decision failed')+'</div>');return;}
     return fetch('/api/runs/'+runId+'/improvements').then(function(r){return r.json();}).then(improvements);
   }).catch(function(err){$('improvements').insertAdjacentHTML('afterbegin','<div class=bad>'+esc(err)+'</div>');});
@@ -519,8 +521,9 @@ function fillCompare(runs){
 function renderCompare(data){
   $('cmp-out').textContent=JSON.stringify(data,null,2);
   var d=data.coverageDelta||{};
-  var sign=function(n){return (n>0?'+':'')+(Math.round(n*10)/10);};
-  $('cmp-viz').innerHTML='<div class="delta"><div class="card"><div class="muted">verdict</div><b class="'+tone(data.verdict==='reject'?'failed':data.verdict==='improve'?'completed':'idle')+'">'+esc(data.verdict)+'</b></div><div class="card"><div class="muted">lines</div><b>'+sign(d.lines||0)+'</b></div><div class="card"><div class="muted">branches</div><b>'+sign(d.branches||0)+'</b></div><div class="card"><div class="muted">functions</div><b>'+sign(d.functions||0)+'</b></div></div><div class="muted">regressions: '+((data.regressions||[]).join(', ')||'none')+'</div><div class="muted">improvements: '+((data.improvements||[]).join(', ')||'none')+'</div>';
+  var sign=function(n){return n==null?'n/a':((n>0?'+':'')+(Math.round(n*10)/10));};
+  var toneKey=data.verdict==='reject'||data.verdict==='incomparable'?'failed':data.verdict==='improve'?'completed':'idle';
+  $('cmp-viz').innerHTML='<div class="delta"><div class="card"><div class="muted">verdict</div><b class="'+tone(toneKey)+'">'+esc(data.verdict)+'</b></div><div class="card"><div class="muted">admission</div><b>'+esc((data.admission&&data.admission.verdict)||'n/a')+'</b></div><div class="card"><div class="muted">lines</div><b>'+sign(d.comparable===false?null:d.lines)+'</b></div><div class="card"><div class="muted">branches</div><b>'+sign(d.comparable===false?null:d.branches)+'</b></div><div class="card"><div class="muted">functions</div><b>'+sign(d.comparable===false?null:d.functions)+'</b></div></div><div class="muted">regressions: '+((data.regressions||[]).join(', ')||'none')+'</div><div class="muted">improvements: '+((data.improvements||[]).join(', ')||'none')+'</div>';
 }
 function compareRuns(base,cand){
   $('cmp-out').textContent='Comparing…';
@@ -537,7 +540,7 @@ $('cmp-go').onclick=function(){
 $('replay-btn').onclick=function(){
   if(!runId)return;
   $('replay-status').textContent='Replaying…';
-  fetch('/api/runs/'+runId+'/replay',{method:'POST',headers:{'content-type':'application/json'},body:'{}'}).then(function(r){return r.json().then(function(data){return {ok:r.ok,data:data};});}).then(function(res){
+  fetch('/api/runs/'+runId+'/replay',{method:'POST',headers:writeHeaders(),body:'{}'}).then(function(r){return r.json().then(function(data){return {ok:r.ok,data:data};});}).then(function(res){
     $('replay-status').textContent=res.data.command||JSON.stringify(res.data);
     if(res.ok&&res.data.replayRunId) location.search='?runId='+encodeURIComponent(res.data.replayRunId);
   }).catch(function(err){$('replay-status').textContent=String(err);});
@@ -642,7 +645,8 @@ export function renderPage(run?: {
   passedCases: number;
   results?: Array<{ caseId: string; passed: boolean }>;
   coverage?: { status?: string };
-}): string {
+}, options: { writeToken?: string } = {}): string {
+  const tokenScript = `<script>window.__CANARY_WRITE_TOKEN__=${JSON.stringify(options.writeToken ?? "")};</script>`;
   const noscript = run
     ? `<noscript><section class="card"><h2>Snapshot (no JavaScript)</h2>
 <p>Live SSE is unavailable. This is the last persisted snapshot.</p>
@@ -652,5 +656,5 @@ export function renderPage(run?: {
 <p><a href="/api/runs/${encodeURIComponent(run.runId)}">JSON snapshot</a> · <a href="/api/runs/${encodeURIComponent(run.runId)}/report/markdown">Markdown report</a></p>
 </section></noscript>`
     : `<noscript><section class="card"><p>Enable JavaScript for the live dashboard, or open <a href="/api/runs">/api/runs</a> for JSON history.</p></section></noscript>`;
-  return html.replace("<!--NOSCRIPT-->", noscript);
+  return html.replace("<!--NOSCRIPT-->", noscript).replace("</head>", `${tokenScript}</head>`);
 }
