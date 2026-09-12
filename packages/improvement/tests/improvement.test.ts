@@ -17,6 +17,8 @@ describe("improvement loop", () => {
     expect(suggestions[0]?.status).toBe("proposed");
     expect(suggestions[0]?.evidence.length).toBeGreaterThan(0);
     expect(suggestions[0]?.proposedCase?.id).toBe("bad.regression");
+    expect(suggestions[0]?.kind).toBe("wrong_output");
+    expect(suggestions[0]?.evidence.some((item) => item.type === "assertion")).toBe(true);
   });
 
   it("rejects a candidate that regresses a passing baseline case", () => {
@@ -52,5 +54,8 @@ describe("improvement loop", () => {
     const [suggestion] = proposeFromResults("run_a", [evalResult("bad", false)]);
     expect(() => decideSuggestion(suggestion!, "verified")).toThrow(/accepted/);
     expect(decideSuggestion(suggestion!, "rejected").status).toBe("rejected");
+    const accepted = decideSuggestion(suggestion!, "accepted");
+    expect(decideSuggestion(accepted, "verified").status).toBe("verified");
+    expect(() => decideSuggestion(decideSuggestion(accepted, "verified"), "proposed")).toThrow(/immutable/);
   });
 });

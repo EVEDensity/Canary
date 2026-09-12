@@ -8,9 +8,12 @@
     "include":  [
                     "src/**/*.ts"
                 ],
-    "references":  [
+                "references":  [
                        {
                            "path":  "../core"
+                       },
+                       {
+                           "path":  "../evaluators"
                        }
                    ]
 }
