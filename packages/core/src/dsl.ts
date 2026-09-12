@@ -24,12 +24,22 @@ const trajectory = () => ({
   errorRecovery: (errorEvent?: string, recoveryEvent?: string): AssertionSpec => ({ type: "trajectory.error_recovery", errorEvent, recoveryEvent }),
 });
 
-const coverage = () => ({
-  feature: (featureId: string) => ({
+function coverageFeature(featureId: string) {
+  return {
     atLeast: (minPct: number): AssertionSpec => ({ type: "coverage.atLeast", featureId, minPct }),
     expected: (): AssertionSpec => ({ type: "feature.expected", featureId }),
-  }),
-});
+  };
+}
+function coverageAtLeast(featureId: string, minPct: number): AssertionSpec {
+  return coverageFeature(featureId).atLeast(minPct);
+}
+/** Dual API: `expect.coverage.atLeast(id, n)` and `expect.coverage().feature(id).atLeast(n)`. */
+const coverage = Object.assign(
+  function coverage() {
+    return { feature: coverageFeature, atLeast: coverageAtLeast };
+  },
+  { feature: coverageFeature, atLeast: coverageAtLeast },
+);
 
 const judge = () => ({
   score: (options: { minScore?: number; minConfidence?: number; rubric?: string; timeoutMs?: number } = {}): AssertionSpec => ({

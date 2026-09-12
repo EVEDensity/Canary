@@ -53,6 +53,23 @@ export interface CoverageGateResult {
 
 export type ToolAdapterKind = "mock" | "mcp-stdio" | "mcp-http";
 export type ModelProviderKind = "deterministic" | "echo";
+export interface ModelCompletion { text: string; usage?: { tokens?: number } }
+/** Agent-side model calls. Not JudgeProvider — judges live in `@canary/evaluators`. */
+export interface ModelProvider {
+  readonly kind: ModelProviderKind;
+  complete(prompt: string): Promise<ModelCompletion>;
+}
+
+export const CANONICAL_SSE_EVENTS = [
+  "run.started",
+  "case.started",
+  "trace.event",
+  "coverage.updated",
+  "case.finished",
+  "run.finished",
+  "run.error",
+] as const;
+export type CanonicalSseEvent = (typeof CANONICAL_SSE_EVENTS)[number];
 
 export interface CanaryToolsConfig {
   adapter: ToolAdapterKind;
@@ -220,6 +237,11 @@ export interface CoverageSummary {
   branches: CoverageMetric;
   files?: CoverageFile[];
   featureChains: FeatureCoverage[];
+  /** Module-load sample is captured then V8 counters reset before the agent task. */
+  lifecycle?: {
+    initCaptured: boolean;
+    taskWindow: "reset-after-init";
+  };
 }
 
 export interface StateDiff {

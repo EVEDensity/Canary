@@ -8,5 +8,6 @@
 
 - 只定义类型、轻量工厂和跨模块契约。
 - `defineCase` / `defineCases` 与 `expect.*` 是 TestCase DSL；底层仍是 `AssertionSpec`。
+- Coverage DSL 两种写法等价：`expect.coverage.atLeast(id, n)` 与 `expect.coverage().feature(id).atLeast(n)`。
 - 不启动 Agent、不执行文件系统操作、不采集覆盖率、不提供 HTTP 服务。
 - 任何运行时输入校验应在边界 Adapter 中完成；未来可在此包补充 Zod schemas。

@@ -37,6 +37,8 @@ describe("Zod boundary validation", () => {
         canaryExpect.trajectory().hasNoLoop(),
         canaryExpect.trajectory().maxSteps(12),
         canaryExpect.coverage().feature("error-recovery").atLeast(60),
+        canaryExpect.coverage.atLeast("planning", 70),
+        canaryExpect.coverage.feature("lookup").expected(),
         canaryExpect.judge().score({ minScore: 0.7, minConfidence: 0.5 }),
       ],
     });
@@ -45,6 +47,8 @@ describe("Zod boundary validation", () => {
       "trajectory.forbidden_event",
       "trajectory.max_steps",
       "coverage.atLeast",
+      "coverage.atLeast",
+      "feature.expected",
       "judge.score",
     ]);
     expect(defineCases([testCase])).toHaveLength(1);
