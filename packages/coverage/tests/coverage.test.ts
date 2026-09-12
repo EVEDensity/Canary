@@ -7,7 +7,7 @@ import { SourceMapGenerator } from "source-map-js";
 import { pathToFileURL } from "node:url";
 import type { CoverageFragment, CoverageManifestFile } from "@canary/core";
 import { ISTANBUL_GLOBAL, dedupeCoverageFragments, instrumentIstanbul, mergeV8Scripts, readIstanbulCoverage, summarizeIstanbulCoverage } from "../src/index.js";
-import { createProbe, prepareScript } from "../src/source-mapping.js";
+import { createProbe, prepareScript, SOURCE_MAP_PRECISION } from "../src/source-mapping.js";
 
 afterEach(() => {
   delete (globalThis as Record<string, unknown>)[ISTANBUL_GLOBAL];
@@ -84,6 +84,6 @@ describe("source-map precision", () => {
     const probe = createProbe(manifest, prepareScript(script, cwd));
     expect(probe.available).toBe(true);
     expect(probe.quality.mappingMode).toBe("source-map");
-    expect(probe.quality.precision).toBe("approximate");
+    expect(probe.quality.precision).toBe(SOURCE_MAP_PRECISION);
   });
 });

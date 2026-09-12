@@ -392,6 +392,7 @@ export class IstanbulCoverageProvider implements CoverageProvider {
 
 export { instrumentIstanbul, istanbulToScripts, readIstanbulCoverage, ISTANBUL_GLOBAL } from "./istanbul.js";
 export { dedupeCoverageFragments, mergeCoverageFragments, mergeV8Scripts, fragmentKey } from "./fragments.js";
+export { SOURCE_MAP_PRECISION } from "./source-mapping.js";
 
 export function benchmarkCoverageSummarize(iterations = 250): { opsPerSec: number; elapsedMs: number; iterations: number } {
   const source = "function one(value) {\n  if (value) return true;\n  return false;\n}\nfunction two() { return 0; }\n";

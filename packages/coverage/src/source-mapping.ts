@@ -6,6 +6,8 @@ import { fileURLToPath } from "node:url";
 import { SourceMapConsumer, type RawSourceMap } from "source-map-js/source-map.js";
 import type { CoverageManifestFile, CoverageManifestLocation, CoverageQuality, CoverageScript } from "@canary/core";
 
+export const SOURCE_MAP_PRECISION = "approximate" as const;
+
 export function canonicalPath(value: string, rootDir = process.cwd()): string | undefined {
   if (!value || (/^[a-z][a-z+.-]*:/i.test(value) && !/^[a-z]:[\\/]/i.test(value) && !value.startsWith("file:"))) return undefined;
   try {
@@ -105,7 +107,7 @@ export function createProbe(file: CoverageManifestFile, prepared?: PreparedScrip
     if (originalLine !== undefined && generatedLine !== undefined) points.push({ original: originalLine + mapping.originalColumn, generated: generatedLine + mapping.generatedColumn });
   });
   points.sort((a, b) => a.original - b.original || a.generated - b.generated);
-  const quality: CoverageQuality = { mappingMode: "source-map", precision: "approximate", diagnostics: ["SOURCE_MAP_TOKEN_GRANULARITY", ...(original === null ? ["SOURCE_CONTENT_UNVERIFIED"] : [])] };
+  const quality: CoverageQuality = { mappingMode: "source-map", precision: SOURCE_MAP_PRECISION, diagnostics: ["SOURCE_MAP_TOKEN_GRANULARITY", ...(original === null ? ["SOURCE_CONTENT_UNVERIFIED"] : [])] };
   if (!points.length) return unavailable("SOURCE_MAP_HAS_NO_SEGMENTS", "source-map");
   return { available: true, quality, count(location) {
     const start = anchor(location);
