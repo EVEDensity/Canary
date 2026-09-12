@@ -75,7 +75,15 @@ export class RunStore {
     this.subscribers.set(runId, set);
     const snapshot = this.get(runId);
     if (snapshot) this.writeEvent(response, { type: "run.snapshot", runId, payload: snapshot });
-    return () => { set.delete(response); if (set.size === 0) this.subscribers.delete(runId); };
+    let active = true;
+    const unsubscribe = (): void => {
+      if (!active) return;
+      active = false;
+      set.delete(response);
+      if (set.size === 0) this.subscribers.delete(runId);
+    };
+    response.once("close", unsubscribe);
+    return unsubscribe;
   }
 
   private publish(runId: string, event: { type: string; runId: string; payload: unknown }): void {
@@ -83,14 +91,15 @@ export class RunStore {
   }
 
   private writeEvent(response: Subscriber, event: { type: string; runId: string; payload: unknown }): void {
-    response.write(`event: ${event.type}\ndata: ${JSON.stringify(event.payload)}\n\n`);
+    if (response.writableEnded || response.destroyed) return;
+    try { response.write(`event: ${event.type}\ndata: ${JSON.stringify(event.payload)}\n\n`); } catch { /* client disconnected */ }
   }
 }
 
 const html = `<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>canary</title><style>body{font-family:system-ui;margin:0;background:#0b1120;color:#e2e8f0}main{max-width:1180px;margin:auto;padding:28px}.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}.card{background:#172033;border:1px solid #2b3a55;border-radius:12px;padding:16px;margin:12px 0}.metric{font-size:28px;font-weight:700}.muted{color:#93a4bf}pre{white-space:pre-wrap;max-height:420px;overflow:auto;color:#bfdbfe}.ok{color:#86efac}.bad{color:#fca5a5}@media(max-width:800px){.grid{grid-template-columns:repeat(2,1fr)}}</style></head><body><main><h1>canary</h1><p class="muted">Agent evaluation · runtime coverage · evidence-driven improvement</p><div class="grid"><div class="card"><div id="status" class="metric">idle</div><div class="muted">status</div></div><div class="card"><div id="progress" class="metric">0/0</div><div class="muted">cases</div></div><div class="card"><div id="passed" class="metric">0</div><div class="muted">passed</div></div><div class="card"><div id="latency" class="metric">—</div><div class="muted">latest latency</div></div></div><section class="card"><h2>Coverage</h2><div id="coverage">Waiting for coverage data…</div></section><section class="card"><h2>Feature chains</h2><div id="features">Waiting for feature coverage…</div></section><section class="card"><h2>Live events</h2><pre id="events">Connecting…</pre></section></main><script>const runId=new URLSearchParams(location.search).get('runId');const $=id=>document.getElementById(id);const log=x=>{$('events').textContent=JSON.stringify(x,null,2)+'\\n'+$('events').textContent};function render(s){$('status').textContent=s.status;$('progress').textContent=s.completedCases+'/'+s.totalCases;$('passed').textContent=s.passedCases;if(s.results?.length){$('latency').textContent=s.results.at(-1).metrics.latencyMs+'ms'}}function coverage(c){$('coverage').innerHTML=['lines','branches','functions','statements'].map(k=>k+': <b>'+c[k].pct+'%</b> ('+c[k].covered+'/'+c[k].total+')').join(' · ');$('features').innerHTML=(c.featureChains||[]).map(f=>'<div>'+f.name+': <b>'+f.coverage.pct+'%</b></div>').join('')||'No feature chains yet'}if(runId){const es=new EventSource('/api/runs/'+runId+'/events');es.addEventListener('run.snapshot',e=>render(JSON.parse(e.data)));es.addEventListener('run.updated',e=>render(JSON.parse(e.data)));es.addEventListener('coverage.updated',e=>coverage(JSON.parse(e.data)));es.onmessage=e=>log(JSON.parse(e.data));}else{$('events').textContent='No runId. Start with canary run.'}</script></body></html>`;
 
 export function createWebServer(store: RunStore, host = "127.0.0.1", port = 0) {
-  const server = createServer((request, response) => {
+  const server = createServer((request: IncomingMessage, response: ServerResponse<IncomingMessage>) => {
     void handleRequest(store, request, response);
   });
   return { server, listen: () => new Promise<{ url: string; port: number }>((resolve) => server.listen(port, host, () => { const address = server.address(); const actualPort = typeof address === "object" && address ? address.port : port; resolve({ url: `http://${host}:${actualPort}`, port: actualPort }); })) };
@@ -110,6 +119,7 @@ async function handleRequest(store: RunStore, request: IncomingMessage, response
       response.writeHead(200, { "content-type": "text/event-stream", "cache-control": "no-cache", connection: "keep-alive" });
       const unsubscribe = store.subscribe(runId, response);
       request.on("close", unsubscribe);
+      request.on("error", unsubscribe);
       return;
     }
     if (parts[3] === "coverage") { response.writeHead(200, { "content-type": "application/json" }); response.end(JSON.stringify(run.coverage ?? null)); return; }
@@ -117,3 +127,6 @@ async function handleRequest(store: RunStore, request: IncomingMessage, response
   }
   response.writeHead(404); response.end("Not found");
 }
+
+
+
