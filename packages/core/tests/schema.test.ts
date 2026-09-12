@@ -18,7 +18,8 @@ describe("Zod boundary validation", () => {
       tools: { adapter: "mcp-stdio", command: "node", args: ["./servers/mcp-tools.ts"] },
       model: { provider: "deterministic" },
       runtime: { concurrency: 2 },
-    }).runtime?.concurrency).toBe(2);
+      judge: { provider: "http", url: "http://127.0.0.1:9/score", allowOutbound: true, required: true },
+    }).judge?.allowOutbound).toBe(true);
   });
 
   it("requires TestCase id and input, and does not swallow invalid cases", () => {

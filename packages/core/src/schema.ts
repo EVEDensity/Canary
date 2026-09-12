@@ -67,6 +67,14 @@ export const canaryConfigSchema = z.object({
     provider: z.enum(["deterministic", "echo"]),
     responses: z.record(z.string()).optional(),
   }).strict().optional(),
+  judge: z.object({
+    provider: z.enum(["http", "deterministic"]),
+    required: z.boolean().optional(),
+    url: z.string().min(1).optional(),
+    timeoutMs: z.number().positive().optional(),
+    rubric: z.string().optional(),
+    allowOutbound: z.boolean().optional(),
+  }).strict().optional(),
   runtime: z.object({
     timeoutMs: z.number().positive().optional(),
     maxSteps: z.number().int().positive().optional(),
@@ -101,6 +109,11 @@ export const testCaseSchema = z.object({
     maxBudget: z.number().nonnegative().optional(),
     repetitions: z.number().int().positive().optional(),
   }).optional(),
+  dataset: z.object({
+    split: z.enum(["eval", "holdout", "regression"]).optional(),
+    version: z.string().min(1).optional(),
+    contentHash: z.string().min(1).optional(),
+  }).strict().optional(),
 }).strict().refine((value) => value.input !== undefined, { message: "input is required", path: ["input"] });
 
 export const trajectoryEventSchema = z.object({
