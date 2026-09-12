@@ -1,20 +1,21 @@
-{
-  "extends": "../../tsconfig.base.json",
-  "compilerOptions": {
-    "rootDir": ".",
-    "outDir": "dist",
-    "composite": true
-  },
-  "include": [
-    "src/**/*.ts",
-    "cases/**/*.ts"
-  ],
-  "references": [
-    {
-      "path": "../../packages/core"
-    },
-    {
-      "path": "../../packages/coverage"
-    }
-  ]
+﻿{
+    "extends":  "../../tsconfig.base.json",
+    "compilerOptions":  {
+                            "rootDir":  ".",
+                            "outDir":  "dist",
+                            "tsBuildInfoFile":  "dist/.tsbuildinfo"
+                        },
+    "include":  [
+                    "src/**/*.ts",
+                    "cases/**/*.ts"
+                ],
+    "references":  [
+                       {
+                           "path":  "../../packages/core"
+                       },
+                       {
+                           "path":  "../../packages/coverage"
+                       }
+                   ]
 }
+
