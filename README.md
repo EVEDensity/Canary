@@ -15,37 +15,37 @@
 
 <br>
 
-<a href="docs/getting-started.md">Getting Started</a> ｜
-<a href="docs/architecture.md">Architecture</a> ｜
-<a href="docs/feature-coverage.md">Feature Coverage</a> ｜
-<a href="docs/self-improvement.md">Self-Improvement</a> ｜
-<a href="docs/ci.md">CI</a> ｜
-<a href="docs/troubleshooting.md">Troubleshooting</a> ｜
+<a href="docs/guides/getting-started.md">Getting Started</a> ｜
+<a href="docs/current/architecture.md">Architecture</a> ｜
+<a href="docs/guides/evaluation-and-coverage.md">Feature Coverage</a> ｜
+<a href="docs/guides/improvement.md">Self-Improvement</a> ｜
+<a href="docs/guides/ci-and-validation.md">CI</a> ｜
+<a href="docs/guides/troubleshooting.md">Troubleshooting</a> ｜
 <a href="./SECURITY.md">Security</a> ｜
 <a href="https://github.com/EVEDensity/Canary/issues">Issues</a>
 
 </div>
 
-**canary** is a local-first TypeScript Agent testing, coverage, and improvement workspace. It runs your Agent like an end-to-end test — records trajectory, collects V8 source coverage, and turns failures into auditable regression work. It does **not** edit Agent source.
+**canary** is a local-first TypeScript Agent testing, coverage, and improvement workspace. It runs your Agent like an end-to-end test — records trajectory, collects V8 source coverage, and turns failures into auditable regression work. The current implementation does **not** edit Agent source. Future controlled evolution is a design target, not an enabled feature.
 
-Agent runs locally and you think it works? Not quite. `canary` treats your Agent as repeatable test cases: run each case, capture the full trajectory (system prompt, user input, tool call chain, final answer), and collect live V8 source coverage (lines / branches / functions / statements). Coverage is never faked — missing instrumentation is honestly marked `unavailable`, never 0% or 100%. Failures are auto-attributed (prompt error / tool unavailable / policy violation / infinite loop), generating an auditable regression checklist; on the next run, baseline vs candidate comparison produces a report or junit for CI gating.
+Canary executes configured cases, records observable events, checks assertions and state, and collects coverage for supported local Node agents. It cannot automatically capture the internal prompts or tool chains of remote black-box agents. Interpret coverage by its status and precision; unavailable numeric placeholders are not measured coverage. Existing suggestions and baseline/candidate reports support manual diagnosis, **not safe automatic admission**. See the [code audit](docs/evidence/code-audit.md) for known comparison and Judge gaps.
 
 ![Local UI five-view screenshot](docs/images/ui-overview.png)
 
 ## ✨ Key Features
 
 1. 🎯 **V8 Source Coverage** — Live continuous sampling during execution, merged at final; honestly reports `unavailable` when instrumentation is absent.
-2. 🪝 **Multi-Adapter** — `function` (local), `http` (black-box), `mcp` (stdio), `mcp-http`.
-3. 🔁 **Repetitions** — `--repetitions N` runs the same case N times, summarizing variance and stability.
+2. 🪝 **Multi-Adapter** — Agent adapters: `function` (local), `http` (black-box), `mcp` (stdio). MCP tools have separate stdio/HTTP adapters.
+3. 🔁 **Repetitions** — `--repetitions N` runs each selected case N times; current comparison does not yet provide reliable trial aggregation or statistical admission.
 4. 🛠️ **Mock Environment** — In-memory StateStore with snapshot/restore + MockToolAdapter; no external services required.
-5. 🧪 **Extensible Evaluators** — Built-in assertion / state / tool / policy / loop / coverage / coverage-gate evaluators; pluggable LLM-as-Judge.
-6. 🏷️ **Replay & Compare** — Any runId can be replayed or diffed; CLI outputs markdown / junit / console reports.
-7. 🧠 **Improvement Loop** — Failures auto-attributed → generates regression cases → compare baseline/candidate → admission.
+5. 🧪 **Extensible Evaluators** — Built-in assertion / state / tool / policy / loop / coverage / coverage-gate evaluators; Judge provider interfaces exist, but CLI/Runner do not yet wire a real semantic Judge.
+6. 🏷️ **Replay & Compare** — Replay re-executes recorded case IDs against current configuration, not a frozen historical environment; CLI also provides comparison and reports.
+7. 🧠 **Improvement Assistance** — Failure attribution → manually review regression drafts → run a supplied candidate → inspect comparison. No automatic code application or trusted admission controller.
 8. 🖼️ **Five-View Web UI** — Live run / Case Detail (assertion diff + source highlight + state diff + preparing state) / Coverage / Compare / Replay.
 
 ## 🚀 Quick Start
 
-> **One-line install → global `canary run` from anywhere.** No `npm i -g` or `npx` required.
+> Installation scripts create a global command, but the current launcher sets its working directory to the installed checkout. **Running from another project does not yet automatically select that project.** Review remote scripts before executing them. See [installation details](docs/guides/getting-started.md).
 
 Requires Node ≥22 and Git.
 
@@ -73,11 +73,11 @@ Open a **new terminal**, then:
 canary run
 ```
 
-Runs the default 15-case demo and opens the local UI. Headless: `canary run --headless --no-open`.
+Normally runs the installed checkout’s default 15-case demo. The current CLI opens/prints the UI after execution, although the server listens earlier. Headless: `canary run --headless --no-open` (currently still briefly binds a server). For another project, pass an absolute `--config` path and read the history-command limitations in the guide.
 
 Already inside the repo? `node scripts/install-global.mjs` or `pnpm install:global`.
 
-Default suite: 15 deterministic cases under `cases/` against `examples/local-agent` — no API keys needed. Artifacts land at `.canary/artifacts/<runId>/`.
+Default suite: 15 deterministic cases under `cases/` against `examples/local-agent` — no API keys needed. Artifacts land under the selected config directory at `.canary/artifacts/<runId>/`.
 
 ### Common Commands
 
@@ -98,17 +98,17 @@ Canary/
 │   ├── core/           # Domain types + Zod schema + IPC protocol
 │   ├── coverage/       # V8 collector + Istanbul fallback + fragments merge
 │   ├── evaluators/     # Evaluator suite + attribution engine + LLM Judge
-│   ├── adapters/       # function / http / mcp / mcp-http adapters
+│   ├── adapters/       # Agent: function / http / mcp; separate MCP Tool adapters
 │   ├── environment/    # In-memory StateStore + MockTool
 │   ├── runner/         # Orchestration · repetitions · cancel · streaming artifacts
 │   ├── reporters/      # json · markdown · junit · console
 │   ├── improvement/    # Compare · decideSuggestion · regression drafts
 │   ├── trace/          # JSONL persistence store
-│   └── cli/            # run / shows / report / compare / improve / replay / verify
+│   └── cli/            # run / runs / show / report / compare / improve / suggest / candidate / replay
 ├── apps/web/           # Five-view Web UI (SSE)
 ├── cases/              # smoke / regression / holdout
 ├── examples/           # local-agent · mcp-agent · http-agent · loop-agent · recovery-agent · improvement-demo
-├── docs/               # Architecture · Getting Started · MCP · CI · Replay · Self-improvement · ...
+├── docs/               # current / guides / design / roadmap / evidence / research / archive
 └── .github/workflows/  # CI · Release
 ```
 
@@ -124,9 +124,17 @@ Canary/
 
 ## ⚠️ Honest Boundaries
 
-`canary` does **not** measure remote black-box reasoning quality, non-Node languages, browser visual agents, or Docker sandboxes. Judge scores are optional and **fail closed** on error, timeout, or low confidence.
+`canary` does **not** measure remote black-box reasoning quality, non-Node languages, browser visual agents, or Docker sandboxes. Explicit Judge error, timeout and low-confidence paths can fail, but absent injection currently falls back to a deterministic output-existence stub. **That fallback is not semantic evaluation and must not authorize autonomous changes.**
 
 The runner is **not** a sandbox — it executes your Agent code directly. By default no model API is called outbound.
+
+## 📚 Documentation and Future Work
+
+Start at the [documentation index](docs/README.md). Current behavior, ideal architecture and pending tasks are separate:
+
+- [Actual architecture](docs/current/architecture.md) and [validation baseline](docs/evidence/validation-baseline.md).
+- [Ideal bounded Agent loop](docs/design/agent-loop.md) and [soft/hard evolution policy](docs/design/evolution-policy.md).
+- [Implementation roadmap](docs/roadmap/README.md): all future tasks remain pending.
 
 ## ❤️ Contributing
 
@@ -134,7 +142,9 @@ Issues and Pull Requests are always welcome. For adding new features, please dis
 
 ```bash
 git clone https://github.com/EVEDensity/Canary
+cd Canary
 pnpm install
+pnpm build          # package exports resolve built dist
 pnpm check          # format / lint / typecheck / test
 pnpm demo:headless  # default 15-case smoke (same as CI)
 ```
@@ -143,7 +153,7 @@ pnpm demo:headless  # default 15-case smoke (same as CI)
 
 <a href="https://github.com/EVEDensity/Canary/discussions">Discussions</a> ｜
 <a href="https://github.com/EVEDensity/Canary/issues">Issue Tracker</a> ｜
-<a href="docs/acceptance-10-min.md">10-minute Acceptance</a>
+<a href="docs/guides/ci-and-validation.md">10-minute Acceptance</a>
 
 ## 📄 License
 
