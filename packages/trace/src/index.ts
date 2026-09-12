@@ -1,4 +1,5 @@
-﻿import type { Trajectory, TrajectoryEvent } from "@canary/core";
+﻿import { appendFileSync } from "node:fs";
+import type { Trajectory, TrajectoryEvent } from "@canary/core";
 
 export class TraceBuffer {
   readonly events: TrajectoryEvent[] = [];
@@ -37,4 +38,11 @@ export function queryEvents(events: TrajectoryEvent[], filter: { type?: string; 
     if (filter.featureId && String(event.featureId ?? "") !== filter.featureId) return false;
     return true;
   });
+}
+
+export class JsonlTraceStore {
+  constructor(private readonly filePath: string, private readonly options: RedactionOptions = {}) {}
+  append(event: unknown): void {
+    appendFileSync(this.filePath, `${JSON.stringify(redactValue(event, this.options))}\n`, "utf8");
+  }
 }

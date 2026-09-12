@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { queryEvents, redactEvent, redactTrajectory } from "../src/index.js";
+import { mkdtempSync, readFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { JsonlTraceStore, queryEvents, redactEvent, redactTrajectory } from "../src/index.js";
 import type { Trajectory } from "@canary/core";
 
 describe("trace redaction and query", () => {
@@ -22,5 +25,15 @@ describe("trace redaction and query", () => {
     };
     expect(queryEvents(trajectory.events, { type: "tool.call" })).toHaveLength(1);
     expect(queryEvents(redactTrajectory(trajectory).events, { featureId: "planning" })).toHaveLength(2);
+  });
+
+  it("appends redacted JSONL events to a durable store", () => {
+    const dir = mkdtempSync(join(tmpdir(), "canary-trace-"));
+    const store = new JsonlTraceStore(join(dir, "trace.jsonl"));
+    store.append({ type: "tool.call", timestamp: "t", apiKey: "sk-live", prompt: "hello" });
+    const line = JSON.parse(readFileSync(join(dir, "trace.jsonl"), "utf8").trim());
+    expect(line.type).toBe("tool.call");
+    expect(line.apiKey).toBe("[redacted]");
+    expect(line.prompt).toBe("hello");
   });
 });
