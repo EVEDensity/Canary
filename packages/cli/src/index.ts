@@ -7,26 +7,45 @@ import type { CanaryConfig, TestCase } from "@canary/core";
 
 export interface CliOptions { configPath?: string; cwd?: string; headless?: boolean; noOpen?: boolean; port?: number; caseId?: string }
 
+async function importModule(filePath: string): Promise<Record<string, unknown>> {
+  const url = pathToFileURL(resolve(filePath)).href;
+  if (/\.[cm]?tsx?$/.test(filePath)) {
+    const { tsImport } = await import("tsx/esm/api");
+    return tsImport(url, { parentURL: import.meta.url }) as Promise<Record<string, unknown>>;
+  }
+  return import(url) as Promise<Record<string, unknown>>;
+}
+
+function defaultExport(module: Record<string, unknown>): unknown {
+  const value = module.default;
+  if (value && typeof value === "object" && "default" in value) return (value as Record<string, unknown>).default;
+  return value;
+}
+
 async function loadConfig(configPath: string): Promise<CanaryConfig> {
-  const module = await import(pathToFileURL(resolve(configPath)).href);
-  return module.default as CanaryConfig;
+  return defaultExport(await importModule(configPath)) as CanaryConfig;
 }
 
 async function loadCases(pattern: string, cwd: string): Promise<TestCase[]> {
-  const file = resolve(cwd, pattern.replace(/\/\*\*\/\*\.ts$/, ".ts"));
-  if (existsSync(file)) {
-    const module = await import(pathToFileURL(file).href);
-    return Array.isArray(module.default) ? module.default : [module.default];
-  }
-  const directory = dirname(file);
-  if (!existsSync(directory)) return [];
-  const cases: TestCase[] = [];
-  for (const name of (await import("node:fs/promises")).readdir(directory)) {
-    if (name.endsWith(".ts")) {
-      const module = await import(pathToFileURL(resolve(directory, name)).href);
-      const value = Array.isArray(module.default) ? module.default : [module.default];
-      cases.push(...value);
+  const hasGlob = /[*?[]/.test(pattern);
+  const files: string[] = [];
+  if (!hasGlob) {
+    files.push(resolve(cwd, pattern));
+  } else {
+    const wildcard = pattern.search(/[*?[]/);
+    const base = pattern.slice(0, wildcard);
+    const directory = resolve(cwd, base.endsWith("/") || base.endsWith("\\") ? base : dirname(base));
+    if (!existsSync(directory)) return [];
+    const entries = await (await import("node:fs/promises")).readdir(directory, { recursive: true });
+    for (const entry of entries) {
+      if (typeof entry === "string" && /\.[cm]?[jt]s$/.test(entry) && !entry.endsWith(".d.ts")) files.push(resolve(directory, entry));
     }
+  }
+  const cases: TestCase[] = [];
+  for (const file of files) {
+    if (!existsSync(file)) continue;
+    const value = defaultExport(await importModule(file));
+    cases.push(...(Array.isArray(value) ? value : [value]) as TestCase[]);
   }
   return cases;
 }
@@ -37,10 +56,10 @@ function openBrowser(url: string): void {
   else void import("node:child_process").then(({ spawn }) => spawn("xdg-open", [url], { detached: true, stdio: "ignore" }));
 }
 
-export interface RunCommandResult { exitCode: number; runId: string; artifactPath: string; uiUrl: string; store: RunStore }
+export interface RunCommandResult { exitCode: number; runId: string; artifactPath: string; uiUrl: string; store: RunStore; close: () => Promise<void> }
 
 export async function runCommandDetailed(options: CliOptions = {}): Promise<RunCommandResult> {
-  const cwd = resolve(options.cwd ?? process.cwd());
+  const cwd = resolve(options.cwd ?? process.env.INIT_CWD ?? process.cwd());
   const configPath = resolve(cwd, options.configPath ?? "canary.config.ts");
   const config = await loadConfig(configPath);
   const cases = await loadCases(config.cases, cwd);
@@ -52,7 +71,7 @@ export async function runCommandDetailed(options: CliOptions = {}): Promise<RunC
   const url = `${listening.url}/?runId=${encodeURIComponent(run.runId)}`;
   console.log(`canary UI: ${url}`);
   if (!options.headless && !options.noOpen && config.web?.open !== false) openBrowser(url);
-  const coverageInclude = config.coverage.include.map((value) => resolve(cwd, value));
+  const coverageInclude = config.coverage.include;
   for (const testCase of selected) {
     const result = await runExecution({
       cwd,
@@ -71,8 +90,14 @@ export async function runCommandDetailed(options: CliOptions = {}): Promise<RunC
   const final = store.finish(run.runId);
   mkdirSync(resolve(cwd, ".canary/artifacts", run.runId), { recursive: true });
   writeFileSync(resolve(cwd, ".canary/artifacts", run.runId, "run.json"), JSON.stringify(final, null, 2), "utf8");
-  if (options.headless) await new Promise<void>((resolveClose) => web.server.close(() => resolveClose()));
-  return { exitCode: final.status === "completed" ? 0 : 1, runId: run.runId, artifactPath: resolve(cwd, ".canary/artifacts", run.runId, "run.json"), uiUrl: url, store };
+  let webClosed = false;
+  const close = async (): Promise<void> => {
+    if (webClosed || !web.server.listening) { webClosed = true; return; }
+    await new Promise<void>((resolveClose, rejectClose) => web.server.close((error) => error ? rejectClose(error) : resolveClose()));
+    webClosed = true;
+  };
+  if (options.headless) await close();
+  return { exitCode: final.status === "completed" ? 0 : 1, runId: run.runId, artifactPath: resolve(cwd, ".canary/artifacts", run.runId, "run.json"), uiUrl: url, store, close };
 }
 
 export async function runCommand(options: CliOptions = {}): Promise<number> {
@@ -90,6 +115,7 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
 }
 
 if (process.argv[1]?.endsWith("index.ts") || process.argv[1]?.endsWith("index.js")) process.exitCode = await main();
+
 
 
 

@@ -1,4 +1,4 @@
-﻿import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import { existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -13,7 +13,9 @@ describe("canary run --headless", () => {
     const result = await runCommandDetailed({ cwd, headless: true, noOpen: true });
     expect(result.exitCode).toBe(0); expect(existsSync(result.artifactPath)).toBe(true);
     const artifact = JSON.parse(readFileSync(result.artifactPath, "utf8"));
-    expect(artifact.runId).toBe(result.runId); expect(artifact.coverage).toBeTruthy(); expect(result.store.get(result.runId)?.coverage).toBeTruthy();
+    expect(artifact.runId).toBe(result.runId);
+    expect(artifact.coverage.lines.total).toBeGreaterThan(0);
+    expect(result.store.get(result.runId)?.coverage?.lines.total).toBeGreaterThan(0);
   });
 });
 
