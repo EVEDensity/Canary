@@ -9,7 +9,7 @@
 | coverage unavailable / pct=0    | 看 status，可能是远端黑盒或无可用采集，不能当成实际 0%                                           |
 | judge.score 通过但未调用 LLM    | 未注入 provider 时使用 deterministic 输出存在检查                                                |
 | 所有 case 看似通过却退出失败    | 检查 gate.json、非预期 policy/loop、state 与 feature unavailable                                 |
-| compare 很好但运行曾失败        | 比较 verdict 不保证完整性、执行退出码、硬门禁和重复试验都纳入                                    |
+| compare 很好但运行曾失败        | candidate/compare 会合并 exitCode 与 incomparable；仍请核对 admission，它不是发布许可            |
 | verified 草稿不能直接运行       | 草稿可能缺完整断言参数；verified 只是建议状态，需人工审阅                                        |
 | MCP Demo 成功但真实服务不兼容   | 目前是简化 tools/call 传输，不是完整版本化协议客户端                                             |
 | Ctrl+C 对不同 adapter 效果不同  | Node worker 与 HTTP/MCP 分支的取消/资源终止没有统一                                              |
