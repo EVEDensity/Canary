@@ -38,8 +38,9 @@ export function resolveConfigFile(options: { cwd?: string; configPath?: string }
 export function missingConfigMessage(configFile: string): string {
   return [
     `No canary project found at ${configFile}.`,
-    "Install once (PowerShell):",
-    '  git clone https://github.com/EVEDensity/Canary.git "$env:USERPROFILE\\Canary"; node "$env:USERPROFILE\\Canary\\scripts\\install-global.mjs"',
+    "Install once:",
+    "  Windows: iwr -useb https://raw.githubusercontent.com/EVEDensity/Canary/main/install.ps1 | iex",
+    "  macOS/Linux: curl -fsSL https://raw.githubusercontent.com/EVEDensity/Canary/main/install.sh | bash",
     "Then reopen the terminal and run: canary run",
   ].join("\n");
 }

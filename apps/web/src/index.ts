@@ -1,7 +1,7 @@
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { randomUUID } from "node:crypto";
 import { existsSync, readdirSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
-import { dirname, join, resolve } from "node:path";
+import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { CoverageGateResult, CoverageSummary, EvalResult } from "@canary/core";
 import {
@@ -283,6 +283,27 @@ function writeError(response: ServerResponse<IncomingMessage>, error: unknown): 
   writeJson(response, error instanceof SchemaValidationError ? 400 : 400, { error: message });
 }
 
+/** Standard layout is `<project>/.canary/artifacts`; temp-only roots fall back to the artifact dir itself. */
+function resolveProjectRootFromArtifacts(artifactRoot: string): string {
+  const normalized = resolve(artifactRoot);
+  const parent = resolve(normalized, "..");
+  if (basename(parent) === ".canary") return resolve(parent, "..");
+  let dir = normalized;
+  while (true) {
+    if (existsSync(resolve(dir, "canary.config.ts"))) return dir;
+    const parentDir = dirname(dir);
+    if (parentDir === dir) break;
+    dir = parentDir;
+  }
+  return normalized;
+}
+
+function resolveRegressionDir(projectRoot: string): string {
+  if (existsSync(resolve(projectRoot, "cases/regression"))) return resolve(projectRoot, "cases/regression");
+  if (existsSync(resolve(projectRoot, "examples/local-agent/cases"))) return resolve(projectRoot, "examples/local-agent/cases/regression");
+  return resolve(projectRoot, "cases/regression");
+}
+
 export function createWebServer(store: RunStore, host = "127.0.0.1", port = 0, artifactRoot?: string, hooks?: WebServerHooks) {
   if (artifactRoot) store.hydrate(new FileArtifactRepository(resolve(artifactRoot)));
   const artifacts = artifactRoot ? new FileArtifactRepository(resolve(artifactRoot)) : undefined;
@@ -368,13 +389,10 @@ async function handleRequest(store: RunStore, request: IncomingMessage, response
           store.update(runId, { improvements: list });
           artifacts?.writeJson(runId, "improvement.json", list);
           if (decision.status === "verified" && artifacts) {
-            const projectRoot = resolve(artifacts.rootDir, "..", "..");
-            const regressionDir = existsSync(resolve(projectRoot, "cases/regression"))
-              ? resolve(projectRoot, "cases/regression")
-              : existsSync(resolve(projectRoot, "examples/local-agent/cases"))
-                ? resolve(projectRoot, "examples/local-agent/cases/regression")
-                : resolve(projectRoot, "cases/regression");
-            writeRegressionDrafts(list.filter((item) => item.status === "verified"), regressionDir);
+            writeRegressionDrafts(
+              list.filter((item) => item.status === "verified"),
+              resolveRegressionDir(resolveProjectRootFromArtifacts(artifacts.rootDir)),
+            );
           }
           writeJson(response, 200, list[index]);
           return;
