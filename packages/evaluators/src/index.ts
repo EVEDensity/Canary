@@ -1,4 +1,13 @@
-﻿import type { AssertionSpec, EvalResult, ExecutionTermination, TestCase, Trajectory } from "@canary/core";
+﻿import type {
+  AssertionSpec,
+  CoverageGateResult,
+  CoverageSummary,
+  CoverageThresholds,
+  EvalResult,
+  ExecutionTermination,
+  TestCase,
+  Trajectory,
+} from "@canary/core";
 
 export interface EvaluationContext {
   testCase?: TestCase;
@@ -103,3 +112,67 @@ export async function evaluateAgent(input: { assertions?: AssertionSpec[]; conte
 }
 export const deterministicAgentEvaluator: Evaluator = { id: "canary.deterministic-agent", evaluate: evaluateAgent };
 export const passEmptyEvaluation = async (): Promise<Pick<EvalResult, "passed" | "assertions">> => ({ passed: true, assertions: [] });
+
+function hasGlobalThresholds(thresholds: CoverageThresholds): boolean {
+  return thresholds.lines != null || thresholds.branches != null || thresholds.functions != null || thresholds.statements != null;
+}
+
+/** Shared CLI/CI gate: required coverage cannot pass when status is unavailable/partial. */
+export function evaluateCoverageGates(coverage: CoverageSummary | undefined, thresholds: CoverageThresholds): CoverageGateResult {
+  const featureEntries = Object.entries(thresholds.featureChains ?? {});
+  const requireGlobal = hasGlobalThresholds(thresholds);
+  if (!requireGlobal && !featureEntries.length) return { passed: true, failures: [] };
+
+  const failures: CoverageGateResult["failures"] = [];
+  if (requireGlobal) {
+    const status = coverage?.status ?? "unavailable";
+    if (!coverage || status === "unavailable" || status === "partial" || status === "provisional") {
+      failures.push({
+        code: status === "unavailable" ? "unavailable" : "partial",
+        target: "coverage",
+        status,
+        message: `Coverage is ${status}; configured thresholds cannot pass.`,
+      });
+    } else {
+      for (const key of ["lines", "branches", "functions", "statements"] as const) {
+        const required = thresholds[key];
+        if (required == null) continue;
+        const actual = coverage[key]?.pct ?? 0;
+        if (actual < required) {
+          failures.push({ code: "below_threshold", target: key, required, actual, message: `${key} ${actual}% < ${required}%` });
+        }
+      }
+    }
+  }
+
+  for (const [featureId, required] of featureEntries) {
+    const feature = coverage?.featureChains.find((item) => item.featureId === featureId);
+    if (!feature || feature.status === "unavailable") {
+      failures.push({
+        code: "feature_unavailable",
+        target: featureId,
+        status: feature?.status ?? "unavailable",
+        required,
+        message: `Feature ${featureId} is unavailable; configured threshold cannot pass.`,
+      });
+      continue;
+    }
+    if (feature.status === "failed" || feature.coverage.pct < required) {
+      failures.push({
+        code: "below_threshold",
+        target: featureId,
+        required,
+        actual: feature.coverage.pct,
+        status: feature.status,
+        message: `feature ${featureId} ${feature.coverage.pct}% < ${required}%`,
+      });
+    }
+  }
+
+  if (!failures.length) return { passed: true, failures: [] };
+  return { passed: false, reason: "behavior_passed_coverage_insufficient", failureCategory: "coverage_below_threshold", failures };
+}
+
+export function exitCodeForRun(input: { runFailed: boolean; gatePassed: boolean; junitFailures: number }): number {
+  return input.runFailed || !input.gatePassed || input.junitFailures > 0 ? 1 : 0;
+}
