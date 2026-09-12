@@ -1,0 +1,58 @@
+[
+  {
+    "id": "suggestion_run_c7d7834e-3b5d-4b63-bd03-9878273efb0d_broken_1",
+    "runId": "run_c7d7834e-3b5d-4b63-bd03-9878273efb0d",
+    "caseId": "broken",
+    "kind": "wrong_output",
+    "category": "prompt",
+    "rationale": "Agent output is missing",
+    "evidence": [
+      {
+        "type": "assertion",
+        "ref": "output.exists#1"
+      },
+      {
+        "type": "state",
+        "ref": "(value)"
+      },
+      {
+        "type": "coverage",
+        "ref": "c:\\Users\\temp-admin\\Desktop\\Canary\\examples\\improvement-demo\\broken-agent.mjs:3"
+      },
+      {
+        "type": "coverage",
+        "ref": "c:\\Users\\temp-admin\\Desktop\\Canary\\examples\\improvement-demo\\broken-agent.mjs:2"
+      },
+      {
+        "type": "coverage",
+        "ref": "c:\\Users\\temp-admin\\Desktop\\Canary\\examples\\improvement-demo\\broken-agent.mjs:2"
+      },
+      {
+        "type": "coverage",
+        "ref": "c:\\Users\\temp-admin\\Desktop\\Canary\\examples\\improvement-demo\\broken-agent.mjs:2"
+      },
+      {
+        "type": "coverage",
+        "ref": "c:\\Users\\temp-admin\\Desktop\\Canary\\examples\\improvement-demo\\fixed-agent.mjs:1"
+      },
+      {
+        "type": "coverage",
+        "ref": "c:\\Users\\temp-admin\\Desktop\\Canary\\examples\\improvement-demo\\fixed-agent.mjs:1"
+      }
+    ],
+    "proposedCase": {
+      "id": "broken.regression",
+      "input": "broken",
+      "tags": [
+        "regression"
+      ],
+      "assertions": [
+        {
+          "type": "output.exists"
+        }
+      ]
+    },
+    "status": "proposed",
+    "confidence": 0.65
+  }
+]

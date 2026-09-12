@@ -1,0 +1,16 @@
+{
+  "passed": true,
+  "failures": [],
+  "featureChainSemantics": {
+    "mode": "source_pct",
+    "partialDoesNotFail": true
+  },
+  "hardGate": {
+    "passed": true,
+    "failures": [],
+    "policyViolations": 0,
+    "unexpectedLoops": 0,
+    "stateFailures": 0,
+    "unavailableCoreFeatures": []
+  }
+}

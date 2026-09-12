@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="canary" tests="3" failures="1" time="0.738">
+  <testcase name="safe" classname="canary" time="0.242"/>
+  <testcase name="broken" classname="canary" time="0.256">
+    <failure message="Agent output is missing"/>
+  </testcase>
+  <testcase name="holdout-planning" classname="canary" time="0.240"/>
+</testsuite>

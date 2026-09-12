@@ -1,0 +1,20 @@
+[
+  {
+    "caseId": "safe",
+    "trajectoryId": "trajectory_exec_8a03c223-136e-4718-8b7e-18e123ea6f64",
+    "termination": "completed",
+    "events": []
+  },
+  {
+    "caseId": "broken",
+    "trajectoryId": "trajectory_exec_1a434762-20b8-4009-975d-be0fa10aeaf8",
+    "termination": "completed",
+    "events": []
+  },
+  {
+    "caseId": "holdout-planning",
+    "trajectoryId": "trajectory_exec_9a49ea72-271e-46a3-9c13-762a5fea66aa",
+    "termination": "completed",
+    "events": []
+  }
+]
