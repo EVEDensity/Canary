@@ -16,15 +16,15 @@
 
 ## Final validation matrix
 
-| Check | Actual command / verification | Result | Evidence |
-|---|---|---|---|
-| Typecheck | `pnpm typecheck` | **PASS** | 12 workspace projects. |
-| Build | `pnpm build` | **PASS** | All packages built. |
-| Full tests | `pnpm test` | **PASS** | Coverage 19; Evaluators 4; Adapters 3; Improvement 3; Reporters 3; Trace 2; Runner 9; Web 5; CLI 3. |
-| Root headless run | `pnpm canary -- run --headless --no-open` | **PASS** | 14/14 cases; exit 0. |
-| Reports | artifacts `report.json` / `report.md` / `report.xml`; `canary report --format markdown` | **PASS** | JUnit `tests="14" failures="0"`. |
-| Improve / compare | `pnpm canary -- improve …`; `pnpm canary -- compare A A` | **PASS** | Suggestions `[]` on a green run; verdict `keep`. |
-| Coverage benchmark | `benchmarkCoverageSummarize(200)` | **PASS** | 3703.7 ops/sec, 54 ms, 200 iterations. |
+| Check              | Actual command / verification                                                           | Result   | Evidence                                                                                            |
+| ------------------ | --------------------------------------------------------------------------------------- | -------- | --------------------------------------------------------------------------------------------------- |
+| Typecheck          | `pnpm typecheck`                                                                        | **PASS** | 12 workspace projects.                                                                              |
+| Build              | `pnpm build`                                                                            | **PASS** | All packages built.                                                                                 |
+| Full tests         | `pnpm test`                                                                             | **PASS** | Coverage 19; Evaluators 4; Adapters 3; Improvement 3; Reporters 3; Trace 2; Runner 9; Web 5; CLI 3. |
+| Root headless run  | `pnpm canary -- run --headless --no-open`                                               | **PASS** | 14/14 cases; exit 0.                                                                                |
+| Reports            | artifacts `report.json` / `report.md` / `report.xml`; `canary report --format markdown` | **PASS** | JUnit `tests="14" failures="0"`.                                                                    |
+| Improve / compare  | `pnpm canary -- improve …`; `pnpm canary -- compare A A`                                | **PASS** | Suggestions `[]` on a green run; verdict `keep`.                                                    |
+| Coverage benchmark | `benchmarkCoverageSummarize(200)`                                                       | **PASS** | 3703.7 ops/sec, 54 ms, 200 iterations.                                                              |
 
 ## Recorded runtime evidence
 

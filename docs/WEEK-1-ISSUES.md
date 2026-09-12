@@ -1,7 +1,7 @@
 ﻿# Canary Week 1 — Real Validation Results and Remaining Limits
 
 > Validation date: **September 12, 2026**
-> 
+>
 > Rule for this report: only commands and runtime paths that were actually executed are marked `PASS`.
 
 ## Delivered scope
@@ -14,18 +14,18 @@
 
 ## Final validation matrix
 
-| Check | Actual command / verification | Result | Evidence |
-|---|---|---|---|
-| Local dependency links | `pnpm install --offline` | **PASS** | pnpm `10.15.0`; `Already up to date`; no network download or registry-metadata lookup (`downloaded 0`). |
-| Workspace typecheck | `pnpm typecheck` | **PASS** | All 12 workspace projects completed TypeScript checking. |
-| Full tests | `pnpm test` | **PASS** | Coverage: 3 files / 6 tests; Runner: 1 file / 4 tests; Web: 1 file / 2 tests; CLI: 1 file / 1 test. Empty workspace packages use `--passWithNoTests`. |
-| Workspace build | `pnpm build` | **PASS** | All 12 workspace projects built. |
-| Dist exports | Existence check after build | **PASS** | Verified `dist/index.js` and `dist/index.d.ts` for core, coverage, runner, CLI, and Web (10 expected files). |
-| CLI headless E2E test | `pnpm --filter @canary/cli test` | **PASS** | Writes an artifact and asserts non-zero coverage reaches both `run.json` and `RunStore`. |
-| Real CLI headless execution | `pnpm canary -- --headless --no-open` | **PASS** | Executed the TypeScript root config and one TypeScript agent case successfully. |
-| Artifact verification | Read generated `.canary/artifacts/<runId>/run.json` | **PASS** | See the recorded run below. |
-| Web coverage endpoint | Started a non-headless local run and fetched `/api/runs/:runId/coverage` | **PASS** | HTTP `200`; `coverageStatus: final`; `lineTotal: 1`; `RunStore` had coverage. |
-| SSE subscriber release | Connected to `/api/runs/run_sse_manual/events`, destroyed client response, then inspected `RunStore` | **PASS** | `subscriberCountAfterClientClose: 0`. |
+| Check                       | Actual command / verification                                                                        | Result   | Evidence                                                                                                                                              |
+| --------------------------- | ---------------------------------------------------------------------------------------------------- | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Local dependency links      | `pnpm install --offline`                                                                             | **PASS** | pnpm `10.15.0`; `Already up to date`; no network download or registry-metadata lookup (`downloaded 0`).                                               |
+| Workspace typecheck         | `pnpm typecheck`                                                                                     | **PASS** | All 12 workspace projects completed TypeScript checking.                                                                                              |
+| Full tests                  | `pnpm test`                                                                                          | **PASS** | Coverage: 3 files / 6 tests; Runner: 1 file / 4 tests; Web: 1 file / 2 tests; CLI: 1 file / 1 test. Empty workspace packages use `--passWithNoTests`. |
+| Workspace build             | `pnpm build`                                                                                         | **PASS** | All 12 workspace projects built.                                                                                                                      |
+| Dist exports                | Existence check after build                                                                          | **PASS** | Verified `dist/index.js` and `dist/index.d.ts` for core, coverage, runner, CLI, and Web (10 expected files).                                          |
+| CLI headless E2E test       | `pnpm --filter @canary/cli test`                                                                     | **PASS** | Writes an artifact and asserts non-zero coverage reaches both `run.json` and `RunStore`.                                                              |
+| Real CLI headless execution | `pnpm canary -- --headless --no-open`                                                                | **PASS** | Executed the TypeScript root config and one TypeScript agent case successfully.                                                                       |
+| Artifact verification       | Read generated `.canary/artifacts/<runId>/run.json`                                                  | **PASS** | See the recorded run below.                                                                                                                           |
+| Web coverage endpoint       | Started a non-headless local run and fetched `/api/runs/:runId/coverage`                             | **PASS** | HTTP `200`; `coverageStatus: final`; `lineTotal: 1`; `RunStore` had coverage.                                                                         |
+| SSE subscriber release      | Connected to `/api/runs/run_sse_manual/events`, destroyed client response, then inspected `RunStore` | **PASS** | `subscriberCountAfterClientClose: 0`.                                                                                                                 |
 
 ## Recorded runtime evidence
 
@@ -145,7 +145,6 @@ TypeScript: 5.9.3
 Vitest: 3.2.7
 ```
 
-
 ## Follow-up validation after P0 continuation (2026-09-12)
 
 ### Source mapping and Feature Coverage
@@ -157,15 +156,15 @@ Vitest: 3.2.7
 
 ### Real command results
 
-| Command | Result | Details |
-|---|---|---|
-| `pnpm typecheck` | PASS | All 12 participating workspace projects passed. |
-| `pnpm test` | PASS | Coverage: 3 files / 13 tests; Runner: 1 / 4; Web: 1 / 2; CLI: 1 / 1; evaluator: 1 / 4. Empty packages use `--passWithNoTests`. |
-| `pnpm build` | PASS | All workspace builds passed. |
-| `pnpm canary -- --headless --no-open` | PASS | Run `run_08987f4d-f336-4fb3-88c4-5dfdb0753d78`; status `completed`; coverage `final`; lines `2/2`. |
-| artifact validation | PASS | `.canary/artifacts/run_08987f4d-f336-4fb3-88c4-5dfdb0753d78/run.json`, `coverage.json`, and `coverage-manifest.json` exist. |
-| Web coverage API | PASS | Run `run_d5aaf817-ecff-4411-93ee-98db10331cbd`; HTTP `200`; `/api/runs/:runId/coverage` returned `status: final`. |
-| SSE subscriber cleanup | PASS | Direct HTTP validation confirmed zero subscribers after client close; Web test also passes. |
+| Command                               | Result | Details                                                                                                                        |
+| ------------------------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------ |
+| `pnpm typecheck`                      | PASS   | All 12 participating workspace projects passed.                                                                                |
+| `pnpm test`                           | PASS   | Coverage: 3 files / 13 tests; Runner: 1 / 4; Web: 1 / 2; CLI: 1 / 1; evaluator: 1 / 4. Empty packages use `--passWithNoTests`. |
+| `pnpm build`                          | PASS   | All workspace builds passed.                                                                                                   |
+| `pnpm canary -- --headless --no-open` | PASS   | Run `run_08987f4d-f336-4fb3-88c4-5dfdb0753d78`; status `completed`; coverage `final`; lines `2/2`.                             |
+| artifact validation                   | PASS   | `.canary/artifacts/run_08987f4d-f336-4fb3-88c4-5dfdb0753d78/run.json`, `coverage.json`, and `coverage-manifest.json` exist.    |
+| Web coverage API                      | PASS   | Run `run_d5aaf817-ecff-4411-93ee-98db10331cbd`; HTTP `200`; `/api/runs/:runId/coverage` returned `status: final`.              |
+| SSE subscriber cleanup                | PASS   | Direct HTTP validation confirmed zero subscribers after client close; Web test also passes.                                    |
 
 ### Current limitations
 
@@ -178,6 +177,7 @@ Vitest: 3.2.7
 ## P1 continuation validation (2026-09-12)
 
 Implemented:
+
 - provisional V8 coverage sampling over child IPC with configurable `sampleIntervalMs` and final coverage cleanup;
 - RunStore coverage fingerprint de-duplication and subscriber count diagnostics;
 - file-backed `FileArtifactRepository` with `listRuns`, `readRun`, `readCoverage`, and Web startup hydration;
@@ -185,6 +185,7 @@ Implemented:
 - case discovery supporting include arrays, stable ordering, duplicate IDs, schema diagnostics, no-match errors, and `.ts/.mts/.cts/.js/.mjs` files.
 
 Validation:
+
 - `pnpm typecheck`: PASS
 - `pnpm build`: PASS
 - `pnpm --filter @canary/runner test`: PASS (4 tests)

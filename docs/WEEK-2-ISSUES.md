@@ -17,19 +17,19 @@
 
 ## Final validation matrix
 
-| Check | Actual command / verification | Result | Evidence |
-|---|---|---|---|
-| Workspace typecheck | `pnpm typecheck` | **PASS** | 12 workspace projects completed. |
-| Workspace build | `pnpm build` then `pnpm --filter @canary/cli build` after JSDoc fix | **PASS** | All packages built. First CLI build **FAIL** (block comment in `globToRegExp` JSDoc contained `*/`); comment rewritten, rebuild **PASS**. |
-| Full tests | `pnpm test` | **PASS** | Coverage 18; Evaluators 4; Runner 8; Web 5; CLI 3. Empty packages `--passWithNoTests`. |
-| Coverage fixtures | `pnpm --filter @canary/coverage test` | **PASS** | 4 files / 18 tests including `coverage-fixtures.test.ts`. |
-| Runner matrix + sampling | `pnpm --filter @canary/runner test` | **PASS** | 8 tests: completed, error, timeout, cancel, assertion pass/fail, missing required event, provisional throttle. |
-| Web SSE / replay | `pnpm --filter @canary/web test` | **PASS** | 5 tests: HTTP coverage, client close, artifact hydrate, provisional SSE, multi-client. |
-| CLI E2E + discovery | `pnpm --filter @canary/cli test` | **PASS** | 3 tests: glob `**`, invalid/duplicate/empty schema, headless artifact write. |
-| Root headless run | `pnpm canary -- run --headless --no-open` | **PASS** | See recorded run below. Previously this command **FAIL**ed with `No test case files matched: ./examples/local-agent/cases/**/*.ts`. |
-| Artifact files | Read generated files under `.canary/artifacts/<runId>/` | **PASS** | `run.json`, `coverage.json`, `coverage-manifest.json`, `trajectory.json`, `evaluator.json`. |
-| `canary runs` | `pnpm canary -- runs` | **PASS** | Listed 10 historical runs, newest first. |
-| `canary show` | `pnpm canary -- show run_d91120c8-69f9-4102-99e2-c212a27e8132` | **PASS** | Printed run summary matching `run.json`. |
+| Check                    | Actual command / verification                                       | Result   | Evidence                                                                                                                                  |
+| ------------------------ | ------------------------------------------------------------------- | -------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| Workspace typecheck      | `pnpm typecheck`                                                    | **PASS** | 12 workspace projects completed.                                                                                                          |
+| Workspace build          | `pnpm build` then `pnpm --filter @canary/cli build` after JSDoc fix | **PASS** | All packages built. First CLI build **FAIL** (block comment in `globToRegExp` JSDoc contained `*/`); comment rewritten, rebuild **PASS**. |
+| Full tests               | `pnpm test`                                                         | **PASS** | Coverage 18; Evaluators 4; Runner 8; Web 5; CLI 3. Empty packages `--passWithNoTests`.                                                    |
+| Coverage fixtures        | `pnpm --filter @canary/coverage test`                               | **PASS** | 4 files / 18 tests including `coverage-fixtures.test.ts`.                                                                                 |
+| Runner matrix + sampling | `pnpm --filter @canary/runner test`                                 | **PASS** | 8 tests: completed, error, timeout, cancel, assertion pass/fail, missing required event, provisional throttle.                            |
+| Web SSE / replay         | `pnpm --filter @canary/web test`                                    | **PASS** | 5 tests: HTTP coverage, client close, artifact hydrate, provisional SSE, multi-client.                                                    |
+| CLI E2E + discovery      | `pnpm --filter @canary/cli test`                                    | **PASS** | 3 tests: glob `**`, invalid/duplicate/empty schema, headless artifact write.                                                              |
+| Root headless run        | `pnpm canary -- run --headless --no-open`                           | **PASS** | See recorded run below. Previously this command **FAIL**ed with `No test case files matched: ./examples/local-agent/cases/**/*.ts`.       |
+| Artifact files           | Read generated files under `.canary/artifacts/<runId>/`             | **PASS** | `run.json`, `coverage.json`, `coverage-manifest.json`, `trajectory.json`, `evaluator.json`.                                               |
+| `canary runs`            | `pnpm canary -- runs`                                               | **PASS** | Listed 10 historical runs, newest first.                                                                                                  |
+| `canary show`            | `pnpm canary -- show run_d91120c8-69f9-4102-99e2-c212a27e8132`      | **PASS** | Printed run summary matching `run.json`.                                                                                                  |
 
 ## Recorded runtime evidence
 
