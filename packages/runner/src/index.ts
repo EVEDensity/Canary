@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto";
 import { extname, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import type { CanaryConfig, CoverageScript, CoverageSummary, EvalResult, FeatureDefinition, TestCase, Trajectory, TrajectoryEvent } from "@canary/core";
+import { parseChildMessage } from "@canary/core";
 import { assignFeatureCoverage, emptyCoverage, summarizeCoverage } from "@canary/coverage";
 import type { FeatureEvent } from "@canary/coverage";
 import type { CoverageSourceConfig } from "@canary/coverage";
@@ -136,7 +137,10 @@ export async function runExecution(options: ExecutionOptions): Promise<EvalResul
   const timeout = setTimeout(() => { if (!settled) { didTimeout = true; failure = `Execution timed out after ${options.timeoutMs ?? 60_000}ms`; child.kill(); } }, options.timeoutMs ?? 60_000);
   await new Promise<void>((resolvePromise) => {
     const done = (): void => { if (!settled) { settled = true; resolvePromise(); } };
-    child.on("message", (message: ChildMessage) => {
+    child.on("message", (raw: unknown) => {
+      let message: ChildMessage;
+      try { message = parseChildMessage(raw) as ChildMessage; }
+      catch (error) { failure ??= error instanceof Error ? error.message : String(error); return; }
       if (message.type === "event") { events.push(message.event); options.onEvent?.({ type: "trace.event", executionId, event: message.event }); }
       else if (message.type === "result") output = message.value;
       else if (message.type === "error") failure ??= message.error;
