@@ -1,67 +1,96 @@
-<p align="center">
-  <img src="docs/images/logo.png" height="120" alt="Canary" />
-</p>
+<div align="center">
+<img src="docs/images/logo.png" height="90" align="middle" />
+<h1 align="center" style="display:inline-block; margin:0 0 0 16px; vertical-align:middle; font-size:48px; letter-spacing:-1px;">Canary</h1>
+</div>
 
-<p align="center">
-  <strong>canary</strong> — 本地 Agent 的端到端测试、运行时覆盖率与回归改进工作台
-</p>
+<div align="center">
 
-<p align="center">
-  <a href="https://github.com/EVEDensity/Canary/actions"><img src="https://img.shields.io/github/actions/workflow/status/EVEDensity/Canary/ci.yml?label=ci" /></a>
-  <a href="./LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-blue.svg" /></a>
-  <img src="https://img.shields.io/badge/pnpm-10-orange?logo=pnpm" />
-  <img src="https://img.shields.io/badge/node-%E2%89%A522-green?logo=node.js" />
-  <a href="https://github.com/EVEDensity/Canary/stargazers"><img src="https://img.shields.io/github/stars/EVEDensity/Canary" /></a>
-</p>
+<div>
+<a href="https://github.com/EVEDensity/Canary/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/EVEDensity/Canary/ci.yml?label=ci&style=flat-square" alt="CI" /></a>
+<img src="https://img.shields.io/badge/license-Apache--2.0-blue?style=flat-square" alt="License: Apache-2.0" />
+<img src="https://img.shields.io/badge/pnpm-10-orange?logo=pnpm&style=flat-square" alt="pnpm" />
+<img src="https://img.shields.io/badge/node-%E2%89%A522-green?logo=node.js&style=flat-square" alt="Node ≥22" />
+<a href="https://github.com/EVEDensity/Canary/stargazers"><img src="https://img.shields.io/github/stars/EVEDensity/Canary?style=flat-square" alt="Stars" /></a>
+</div>
 
-<p align="center">
-  <img src="docs/images/ui-overview.png" alt="Local UI five-view screenshot" width="720" />
-</p>
+<br>
 
----
+<a href="docs/getting-started.md">Getting Started</a> ｜
+<a href="docs/architecture.md">Architecture</a> ｜
+<a href="docs/feature-coverage.md">Feature Coverage</a> ｜
+<a href="docs/self-improvement.md">Self-Improvement</a> ｜
+<a href="docs/ci.md">CI</a> ｜
+<a href="docs/troubleshooting.md">Troubleshooting</a> ｜
+<a href="./SECURITY.md">Security</a> ｜
+<a href="https://github.com/EVEDensity/Canary/issues">Issues</a>
 
-## 这是什么
+</div>
 
-Agent 在本地跑起来就以为完事了？**不是。**
+**canary** is a local-first TypeScript Agent testing, coverage, and improvement workspace. It runs your Agent like an end-to-end test — records trajectory, collects V8 source coverage, and turns failures into auditable regression work. It does **not** edit Agent source.
 
-`canary` 把你的 TypeScript Agent 当成可重复执行的端到端测试：跑完每个 case，记录完整 trajectory（系统提示、用户输入、工具调用链、最终回答），同时采集 V8 源码覆盖率（行 / 分支 / 函数 / 语句）。覆盖率不会伪造 — 没有 instrument 就如实标 `unavailable`，不会充 0% 也不会充 100%。
+Agent runs locally and you think it works? Not quite. `canary` treats your Agent as repeatable test cases: run each case, capture the full trajectory (system prompt, user input, tool call chain, final answer), and collect live V8 source coverage (lines / branches / functions / statements). Coverage is never faked — missing instrumentation is honestly marked `unavailable`, never 0% or 100%. Failures are auto-attributed (prompt error / tool unavailable / policy violation / infinite loop), generating an auditable regression checklist; on the next run, baseline vs candidate comparison produces a report or junit for CI gating.
 
-失败时自动归因（prompt 错误 / 工具不可用 / 策略违规 / 死循环），生成可审计的 regression 清单；下一轮 compare baseline vs candidate，跑出改进报告或 junit 供 CI 门禁。
+![Local UI five-view screenshot](docs/images/ui-overview.png)
 
-## 核心能力
+## ✨ Key Features
 
-| 能力 | 说明 |
-|------|------|
-| 🎯 **V8 源码覆盖率** | 运行中持续采样，final 合并；缺 instrument 时诚实标 `unavailable` |
-| 🪝 **多 Adapter** | `function`（本地函数）/ `http`（黑盒）/ `mcp`（stdio）/ `mcp-http` |
-| 🔁 **Repetitions** | `--repetitions N` 同一 case 跑 N 次，汇总波动与稳定性 |
-| 🛠️ **Mock Environment** | 内存 StateStore + snapshot/restore + MockToolAdapter，无需外部服务 |
-| 🧪 **可扩展 Evaluator** | 内置 assertion / state / tool / policy / loop / coverage / judge；可插 LLM-as-Judge |
-| 🏷️ **Replay & Compare** | 任何 runId 可重放 / 对比；CLI 一键 generate markdown / junit / console 报告 |
-| 🧠 **Improvement 闭环** | 失败自动归因 → 生成 regression cases → compare baseline/candidate → 准入 |
-| 🖼️ **五视图 Web UI** | 运行态 / Case Detail（含断言 diff + source highlight + state diff + preparing）/ Coverage / Compare / Replay |
+1. 🎯 **V8 Source Coverage** — Live continuous sampling during execution, merged at final; honestly reports `unavailable` when instrumentation is absent.
+2. 🪝 **Multi-Adapter** — `function` (local), `http` (black-box), `mcp` (stdio), `mcp-http`.
+3. 🔁 **Repetitions** — `--repetitions N` runs the same case N times, summarizing variance and stability.
+4. 🛠️ **Mock Environment** — In-memory StateStore with snapshot/restore + MockToolAdapter; no external services required.
+5. 🧪 **Extensible Evaluators** — Built-in assertion / state / tool / policy / loop / coverage / coverage-gate evaluators; pluggable LLM-as-Judge.
+6. 🏷️ **Replay & Compare** — Any runId can be replayed or diffed; CLI outputs markdown / junit / console reports.
+7. 🧠 **Improvement Loop** — Failures auto-attributed → generates regression cases → compare baseline/candidate → admission.
+8. 🖼️ **Five-View Web UI** — Live run / Case Detail (assertion diff + source highlight + state diff + preparing state) / Coverage / Compare / Replay.
 
-## Quick Start
+## 🚀 Quick Start
+
+> Requires [pnpm](https://pnpm.io/) and Node ≥22.
 
 ```bash
-# 一次性
-pnpm install && pnpm canary -- run
+git clone https://github.com/EVEDensity/Canary
+cd Canary
+pnpm install
+pnpm canary -- run
 ```
 
-默认跑 `cases/` 下 15 个确定性 case（无 API key，against `examples/local-agent`）。产物落在 `.canary/artifacts/<runId>/`。
+Default suite: 15 deterministic cases under `cases/` against `examples/local-agent` — no API keys needed. Artifacts land at `.canary/artifacts/<runId>/`.
+
+### Common Commands
 
 ```bash
-# 常用操作
-pnpm canary -- show <runId>                         # 打开 Web UI
-pnpm canary -- report <runId> --format markdown      # 输出 markdown 报告
-pnpm canary -- compare <baselineId> <candidateId>    # 对比两次运行
-pnpm canary -- replay <runId> --headless --no-open   # 无界面重放（CI）
+pnpm canary -- show <runId>                         # Open Web UI
+pnpm canary -- report <runId> --format markdown      # Markdown report
+pnpm canary -- compare <baselineId> <candidateId>    # Compare two runs
+pnpm canary -- replay <runId> --headless --no-open   # Headless replay (CI)
 
-# CI 友好
+# CI-friendly
 pnpm canary -- run --headless --no-open --repetitions 3 --tag nightly
 ```
 
-## 支持范围
+## 📦 Monorepo Structure
+
+```
+Canary/
+├── packages/
+│   ├── core/           # Domain types + Zod schema + IPC protocol
+│   ├── coverage/       # V8 collector + Istanbul fallback + fragments merge
+│   ├── evaluators/     # Evaluator suite + attribution engine + LLM Judge
+│   ├── adapters/       # function / http / mcp / mcp-http adapters
+│   ├── environment/    # In-memory StateStore + MockTool
+│   ├── runner/         # Orchestration · repetitions · cancel · streaming artifacts
+│   ├── reporters/      # json · markdown · junit · console
+│   ├── improvement/    # Compare · decideSuggestion · regression drafts
+│   ├── trace/          # JSONL persistence store
+│   └── cli/            # run / shows / report / compare / improve / replay / verify
+├── apps/web/           # Five-view Web UI (SSE)
+├── cases/              # smoke / regression / holdout
+├── examples/           # local-agent · mcp-agent · http-agent · loop-agent · recovery-agent · improvement-demo
+├── docs/               # Architecture · Getting Started · MCP · CI · Replay · Self-improvement · ...
+└── .github/workflows/  # CI · Release
+```
+
+## 📋 Adapter & Coverage Matrix
 
 | Target         | Adapter                    | Coverage                                     |
 | -------------- | -------------------------- | -------------------------------------------- |
@@ -71,25 +100,30 @@ pnpm canary -- run --headless --no-open --repetitions 3 --tag nightly
 | MCP Tools      | `mcp-stdio` / `mcp-http`   | N/A (tools)                                  |
 | Bun            | CLI smoke only             | not claimed                                  |
 
-## 诚实边界
+## ⚠️ Honest Boundaries
 
-`canary` **不测量**远端黑盒推理质量、非 Node 语言、浏览器视觉 Agent、Docker 沙箱。Judge 评分是可选的，错误 / 超时 / 低置信度时直接 fail closed。
+`canary` does **not** measure remote black-box reasoning quality, non-Node languages, browser visual agents, or Docker sandboxes. Judge scores are optional and **fail closed** on error, timeout, or low confidence.
 
-Runner **不是** sandbox — 运行的就是你的 Agent 代码。默认不外发任何模型调用。
+The runner is **not** a sandbox — it executes your Agent code directly. By default no model API is called outbound.
 
-## 文档
+## ❤️ Contributing
 
-| | |
-|---|---|
-| [Getting Started](docs/getting-started.md) | [Agent Adapter](docs/agent-adapter.md) |
-| [MCP Integration](docs/mcp.md) | [Mock Environment](docs/mock-environment.md) |
-| [Feature Coverage](docs/feature-coverage.md) | [Local UI](docs/local-ui.md) |
-| [CI Setup](docs/ci.md) | [Replay & Compare](docs/replay.md) |
-| [Self-improvement](docs/self-improvement.md) | [Troubleshooting](docs/troubleshooting.md) |
-| [Architecture](docs/architecture.md) | [10-minute Acceptance](docs/acceptance-10-min.md) |
+Issues and Pull Requests are always welcome. For adding new features, please discuss via an Issue first.
 
-## License
+```bash
+git clone https://github.com/EVEDensity/Canary
+pnpm install
+pnpm check          # format / lint / typecheck / test
+```
 
-[Apache-2.0](./LICENSE) · 本地优先 · 无默认外连模型
+## 🌍 Community & Links
 
-—— 像 canary in a coal mine，早发现、快定位、可审计。
+<a href="https://github.com/EVEDensity/Canary/discussions">Discussions</a> ｜
+<a href="https://github.com/EVEDensity/Canary/issues">Issue Tracker</a> ｜
+<a href="docs/acceptance-10-min.md">10-minute Acceptance</a>
+
+## 📄 License
+
+[Apache-2.0](./LICENSE)
+
+—— Like a canary in a coal mine: early signal, precise localization, auditable trail.
