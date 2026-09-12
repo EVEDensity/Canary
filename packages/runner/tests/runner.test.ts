@@ -1,9 +1,10 @@
 import { describe, expect, it } from "vitest";
+import { spawn } from "node:child_process";
 import { createServer } from "node:http";
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { runConfiguredCase, runExecution, runHttpExecution } from "../src/index.js";
+import { killProcessTree, mapLimit, runConfiguredCase, runExecution, runHttpExecution, runMcpExecution } from "../src/index.js";
 
 const options = (cwd: string, entry = "agent.mjs") => ({ cwd, entry, input: "ok" as unknown, runId: "run_test", caseId: "case", timeoutMs: 1000, coverage: { rootDir: cwd, include: [entry] } });
 
@@ -15,6 +16,7 @@ describe("runner lifecycle", () => {
     const result = await runExecution({ ...options(cwd), onEvent: (event) => events.push(event.type) });
     expect(result.passed).toBe(true); expect(events).toContain("execution.started"); expect(events).toContain("execution.finished"); expect(result.metrics?.steps).toBe(1);
     expect(result.trajectory?.events.some((event) => event.type === "tool_call")).toBe(true);
+    expect(result.stateDiff?.changed).toBeDefined();
   });
   it("records an agent exception", async () => {
     const cwd = mkdtempSync(join(tmpdir(), "canary-runner-"));
@@ -28,6 +30,30 @@ describe("runner lifecycle", () => {
     const result = await runExecution({ ...options(cwd), timeoutMs: 50 });
     expect(result.passed).toBe(false); expect(result.failureCategory).toBe("timeout");
   });
+  it("times out a synchronous busy-loop and SIGKILL-escalates the process tree", async () => {
+    const cwd = mkdtempSync(join(tmpdir(), "canary-busy-"));
+    writeFileSync(join(cwd, "agent.mjs"), "export default async () => { for (;;) {} };", "utf8");
+    const started = Date.now();
+    const result = await runExecution({ ...options(cwd), timeoutMs: 200, killGraceMs: 80 });
+    expect(result.passed).toBe(false);
+    expect(result.failureCategory).toBe("timeout");
+    expect(result.trajectory?.termination).toBe("timeout");
+    expect(Date.now() - started).toBeLessThan(8_000);
+  }, 15_000);
+  it("kills a detached busy-loop with killProcessTree", async () => {
+    const child = spawn(process.execPath, ["-e", "for(;;){}"], {
+      detached: process.platform !== "win32",
+      stdio: "ignore",
+    });
+    expect(child.pid).toBeTruthy();
+    await new Promise((resolve) => setTimeout(resolve, 40));
+    killProcessTree(child.pid!);
+    await new Promise<void>((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error("busy-loop process still alive after SIGKILL")), 4_000);
+      child.once("close", () => { clearTimeout(timer); resolve(); });
+      child.once("exit", () => { clearTimeout(timer); resolve(); });
+    });
+  }, 10_000);
   it("returns cancelled when the signal aborts", async () => {
     const cwd = mkdtempSync(join(tmpdir(), "canary-runner-"));
     writeFileSync(join(cwd, "agent.mjs"), "export default async () => new Promise(() => {});", "utf8");
@@ -60,7 +86,7 @@ describe("runner evaluation matrix", () => {
       testCase: { id: "case", input: "ok", assertions: [{ type: "output.predicate", predicate: (value) => Boolean(value && typeof value === "object" && "ok" in value && value.ok) }] },
     });
     expect(result.passed).toBe(false);
-    expect(result.failureCategory).toBe("assertion_failed");
+    expect(result.failureCategory).toBe("wrong_output");
     expect(result.assertions.some((item) => item.id.startsWith("output.predicate") && !item.passed)).toBe(true);
   });
 
@@ -73,6 +99,17 @@ describe("runner evaluation matrix", () => {
     });
     expect(result.passed).toBe(false);
     expect(result.failureCategory).toBe("assertion_failed");
+  });
+
+  it("records state_mismatch when a state assertion fails after a completed agent", async () => {
+    const cwd = mkdtempSync(join(tmpdir(), "canary-state-"));
+    writeFileSync(join(cwd, "agent.mjs"), "export default async () => ({ ok: true });", "utf8");
+    const result = await runExecution({
+      ...options(cwd),
+      testCase: { id: "case", input: "ok", assertions: [{ type: "state.has", key: "lastTool" }] },
+    });
+    expect(result.passed).toBe(false);
+    expect(result.failureCategory).toBe("state_mismatch");
   });
 });
 
@@ -91,6 +128,21 @@ describe("provisional coverage sampling", () => {
     expect(statuses).toContain("provisional");
     expect(statuses.at(-1)).toBe("final");
     expect(statuses.filter((status) => status === "provisional").length).toBeLessThan(8);
+  });
+
+  it("collects exact istanbul coverage when the provider is opted in", async () => {
+    const cwd = mkdtempSync(join(tmpdir(), "canary-istanbul-"));
+    writeFileSync(join(cwd, "agent.mjs"), "export default async function one(value) { if (value) return true; else return false; }\n", "utf8");
+    const result = await runExecution({
+      ...options(cwd),
+      input: true,
+      timeoutMs: 8_000,
+      coverage: { rootDir: cwd, include: ["agent.mjs"], provider: "istanbul" },
+    });
+    expect(result.passed).toBe(true);
+    expect(result.coverage.status).toBe("final");
+    expect(result.coverage.lines.total).toBeGreaterThan(0);
+    expect(result.coverage.files?.some((file) => file.quality?.precision === "exact" && file.quality.mappingMode === "ast")).toBe(true);
   });
 });
 
@@ -123,5 +175,41 @@ describe("http black-box adapter", () => {
     } finally {
       await new Promise<void>((resolve) => server.close(() => resolve()));
     }
+  });
+});
+
+describe("mcp agent adapter and process pool", () => {
+  it("marks coverage unavailable for an MCP stdio agent", async () => {
+    const cwd = mkdtempSync(join(tmpdir(), "canary-mcp-"));
+    writeFileSync(join(cwd, "mcp-agent.mjs"), "process.stdin.setEncoding('utf8'); let b=''; process.stdin.on('data',c=>{b+=c; const i=b.indexOf('\\n'); if(i>=0){ const m=JSON.parse(b.slice(0,i)); process.stdout.write(JSON.stringify({jsonrpc:'2.0',id:m.id,result:{output:m.params.arguments}})+'\\n'); }});", "utf8");
+    const result = await runMcpExecution({
+      cwd,
+      entry: "mcp-agent.mjs",
+      input: { goal: "mcp" },
+      runId: "run_mcp",
+      caseId: "mcp-case",
+      timeoutMs: 5000,
+      coverage: { include: ["mcp-agent.mjs"] },
+    });
+    expect(result.passed).toBe(true);
+    expect(result.coverage.status).toBe("unavailable");
+    expect(result.output).toEqual({ output: { goal: "mcp" } });
+    const configured = await runConfiguredCase({
+      cwd,
+      config: { agent: { adapter: "mcp", entry: "./mcp-agent.mjs" }, cases: "none", coverage: { include: ["mcp-agent.mjs"] } },
+      runId: "run_mcp_cfg",
+    }, { id: "mcp-case", input: { goal: "mcp" } });
+    expect(configured.coverage.status).toBe("unavailable");
+  });
+
+  it("runs mapLimit with a bounded pool and preserves order", async () => {
+    const seen: number[] = [];
+    const result = await mapLimit([1, 2, 3, 4], 2, async (value) => {
+      seen.push(value);
+      await new Promise((resolve) => setTimeout(resolve, 15));
+      return value * 2;
+    });
+    expect(result).toEqual([2, 4, 6, 8]);
+    expect(seen.sort((a, b) => a - b)).toEqual([1, 2, 3, 4]);
   });
 });

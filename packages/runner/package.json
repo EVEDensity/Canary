@@ -1,27 +1,40 @@
-﻿{
-    "name":  "@canary/runner",
-    "version":  "0.1.0",
-    "private":  true,
-    "type":  "module",
-    "main":  "./dist/index.js",
-    "types":  "./dist/index.d.ts",
-    "exports":  {
-                    ".":  {
-                              "types":  "./dist/index.d.ts",
-                              "import":  "./dist/index.js",
-                              "default":  "./dist/index.js"
-                          }
-                },
-    "dependencies":  {
-                         "@canary/core":  "workspace:*",
-                         "@canary/coverage":  "workspace:*",
-                         "tsx":  "^4.19.0",
-                         "@canary/evaluators":  "workspace:*",
-                         "@canary/adapters":  "workspace:*"
-                     },
-    "scripts":  {
-                    "build":  "tsc -p tsconfig.json",
-                    "typecheck":  "tsc -p tsconfig.json --pretty false",
-                    "test":  "vitest run"
-                }
+{
+  "name": "@canary/runner",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "dependencies": {
+    "@canary/core": "workspace:*",
+    "@canary/coverage": "workspace:*",
+    "tsx": "^4.19.0",
+    "@canary/evaluators": "workspace:*",
+    "@canary/adapters": "workspace:*",
+    "@canary/environment": "workspace:*"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --pretty false",
+    "test": "vitest run"
+  },
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/EVEDensity/Canary.git"
+  },
+  "homepage": "https://github.com/EVEDensity/Canary#readme",
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "publishConfig": {
+    "access": "public"
+  }
 }

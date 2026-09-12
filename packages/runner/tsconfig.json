@@ -20,6 +20,9 @@
                        },
                        {
                            "path":  "../adapters"
+                       },
+                       {
+                           "path":  "../environment"
                        }
                    ]
 }
