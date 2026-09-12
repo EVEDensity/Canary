@@ -15,3 +15,10 @@ export function compute(tokens: string[]): number {
 export function failTool(reason = "tool_failed"): never {
   throw new Error(reason);
 }
+
+export const demoTools: Record<string, (args: unknown) => unknown> = {
+  lookup: (args) => lookup(String((args as { q: string }).q)),
+  parse: (args) => parse(String((args as { text: string }).text)),
+  compute: (args) => compute((args as { tokens: string[] }).tokens),
+  fail: () => failTool(),
+};
