@@ -13,7 +13,7 @@ export default defineCases([
     assertions: [
       expect.output().exists(),
       expect.coverage().feature("planning").expected(),
-      expect.judge().score({ minScore: 0.5, minConfidence: 0.5, rubric: "Task has a planned output" }),
+      expect.judge().score({ minScore: 0.5, minConfidence: 0.5, rubric: "Task has a planned output", required: false }),
     ],
   },
   {

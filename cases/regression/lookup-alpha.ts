@@ -3,6 +3,7 @@ import { defineCase, expect } from "../../packages/core/src/index.js";
 export default defineCase({
   id: "regression-lookup-alpha",
   tags: ["regression"],
+  dataset: { split: "regression", version: "demo-v1" },
   input: { mode: "lookup", goal: "alpha" },
   expectedFeatures: ["tool-routing"],
   assertions: [
