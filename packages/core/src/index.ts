@@ -1,5 +1,7 @@
 ﻿/** Public contracts for Canary's local Agent evaluation runtime. */
 
+import { parseCanaryConfig } from "./schema.js";
+
 export type AgentAdapterKind = "function" | "http" | "mcp";
 export type CoverageStatus = "provisional" | "final" | "partial" | "unavailable";
 export type CoverageMappingMode = "source-map" | "ast" | "heuristic";
@@ -12,10 +14,34 @@ export interface SourceRange { start: SourcePosition; end: SourcePosition }
 export interface SourceLocation extends SourceRange { id?: string; filePath: string; symbol?: string }
 export interface CoverageQuality { mappingMode: CoverageMappingMode; precision: CoveragePrecision; diagnostics: string[] }
 
+export interface CoverageThresholds {
+  lines?: number;
+  branches?: number;
+  functions?: number;
+  statements?: number;
+  featureChains?: Record<string, number>;
+}
+
+export interface CoverageGateFailure {
+  code: "unavailable" | "partial" | "below_threshold" | "feature_unavailable";
+  target: string;
+  required?: number;
+  actual?: number;
+  status?: string;
+  message: string;
+}
+
+export interface CoverageGateResult {
+  passed: boolean;
+  reason?: "behavior_passed_coverage_insufficient";
+  failureCategory?: "coverage_below_threshold";
+  failures: CoverageGateFailure[];
+}
+
 export interface CanaryConfig {
   agent: { adapter: AgentAdapterKind; entry: string; export?: string };
   cases: string | string[];
-  coverage: { include: string[]; exclude?: string[]; lines?: number; branches?: number; functions?: number };
+  coverage: { include: string[]; exclude?: string[] } & CoverageThresholds;
   features?: FeatureDefinition[];
   runtime?: { timeoutMs?: number; maxSteps?: number; maxToolCalls?: number; maxBudget?: number };
   reporters?: Array<"json" | "markdown" | "junit">;
@@ -176,4 +202,24 @@ export class FeatureRegistry {
   validateExpectedFeatures(featureIds: readonly string[] = []): string[] { return featureIds.filter((id) => !this.byId.has(id)); }
 }
 
-export function defineConfig(config: CanaryConfig): CanaryConfig { return config; }
+export function defineConfig(config: CanaryConfig): CanaryConfig {
+  return parseCanaryConfig(config) as CanaryConfig;
+}
+
+export {
+  SchemaValidationError,
+  invalidInput,
+  canaryConfigSchema,
+  childMessageSchema,
+  parseCanaryConfig,
+  parseChildMessage,
+  parseCoverageSummary,
+  parseReplayRequest,
+  parseReplayResponse,
+  parseReportFormat,
+  parseRunSnapshot,
+  parseTestCase,
+  replayRequestSchema,
+  reportFormatSchema,
+  runSnapshotSchema,
+} from "./schema.js";
