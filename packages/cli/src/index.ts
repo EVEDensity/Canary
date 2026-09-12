@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env node
+#!/usr/bin/env node
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { readdir } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
