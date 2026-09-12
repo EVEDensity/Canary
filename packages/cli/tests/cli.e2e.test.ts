@@ -2,7 +2,7 @@
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { discoverCaseFiles, globToRegExp, listRunArtifacts, loadCases, readRunArtifact, runCommandDetailed } from "../src/index.js";
+import { discoverCaseFiles, globToRegExp, listRunArtifacts, loadCases, main, readRunArtifact, runCommandDetailed } from "../src/index.js";
 
 describe("case discovery", () => {
   it("lets ** match zero or more directories", () => {
@@ -58,5 +58,78 @@ describe("canary run --headless", () => {
     expect(result.store.get(result.runId)?.coverage?.lines.total).toBeGreaterThan(0);
     expect(listRunArtifacts(cwd).some((run) => run.runId === result.runId)).toBe(true);
     expect(readRunArtifact(result.runId, cwd)?.coverage?.status).toBe("final");
+  });
+
+  it("fails the shared coverage gate when required coverage is below threshold", async () => {
+    const cwd = mkdtempSync(join(tmpdir(), "canary-gate-"));
+    writeFileSync(join(cwd, "agent.mjs"), "export default async (input) => ({ value: input });\nfunction unused(flag) { if (flag) return 1; return 0; }\n", "utf8");
+    writeFileSync(join(cwd, "cases.ts"), "export default [{ id: 'smoke', input: 'ok', assertions: [{ type: 'output.exists' }] }];", "utf8");
+    writeFileSync(join(cwd, "canary.config.ts"), `export default { agent: { adapter: 'function', entry: './agent.mjs' }, cases: './cases.ts', coverage: { include: ['agent.mjs'], exclude: [], branches: 100 }, web: { host: '127.0.0.1', open: false } };`, "utf8");
+    const result = await runCommandDetailed({ cwd, headless: true, noOpen: true });
+    expect(result.exitCode).toBe(1);
+    const gate = JSON.parse(readFileSync(join(cwd, ".canary/artifacts", result.runId, "gate.json"), "utf8"));
+    expect(gate.passed).toBe(false);
+    expect(gate.failureCategory).toBe("coverage_below_threshold");
+    const xml = readFileSync(join(cwd, ".canary/artifacts", result.runId, "report.xml"), "utf8");
+    expect(xml).toContain("coverage.gate");
+    expect(xml).toMatch(/failures="[1-9]/);
+  });
+});
+
+describe("improvement CLI loop", () => {
+  it("exports regression drafts from a failed run and rejects a holdout regression on compare", async () => {
+    const cwd = mkdtempSync(join(tmpdir(), "canary-improve-"));
+    writeFileSync(join(cwd, "agent.mjs"), "export default async (input) => input === 'x' ? null : { value: input };", "utf8");
+    writeFileSync(join(cwd, "cases.ts"), "export default [{ id: 'safe', input: 'ok', assertions: [{ type: 'output.exists' }] }, { id: 'broken', input: 'x', assertions: [{ type: 'output.exists' }] }];", "utf8");
+    writeFileSync(join(cwd, "canary.config.ts"), `export default { agent: { adapter: 'function', entry: './agent.mjs' }, cases: './cases.ts', coverage: { include: ['agent.mjs'], exclude: [] }, web: { host: '127.0.0.1', open: false } };`, "utf8");
+    const failed = await runCommandDetailed({ cwd, headless: true, noOpen: true });
+    expect(failed.exitCode).toBe(1);
+    const previousCwd = process.env.INIT_CWD;
+    process.env.INIT_CWD = cwd;
+    try {
+      const improveCode = await main(["improve", failed.runId, "--out", join(cwd, "cases/regression")]);
+      expect(improveCode).toBe(0);
+      expect(existsSync(join(cwd, "cases/regression", "broken.regression.ts"))).toBe(true);
+      expect(readFileSync(join(cwd, "cases/regression", "broken.regression.ts"), "utf8")).toContain("broken.regression");
+    } finally {
+      process.env.INIT_CWD = previousCwd;
+    }
+
+    writeFileSync(join(cwd, "agent.mjs"), "export default async (input) => ({ value: input });", "utf8");
+    writeFileSync(join(cwd, "cases.ts"), "export default [{ id: 'safe', input: 'ok', assertions: [{ type: 'output.exists' }] }, { id: 'holdout-planning', input: 'holdout', assertions: [{ type: 'output.exists' }] }];", "utf8");
+    const baseline = await runCommandDetailed({ cwd, headless: true, noOpen: true });
+    expect(baseline.exitCode).toBe(0);
+    writeFileSync(join(cwd, "agent.mjs"), "export default async (input) => String(input).includes('holdout') ? null : { value: input };", "utf8");
+    const candidate = await runCommandDetailed({ cwd, headless: true, noOpen: true });
+    expect(candidate.exitCode).toBe(1);
+    process.env.INIT_CWD = cwd;
+    try {
+      const compareCode = await main(["compare", baseline.runId, candidate.runId]);
+      expect(compareCode).toBe(1);
+    } finally {
+      process.env.INIT_CWD = previousCwd;
+    }
+  });
+});
+
+describe("canary replay", () => {
+  it("re-executes the source run cases into a new artifact tagged replayOf", async () => {
+    const cwd = mkdtempSync(join(tmpdir(), "canary-replay-"));
+    writeFileSync(join(cwd, "agent.mjs"), "export default async (input) => ({ value: input });", "utf8");
+    writeFileSync(join(cwd, "cases.ts"), "export default [{ id: 'smoke', input: 'ok', assertions: [{ type: 'output.exists' }] }];", "utf8");
+    writeFileSync(join(cwd, "canary.config.ts"), `export default { agent: { adapter: 'function', entry: './agent.mjs' }, cases: './cases.ts', coverage: { include: ['agent.mjs'], exclude: [] }, web: { host: '127.0.0.1', open: false } };`, "utf8");
+    const first = await runCommandDetailed({ cwd, headless: true, noOpen: true });
+    expect(first.exitCode).toBe(0);
+    const previousCwd = process.env.INIT_CWD;
+    process.env.INIT_CWD = cwd;
+    try {
+      const code = await main(["replay", first.runId, "--headless", "--no-open"]);
+      expect(code).toBe(0);
+    } finally {
+      process.env.INIT_CWD = previousCwd;
+    }
+    const replayed = listRunArtifacts(cwd).find((run) => run.replayOf === first.runId);
+    expect(replayed?.runId).not.toBe(first.runId);
+    expect(replayed?.passedCases).toBe(1);
   });
 });

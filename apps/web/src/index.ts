@@ -2,9 +2,19 @@
 import { randomUUID } from "node:crypto";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
-import type { CoverageSummary, EvalResult } from "@canary/core";
+import type { CoverageGateResult, CoverageSummary, EvalResult } from "@canary/core";
+import {
+  parseCoverageSummary,
+  parseReplayRequest,
+  parseReplayResponse,
+  parseReportFormat,
+  parseRunSnapshot,
+  SchemaValidationError,
+  invalidInput,
+} from "@canary/core";
 import type { RunnerEvent } from "@canary/runner";
 import { renderReport } from "@canary/reporters";
+import { html } from "./ui.js";
 
 export interface ArtifactRepository {
   listRuns(): RunSnapshot[];
@@ -16,17 +26,26 @@ export class FileArtifactRepository implements ArtifactRepository {
   constructor(public readonly rootDir: string) {}
   listRuns(): RunSnapshot[] {
     if (!existsSync(this.rootDir)) return [];
-    return readdirSync(this.rootDir, { withFileTypes: true }).filter((e) => e.isDirectory()).map((e) => this.readRun(e.name)).filter((r): r is RunSnapshot => Boolean(r)).sort((a,b) => b.startedAt.localeCompare(a.startedAt));
+    return readdirSync(this.rootDir, { withFileTypes: true }).filter((e) => e.isDirectory()).map((e) => {
+      try { return this.readRun(e.name); }
+      catch { return undefined; }
+    }).filter((r): r is RunSnapshot => Boolean(r)).sort((a,b) => b.startedAt.localeCompare(a.startedAt));
   }
   readRun(runId: string): RunSnapshot | undefined {
     const file = join(this.rootDir, runId, "run.json");
     if (!existsSync(file)) return undefined;
-    try { return JSON.parse(readFileSync(file, "utf8")) as RunSnapshot; } catch { return undefined; }
+    let raw: unknown;
+    try { raw = JSON.parse(readFileSync(file, "utf8")); }
+    catch (error) { throw new Error(`run.json (${runId}): ${error instanceof Error ? error.message : String(error)}`); }
+    return parseRunSnapshot(raw, `run.json (${runId})`) as RunSnapshot;
   }
   readCoverage(runId: string): CoverageSummary | undefined {
     const file = join(this.rootDir, runId, "coverage.json");
     if (!existsSync(file)) return undefined;
-    try { return JSON.parse(readFileSync(file, "utf8")) as CoverageSummary; } catch { return undefined; }
+    let raw: unknown;
+    try { raw = JSON.parse(readFileSync(file, "utf8")); }
+    catch (error) { throw new Error(`coverage.json (${runId}): ${error instanceof Error ? error.message : String(error)}`); }
+    return parseCoverageSummary(raw, `coverage.json (${runId})`) as CoverageSummary;
   }
   readJson<T>(runId: string, name: string): T | undefined {
     const file = join(this.rootDir, runId, name);
@@ -47,6 +66,15 @@ export interface RunSnapshot {
   coverage?: CoverageSummary;
   events: RunnerEvent[];
   improvements?: unknown[];
+  gate?: CoverageGateResult;
+  replayOf?: string;
+}
+
+export interface SseEvent {
+  id: number;
+  type: string;
+  runId: string;
+  payload: unknown;
 }
 
 type Subscriber = ServerResponse<IncomingMessage>;
@@ -55,21 +83,26 @@ export class RunStore {
   private readonly runs = new Map<string, RunSnapshot>();
   private readonly subscribers = new Map<string, Set<Subscriber>>();
   private readonly coverageFingerprints = new Map<string, string>();
+  private readonly sseLog = new Map<string, SseEvent[]>();
+  private readonly sseSeq = new Map<string, number>();
 
   hydrate(repository: ArtifactRepository): void {
     for (const run of repository.listRuns()) {
       if (!this.runs.has(run.runId)) {
         const coverage = run.coverage ?? repository.readCoverage(run.runId);
         const improvements = repository instanceof FileArtifactRepository ? repository.readJson<unknown[]>(run.runId, "improvement.json") : undefined;
-        this.runs.set(run.runId, { ...run, ...(coverage ? { coverage } : {}), ...(Array.isArray(improvements) ? { improvements } : {}) });
+        const gate = repository instanceof FileArtifactRepository ? repository.readJson<CoverageGateResult>(run.runId, "gate.json") : undefined;
+        this.runs.set(run.runId, { ...run, ...(coverage ? { coverage } : {}), ...(Array.isArray(improvements) ? { improvements } : {}), ...(gate ? { gate } : {}) });
+        this.rebuildSseLog(this.runs.get(run.runId)!);
       }
     }
   }
 
   subscriberCount(runId: string): number { return this.subscribers.get(runId)?.size ?? 0; }
+  eventLog(runId: string): SseEvent[] { return [...(this.sseLog.get(runId) ?? [])]; }
 
-  create(totalCases: number, runId = `run_${randomUUID()}`): RunSnapshot {
-    const snapshot: RunSnapshot = { runId, status: "running", startedAt: new Date().toISOString(), totalCases, completedCases: 0, passedCases: 0, results: [], events: [] };
+  create(totalCases: number, runId = `run_${randomUUID()}`, replayOf?: string): RunSnapshot {
+    const snapshot: RunSnapshot = { runId, status: "running", startedAt: new Date().toISOString(), totalCases, completedCases: 0, passedCases: 0, results: [], events: [], ...(replayOf ? { replayOf } : {}) };
     this.runs.set(runId, snapshot);
     this.publish(runId, { type: "run.started", runId, payload: snapshot });
     return snapshot;
@@ -102,7 +135,7 @@ export class RunStore {
   setCoverage(runId: string, coverage: CoverageSummary): void {
     const current = this.runs.get(runId);
     if (!current) return;
-    const fingerprint = JSON.stringify(coverage);
+    const fingerprint = this.coverageKey(coverage);
     if (this.coverageFingerprints.get(runId) === fingerprint) return;
     this.coverageFingerprints.set(runId, fingerprint);
     current.coverage = coverage;
@@ -118,12 +151,24 @@ export class RunStore {
     return current;
   }
 
-  subscribe(runId: string, response: Subscriber): () => void {
+  replay(runId: string): RunSnapshot {
+    const current = this.get(runId);
+    if (!current) throw new Error(`Unknown run: ${runId}`);
+    this.publish(runId, { type: "run.replay", runId, payload: current });
+    return current;
+  }
+
+  subscribe(runId: string, response: Subscriber, lastEventId?: number): () => void {
     const set = this.subscribers.get(runId) ?? new Set<Subscriber>();
     set.add(response);
     this.subscribers.set(runId, set);
     const snapshot = this.get(runId);
-    if (snapshot) this.writeEvent(response, { type: "run.snapshot", runId, payload: snapshot });
+    if (snapshot) this.writeEvent(response, { id: 0, type: "run.snapshot", runId, payload: snapshot });
+    if (lastEventId !== undefined && Number.isFinite(lastEventId)) {
+      for (const event of this.sseLog.get(runId) ?? []) {
+        if (event.id > lastEventId) this.writeEvent(response, event);
+      }
+    }
     let active = true;
     const unsubscribe = (): void => {
       if (!active) return;
@@ -135,73 +180,148 @@ export class RunStore {
     return unsubscribe;
   }
 
-  private publish(runId: string, event: { type: string; runId: string; payload: unknown }): void {
-    for (const response of this.subscribers.get(runId) ?? []) this.writeEvent(response, event);
+  private rebuildSseLog(run: RunSnapshot): void {
+    const events: SseEvent[] = [];
+    let id = 0;
+    events.push({ id: ++id, type: "run.started", runId: run.runId, payload: { runId: run.runId, startedAt: run.startedAt } });
+    for (const event of run.events) events.push({ id: ++id, type: event.type, runId: run.runId, payload: event });
+    if (run.coverage) events.push({ id: ++id, type: "coverage.updated", runId: run.runId, payload: run.coverage });
+    if (run.status === "completed" || run.status === "failed") events.push({ id: ++id, type: "run.finished", runId: run.runId, payload: run });
+    this.sseLog.set(run.runId, events);
+    this.sseSeq.set(run.runId, id);
+    if (run.coverage) this.coverageFingerprints.set(run.runId, this.coverageKey(run.coverage));
   }
 
-  private writeEvent(response: Subscriber, event: { type: string; runId: string; payload: unknown }): void {
+  private coverageKey(coverage: CoverageSummary): string {
+    return JSON.stringify({
+      status: coverage.status,
+      sourceHash: coverage.sourceHash,
+      lines: coverage.lines,
+      branches: coverage.branches,
+      functions: coverage.functions,
+      statements: coverage.statements,
+    });
+  }
+
+  private publish(runId: string, event: { type: string; runId: string; payload: unknown }): void {
+    const id = (this.sseSeq.get(runId) ?? 0) + 1;
+    this.sseSeq.set(runId, id);
+    const envelope: SseEvent = { id, type: event.type, runId, payload: event.payload };
+    const log = this.sseLog.get(runId) ?? [];
+    log.push(envelope);
+    this.sseLog.set(runId, log);
+    for (const response of this.subscribers.get(runId) ?? []) this.writeEvent(response, envelope);
+  }
+
+  private writeEvent(response: Subscriber, event: SseEvent): void {
     if (response.writableEnded || response.destroyed) return;
-    try { response.write(`event: ${event.type}\ndata: ${JSON.stringify(event.payload)}\n\n`); } catch { /* client disconnected */ }
+    try {
+      const idLine = event.id > 0 ? `id: ${event.id}\n` : "";
+      response.write(`${idLine}event: ${event.type}\ndata: ${JSON.stringify(event.payload)}\n\n`);
+    } catch { /* client disconnected */ }
   }
 }
 
-const html = `<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>canary</title><style>body{font-family:system-ui;margin:0;background:#0b1120;color:#e2e8f0}main{max-width:1180px;margin:auto;padding:28px}.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}.card{background:#172033;border:1px solid #2b3a55;border-radius:12px;padding:16px;margin:12px 0}.metric{font-size:28px;font-weight:700}.muted{color:#93a4bf}pre{white-space:pre-wrap;max-height:420px;overflow:auto;color:#bfdbfe}a{color:#93c5fd}.ok{color:#86efac}.bad{color:#fca5a5}@media(max-width:800px){.grid{grid-template-columns:repeat(2,1fr)}}</style></head><body><main><h1>canary</h1><p class="muted">Agent evaluation · runtime coverage · evidence-driven improvement · <a href="/">history</a></p><div class="grid"><div class="card"><div id="status" class="metric">idle</div><div class="muted">status</div></div><div class="card"><div id="progress" class="metric">0/0</div><div class="muted">cases</div></div><div class="card"><div id="passed" class="metric">0</div><div class="muted">passed</div></div><div class="card"><div id="latency" class="metric">—</div><div class="muted">latest latency</div></div></div><section class="card"><h2>Coverage</h2><div id="coverage">Waiting for coverage data…</div></section><section class="card"><h2>Feature chains</h2><div id="features">Waiting for feature coverage…</div></section><section class="card"><h2>Cases</h2><div id="cases">Waiting for cases…</div></section><section class="card"><h2>Trajectory</h2><pre id="trajectory">Select a case.</pre></section><section class="card"><h2>Live events / history</h2><pre id="events">Connecting…</pre></section></main><script>
-const runId=new URLSearchParams(location.search).get('runId');
-const $=id=>document.getElementById(id);
-const log=x=>{$('events').textContent=JSON.stringify(x,null,2)+'\\n'+$('events').textContent};
-function coverage(c){$('coverage').innerHTML='<div>'+['lines','branches','functions','statements'].map(k=>k+': <b>'+c[k].pct+'%</b> ('+c[k].covered+'/'+c[k].total+')').join(' · ')+'</div>'+(c.files||[]).map(f=>'<div class=muted>'+f.filePath+' · '+f.status+' · '+(f.quality&&f.quality.precision||'unknown')+'</div>').join('');$('features').innerHTML=(c.featureChains||[]).map(f=>'<div><b>'+f.name+'</b>: '+f.status+' · <b>'+f.coverage.pct+'%</b> ('+f.coverage.covered+'/'+f.coverage.total+')</div>').join('')||'No feature chains yet'}
-function render(s){$('status').textContent=s.status;$('progress').textContent=s.completedCases+'/'+s.totalCases;$('passed').textContent=s.passedCases;if(s.coverage)coverage(s.coverage);if(s.results&&s.results.length){$('latency').textContent=(s.results[s.results.length-1].metrics&&s.results[s.results.length-1].metrics.latencyMs||'—')+'ms';$('cases').innerHTML=s.results.map(function(x){return '<div><button data-case="'+x.caseId+'">'+(x.passed?'passed':'failed')+' '+x.caseId+'</button> · '+(x.coverage&&x.coverage.lines?x.coverage.lines.pct:0)+'% lines</div>';}).join('');$('cases').onclick=function(e){var btn=e.target.closest('button');if(!btn)return;var found=s.results.find(function(r){return r.caseId===btn.getAttribute('data-case');});$('trajectory').textContent=JSON.stringify(found&&found.trajectory||found,null,2);};}}
-if(runId){const es=new EventSource('/api/runs/'+runId+'/events');es.addEventListener('run.snapshot',e=>render(JSON.parse(e.data)));es.addEventListener('run.updated',e=>render(JSON.parse(e.data)));es.addEventListener('run.finished',e=>render(JSON.parse(e.data)));es.addEventListener('coverage.updated',e=>coverage(JSON.parse(e.data)));es.onmessage=e=>log(JSON.parse(e.data));fetch('/api/runs/'+runId).then(r=>r.json()).then(render);}
-else{fetch('/api/runs').then(r=>r.json()).then(function(runs){$('status').textContent='history';$('events').textContent='';$('coverage').innerHTML=runs.map(function(r){return '<div><a href="?runId='+r.runId+'">'+r.runId+'</a> · '+r.status+' · '+r.passedCases+'/'+r.totalCases+' · '+r.startedAt+'</div>';}).join('')||'No historical runs. Start with canary run.';$('cases').textContent='Open a historical run to inspect cases.';});}
-</script></body></html>`;
+export interface WebServerHooks {
+  onReplay?: (runId: string, request: { caseId?: string }) => Promise<{ replayRunId: string }>;
+}
 
-export function createWebServer(store: RunStore, host = "127.0.0.1", port = 0, artifactRoot?: string) {
+export function replayCommand(runId: string): string {
+  return `canary replay ${runId}`;
+}
+
+async function readJsonBody(request: IncomingMessage): Promise<unknown> {
+  const chunks: Buffer[] = [];
+  for await (const chunk of request) chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+  const raw = Buffer.concat(chunks).toString("utf8").trim();
+  if (!raw) return {};
+  try { return JSON.parse(raw); }
+  catch { invalidInput("JSON body", "Request body is not valid JSON"); }
+}
+
+function writeJson(response: ServerResponse<IncomingMessage>, status: number, payload: unknown): void {
+  response.writeHead(status, { "content-type": "application/json; charset=utf-8" });
+  response.end(JSON.stringify(payload));
+}
+
+function writeError(response: ServerResponse<IncomingMessage>, error: unknown): void {
+  const message = error instanceof Error ? error.message : String(error);
+  writeJson(response, error instanceof SchemaValidationError ? 400 : 400, { error: message });
+}
+
+export function createWebServer(store: RunStore, host = "127.0.0.1", port = 0, artifactRoot?: string, hooks?: WebServerHooks) {
   if (artifactRoot) store.hydrate(new FileArtifactRepository(resolve(artifactRoot)));
   const server = createServer((request: IncomingMessage, response: ServerResponse<IncomingMessage>) => {
-    void handleRequest(store, request, response);
+    void handleRequest(store, request, response, hooks);
   });
-  return { server, listen: () => new Promise<{ url: string; port: number }>((resolve) => server.listen(port, host, () => { const address = server.address(); const actualPort = typeof address === "object" && address ? address.port : port; resolve({ url: `http://${host}:${actualPort}`, port: actualPort }); })) };
+  return { server, listen: () => new Promise<{ url: string; port: number }>((resolveListen) => server.listen(port, host, () => { const address = server.address(); const actualPort = typeof address === "object" && address ? address.port : port; resolveListen({ url: `http://${host}:${actualPort}`, port: actualPort }); })) };
 }
 
-async function handleRequest(store: RunStore, request: IncomingMessage, response: ServerResponse<IncomingMessage>): Promise<void> {
-  const url = new URL(request.url ?? "/", "http://127.0.0.1");
-  const parts = url.pathname.split("/").filter(Boolean);
-  response.setHeader("Access-Control-Allow-Origin", "http://127.0.0.1");
-  if (url.pathname === "/" || url.pathname === "/index.html") { response.writeHead(200, { "content-type": "text/html; charset=utf-8" }); response.end(html); return; }
-  if (parts[0] === "api" && parts[1] === "runs" && parts.length === 2) { response.writeHead(200, { "content-type": "application/json" }); response.end(JSON.stringify(store.list())); return; }
-  if (parts[0] === "api" && parts[1] === "runs" && parts[2]) {
-    const runId = parts[2];
-    const run = store.get(runId);
-    if (!run) { response.writeHead(404); response.end("Not found"); return; }
-    if (parts[3] === "events") {
-      response.writeHead(200, { "content-type": "text/event-stream", "cache-control": "no-cache", connection: "keep-alive" });
-      const unsubscribe = store.subscribe(runId, response);
-      request.on("close", unsubscribe);
-      request.on("error", unsubscribe);
+async function handleRequest(store: RunStore, request: IncomingMessage, response: ServerResponse<IncomingMessage>, hooks?: WebServerHooks): Promise<void> {
+  try {
+    const url = new URL(request.url ?? "/", "http://127.0.0.1");
+    const parts = url.pathname.split("/").filter(Boolean);
+    response.setHeader("Access-Control-Allow-Origin", "http://127.0.0.1");
+    if (url.pathname === "/" || url.pathname === "/index.html") { response.writeHead(200, { "content-type": "text/html; charset=utf-8" }); response.end(html); return; }
+    if (parts[0] === "api" && parts[1] === "runs" && parts.length === 2) {
+      writeJson(response, 200, store.list().map((run) => parseRunSnapshot(run, "GET /api/runs")));
       return;
     }
-    if (parts[3] === "coverage") { response.writeHead(200, { "content-type": "application/json" }); response.end(JSON.stringify(run.coverage ?? null)); return; }
-    if (parts[3] === "cases") { response.writeHead(200, { "content-type": "application/json" }); response.end(JSON.stringify(run.results)); return; }
-    if (parts[3] === "trajectory") {
-      const trajectoryId = parts[4];
-      const payload = trajectoryId ? run.results.find((result) => result.trajectoryId === trajectoryId || result.trajectory?.id === trajectoryId)?.trajectory : run.results.map((result) => result.trajectory);
-      response.writeHead(payload ? 200 : 404, { "content-type": "application/json" });
-      response.end(JSON.stringify(payload ?? { error: "Not found" }));
+    if (parts[0] === "api" && parts[1] === "runs" && parts[2]) {
+      const runId = parts[2];
+      const run = store.get(runId);
+      if (!run) { response.writeHead(404); response.end("Not found"); return; }
+      if (parts[3] === "events") {
+        response.writeHead(200, { "content-type": "text/event-stream", "cache-control": "no-cache", connection: "keep-alive" });
+        const rawId = request.headers["last-event-id"];
+        const lastEventId = rawId === undefined || rawId === "" ? undefined : Number.parseInt(String(rawId), 10);
+        const unsubscribe = store.subscribe(runId, response, lastEventId);
+        request.on("close", unsubscribe);
+        request.on("error", unsubscribe);
+        return;
+      }
+      if (parts[3] === "replay") {
+        if (request.method !== "POST") { response.writeHead(405); response.end("Method Not Allowed"); return; }
+        const parsed = parseReplayRequest(await readJsonBody(request));
+        store.replay(runId);
+        const executed = hooks?.onReplay ? await hooks.onReplay(runId, parsed) : undefined;
+        writeJson(response, 200, parseReplayResponse({
+          sourceRunId: runId,
+          command: replayCommand(runId),
+          mode: executed?.replayRunId ? "execution" : "command",
+          replayRunId: executed?.replayRunId,
+          events: store.eventLog(runId).length,
+        }));
+        return;
+      }
+      if (parts[3] === "improvements") {
+        writeJson(response, 200, run.improvements ?? []);
+        return;
+      }
+      if (parts[3] === "coverage") {
+        writeJson(response, 200, run.coverage ? parseCoverageSummary(run.coverage, "GET coverage") : null);
+        return;
+      }
+      if (parts[3] === "cases") { writeJson(response, 200, run.results); return; }
+      if (parts[3] === "trajectory") {
+        const trajectoryId = parts[4];
+        const payload = trajectoryId ? run.results.find((result) => result.trajectoryId === trajectoryId || result.trajectory?.id === trajectoryId)?.trajectory : run.results.map((result) => result.trajectory);
+        if (!payload) { writeJson(response, 404, { error: "Not found" }); return; }
+        writeJson(response, 200, payload);
+        return;
+      }
+      if (parts[3] === "report") {
+        const format = parseReportFormat(parts[4] ?? "markdown");
+        const body = renderReport({ runId: run.runId, status: run.status, startedAt: run.startedAt, finishedAt: run.finishedAt, totalCases: run.totalCases, passedCases: run.passedCases, results: run.results, coverage: run.coverage, gate: run.gate }, format);
+        response.writeHead(200, { "content-type": format === "junit" ? "application/xml; charset=utf-8" : format === "json" ? "application/json" : "text/markdown; charset=utf-8" });
+        response.end(body);
+        return;
+      }
+      writeJson(response, 200, parseRunSnapshot(run, "GET /api/runs/:runId"));
       return;
     }
-    if (parts[3] === "report") {
-      const format = parts[4] === "junit" || parts[4] === "json" || parts[4] === "markdown" ? parts[4] : "markdown";
-      const body = renderReport({ runId: run.runId, status: run.status, startedAt: run.startedAt, finishedAt: run.finishedAt, totalCases: run.totalCases, passedCases: run.passedCases, results: run.results, coverage: run.coverage }, format);
-      response.writeHead(200, { "content-type": format === "junit" ? "application/xml; charset=utf-8" : format === "json" ? "application/json" : "text/markdown; charset=utf-8" });
-      response.end(body);
-      return;
-    }
-    response.writeHead(200, { "content-type": "application/json" }); response.end(JSON.stringify(run)); return;
+    response.writeHead(404); response.end("Not found");
+  } catch (error) {
+    writeError(response, error);
   }
-  response.writeHead(404); response.end("Not found");
 }
-
-
-
-
-

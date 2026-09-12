@@ -66,6 +66,14 @@ describe("web run store and HTTP/SSE", () => {
       expect(new FileArtifactRepository(dir).readRun("run_hist")?.runId).toBe("run_hist");
       const home = await get(`${listening.url}/`);
       expect(home.body).toContain("/api/runs");
+      expect(home.body).toContain("Improvement Queue");
+      expect(home.body).toContain("Overview");
+      expect(home.body).toContain("Run Timeline");
+      expect(home.body).toContain("Feature Coverage");
+      expect(home.body).toContain("Case Detail");
+      expect(home.body).toContain("canary replay");
+      expect(home.body).toContain("/report/json");
+      expect(home.body).toContain("/report/junit");
       const report = await get(`${listening.url}/api/runs/run_hist/report/markdown`);
       expect(report.status).toBe(200);
       expect(report.body).toContain("run_hist");
@@ -127,6 +135,99 @@ describe("web run store and HTTP/SSE", () => {
       sockets[1]?.destroy();
       await new Promise((resolvePromise) => setTimeout(resolvePromise, 30));
       expect(store.subscriberCount(run.runId)).toBe(0);
+    } finally { await close(web.server); }
+  });
+
+  it("serves Improvement Queue JSON from hydrated artifacts", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "canary-web-imp-"));
+    mkdirSync(join(dir, "run_imp"));
+    writeFileSync(join(dir, "run_imp", "run.json"), JSON.stringify({ runId: "run_imp", status: "failed", startedAt: "2026-01-01T00:00:00.000Z", totalCases: 1, completedCases: 1, passedCases: 0, results: [], events: [] }), "utf8");
+    writeFileSync(join(dir, "run_imp", "improvement.json"), JSON.stringify([{ id: "s1", caseId: "broken", category: "prompt", status: "proposed", rationale: "missing output", evidence: [] }]), "utf8");
+    const store = new RunStore();
+    const web = createWebServer(store, "127.0.0.1", 0, dir);
+    const listening = await web.listen();
+    try {
+      const payload = await get(`${listening.url}/api/runs/run_imp/improvements`);
+      expect(payload.status).toBe(200);
+      expect(JSON.parse(payload.body)[0].caseId).toBe("broken");
+      const page = await get(`${listening.url}/?runId=run_imp`);
+      expect(page.body).toContain("Improvement Queue");
+      expect(page.body).toContain("/api/runs/'+runId+'/improvements");
+    } finally { await close(web.server); }
+  });
+
+  it("resumes SSE from Last-Event-ID without replaying the same coverage fragment", async () => {
+    const store = new RunStore();
+    const run = store.create(1, "run_sse_resume");
+    const web = createWebServer(store);
+    const listening = await web.listen();
+    const collect = (headers: Record<string, string> = {}, afterSnapshot?: () => void): Promise<string> => new Promise((resolvePromise, reject) => {
+      const req = request(`${listening.url}/api/runs/${run.runId}/events`, { headers });
+      req.on("response", (res) => {
+        let data = "";
+        res.setEncoding("utf8");
+        res.on("data", (chunk) => {
+          data += chunk;
+          if (data.includes("event: run.snapshot")) afterSnapshot?.();
+          if (data.includes("event: coverage.updated") && data.includes("\"status\":\"provisional\"")) { res.destroy(); resolvePromise(data); }
+        });
+      });
+      req.on("error", (error: NodeJS.ErrnoException) => { if (error.code !== "ECONNRESET") reject(error); });
+      req.end();
+    });
+    try {
+      const first = await collect({}, () => store.setCoverage(run.runId, coverage(run.runId, "provisional", 1)));
+      const lastId = Math.max(0, ...[...first.matchAll(/^id: (\d+)/gm)].map((match) => Number(match[1])));
+      expect(lastId).toBeGreaterThan(0);
+      let resumed = "";
+      await new Promise<void>((resolvePromise, reject) => {
+        const req = request(`${listening.url}/api/runs/${run.runId}/events`, { headers: { "Last-Event-ID": String(lastId) } });
+        req.on("response", (res) => {
+          res.setEncoding("utf8");
+          res.on("data", (chunk) => {
+            resumed += chunk;
+            if (resumed.includes("event: run.snapshot") && resumed.includes("\"status\":\"final\"")) { res.destroy(); resolvePromise(); }
+            if (resumed.includes("event: run.snapshot") && !resumed.includes("\"status\":\"final\"")) {
+              store.setCoverage(run.runId, coverage(run.runId, "final", 2));
+            }
+          });
+        });
+        req.on("error", (error: NodeJS.ErrnoException) => { if (error.code !== "ECONNRESET") reject(error); });
+        req.end();
+      });
+      expect(resumed).toContain("event: run.snapshot");
+      expect(resumed).toContain("id: ");
+      const updatedAt = resumed.indexOf("event: coverage.updated");
+      expect(updatedAt).toBeGreaterThan(resumed.indexOf("event: run.snapshot"));
+      expect((resumed.match(/event: coverage.updated/g) ?? []).length).toBe(1);
+      expect(resumed.slice(updatedAt)).toContain("\"status\":\"final\"");
+      expect(resumed.slice(updatedAt)).not.toContain("\"status\":\"provisional\"");
+    } finally { await close(web.server); }
+  });
+
+  it("accepts POST replay, exposes the CLI command, and rejects invalid report formats", async () => {
+    const store = new RunStore();
+    const run = store.create(1, "run_replay");
+    store.setCoverage(run.runId, coverage(run.runId));
+    const web = createWebServer(store);
+    const listening = await web.listen();
+    try {
+      const replayed = await new Promise<{ status: number; body: string }>((resolvePromise, reject) => {
+        const req = request(`${listening.url}/api/runs/${run.runId}/replay`, { method: "POST", headers: { "content-type": "application/json" } }, (response) => {
+          let body = ""; response.setEncoding("utf8"); response.on("data", (part) => body += part); response.on("end", () => resolvePromise({ status: response.statusCode ?? 0, body }));
+        });
+        req.on("error", reject);
+        req.end("{}");
+      });
+      expect(replayed.status).toBe(200);
+      const payload = JSON.parse(replayed.body);
+      expect(payload.command).toBe(`canary replay ${run.runId}`);
+      expect(payload.mode).toBe("command");
+      const bad = await get(`${listening.url}/api/runs/${run.runId}/report/html`);
+      expect(bad.status).toBe(400);
+      expect(bad.body).toContain("report format");
+      const page = await get(`${listening.url}/?runId=${run.runId}`);
+      expect(page.body).toContain("/api/runs/'+runId+'/replay");
     } finally { await close(web.server); }
   });
 });

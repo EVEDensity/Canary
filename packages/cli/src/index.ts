@@ -1,17 +1,19 @@
-import { mkdirSync, writeFileSync } from "node:fs";
+﻿import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { readdir } from "node:fs/promises";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { createWebServer, FileArtifactRepository, RunStore, type RunSnapshot } from "@canary/web";
 import { runConfiguredCase } from "@canary/runner";
 import { createCoverageManifest, mergeCoverageSummaries } from "@canary/coverage";
-import { renderReport } from "@canary/reporters";
-import { compareRuns, proposeFromResults } from "@canary/improvement";
+import { renderReport, countJunitFailures } from "@canary/reporters";
+import { compareRuns, holdoutCaseIds, proposeFromResults, writeRegressionDrafts } from "@canary/improvement";
 import { redactTrajectory } from "@canary/trace";
+import { evaluateCoverageGates, exitCodeForRun } from "@canary/evaluators";
+import { parseCanaryConfig, parseReportFormat, parseTestCase } from "@canary/core";
 import type { CanaryConfig, CoverageSummary, TestCase } from "@canary/core";
 
-export interface CliOptions { configPath?: string; cwd?: string; headless?: boolean; noOpen?: boolean; port?: number; caseId?: string }
-const USAGE = "Usage: canary run [--headless] [--no-open] [--case <id>] [--port <number>] [--config <path>]\n       canary runs\n       canary show <runId>\n       canary report <runId> [--format json|markdown|junit]\n       canary improve <runId>\n       canary compare <baselineRunId> <candidateRunId>";
+export interface CliOptions { configPath?: string; cwd?: string; headless?: boolean; noOpen?: boolean; port?: number; caseId?: string; caseIds?: string[]; replayOf?: string }
+const USAGE = "Usage: canary run [--headless] [--no-open] [--case <id>] [--port <number>] [--config <path>]\n       canary runs\n       canary show <runId>\n       canary report <runId> [--format json|markdown|junit]\n       canary improve <runId> [--out <dir>]\n       canary compare <baselineRunId> <candidateRunId>\n       canary replay <runId> [--headless] [--no-open]";
 
 async function importModule(filePath: string): Promise<Record<string, unknown>> {
   const url = pathToFileURL(resolve(filePath)).href;
@@ -26,7 +28,7 @@ function defaultExport(module: Record<string, unknown>): unknown {
   return value && typeof value === "object" && "default" in value ? (value as Record<string, unknown>).default : value;
 }
 async function loadConfig(configPath: string): Promise<CanaryConfig> {
-  return defaultExport(await importModule(configPath)) as CanaryConfig;
+  return parseCanaryConfig(defaultExport(await importModule(configPath))) as CanaryConfig;
 }
 
 /** Double-star globs match zero or more directories: cases/smoke.ts and cases/a/b.ts both match. */
@@ -73,10 +75,9 @@ export async function loadCases(pattern: string | string[], cwd: string, exclude
     const value = defaultExport(await importModule(file));
     const values = Array.isArray(value) ? value : [value];
     for (const candidate of values) {
-      if (!candidate || typeof candidate !== "object" || typeof (candidate as TestCase).id !== "string" || typeof (candidate as TestCase).input === "undefined") {
-        throw new Error(`Invalid TestCase schema in ${file}`);
-      }
-      const testCase = candidate as TestCase;
+      let testCase: TestCase;
+      try { testCase = parseTestCase(candidate, `TestCase in ${file}`) as TestCase; }
+      catch (error) { throw new Error(`Invalid TestCase schema in ${file}: ${error instanceof Error ? error.message : String(error)}`); }
       if (ids.has(testCase.id)) throw new Error(`Duplicate test case id: ${testCase.id}`);
       ids.add(testCase.id);
       cases.push(testCase);
@@ -90,6 +91,11 @@ function resolveCwd(cwd?: string): string {
 }
 export function artifactRoot(cwd?: string): string {
   return resolve(resolveCwd(cwd), ".canary/artifacts");
+}
+export function defaultRegressionDir(cwd?: string): string {
+  const root = resolveCwd(cwd);
+  if (existsSync(resolve(root, "examples/local-agent/cases"))) return resolve(root, "examples/local-agent/cases/regression");
+  return resolve(root, "cases/regression");
 }
 export function listRunArtifacts(cwd?: string): RunSnapshot[] {
   return new FileArtifactRepository(artifactRoot(cwd)).listRuns();
@@ -136,40 +142,38 @@ function printRunList(runs: RunSnapshot[]): void {
 }
 
 export interface RunCommandResult { exitCode: number; runId: string; artifactPath: string; uiUrl: string; store: RunStore; close: () => Promise<void> }
-export async function runCommandDetailed(options: CliOptions = {}): Promise<RunCommandResult> {
-  const cwd = resolveCwd(options.cwd);
-  const config = await loadConfig(resolve(cwd, options.configPath ?? "canary.config.ts"));
-  const cases = await loadCases(config.cases, cwd, config.coverage.exclude);
-  const selected = options.caseId ? cases.filter((testCase) => testCase.id === options.caseId) : cases;
-  if (options.caseId && !selected.length) throw new Error(`No test case matched --case ${options.caseId}`);
-  const store = new RunStore();
-  const run = store.create(selected.length);
-  const artifactDir = resolve(cwd, ".canary/artifacts", run.runId);
+async function persistExecution(input: {
+  store: RunStore;
+  config: CanaryConfig;
+  cwd: string;
+  selected: TestCase[];
+  replayOf?: string;
+}): Promise<{ runId: string; exitCode: number; artifactPath: string; snapshot: RunSnapshot }> {
+  const run = input.store.create(input.selected.length, undefined, input.replayOf);
+  const artifactDir = resolve(input.cwd, ".canary/artifacts", run.runId);
   mkdirSync(artifactDir, { recursive: true });
-  const manifest = createCoverageManifest({ rootDir: cwd, include: config.coverage.include, exclude: config.coverage.exclude, features: config.features });
+  const manifest = createCoverageManifest({ rootDir: input.cwd, include: input.config.coverage.include, exclude: input.config.coverage.exclude, features: input.config.features });
   writeFileSync(resolve(artifactDir, "coverage-manifest.json"), JSON.stringify(manifest, null, 2), "utf8");
-  const web = createWebServer(store, config.web?.host ?? "127.0.0.1", options.port ?? config.web?.port ?? 0, resolve(cwd, ".canary/artifacts"));
-  const listening = await web.listen();
-  const url = `${listening.url}/?runId=${encodeURIComponent(run.runId)}`;
-  console.log(`canary UI: ${url}`);
-  if (!options.headless && !options.noOpen && config.web?.open !== false) openBrowser(url);
   const summaries: CoverageSummary[] = [];
-  for (const testCase of selected) {
+  for (const testCase of input.selected) {
     const result = await runConfiguredCase({
-      config, cwd, runId: run.runId, manifest,
-      onEvent: (event) => store.appendEvent(run.runId, event),
+      config: input.config, cwd: input.cwd, runId: run.runId, manifest,
+      onEvent: (event) => input.store.appendEvent(run.runId, event),
       onCoverage: (coverage) => {
-        store.setCoverage(run.runId, coverage);
+        input.store.setCoverage(run.runId, coverage);
         if (coverage.status !== "provisional") summaries.push(coverage);
       },
     }, testCase);
-    if (summaries.length) store.setCoverage(run.runId, mergeCoverageSummaries(run.runId, summaries, config.features, cwd));
-    if (!result.passed) store.update(run.runId, { status: "failed" });
+    if (summaries.length) input.store.setCoverage(run.runId, mergeCoverageSummaries(run.runId, summaries, input.config.features, input.cwd));
+    if (!result.passed) input.store.update(run.runId, { status: "failed" });
   }
-  const final = store.finish(run.runId);
+  const final = input.store.finish(run.runId);
+  const suggestions = proposeFromResults(final.runId, final.results);
+  const gate = evaluateCoverageGates(final.coverage, input.config.coverage);
+  input.store.update(run.runId, { ...(!gate.passed ? { status: "failed" as const } : {}), improvements: suggestions, gate });
   const redacted = {
-    ...final,
-    results: final.results.map((result) => result.trajectory ? { ...result, trajectory: redactTrajectory(result.trajectory) } : result),
+    ...input.store.get(run.runId)!,
+    results: (input.store.get(run.runId)?.results ?? final.results).map((result) => result.trajectory ? { ...result, trajectory: redactTrajectory(result.trajectory) } : result),
   };
   writeFileSync(resolve(artifactDir, "run.json"), JSON.stringify(redacted, null, 2), "utf8");
   if (redacted.coverage) writeFileSync(resolve(artifactDir, "coverage.json"), JSON.stringify(redacted.coverage, null, 2), "utf8");
@@ -187,16 +191,60 @@ export async function runCommandDetailed(options: CliOptions = {}): Promise<RunC
     },
     evaluation: { status: result.passed ? "passed" : "failed", failureCategory: result.failureCategory, assertions: result.assertions },
   })), null, 2), "utf8");
-  const reportInput = { runId: redacted.runId, status: redacted.status, startedAt: redacted.startedAt, finishedAt: redacted.finishedAt, totalCases: redacted.totalCases, passedCases: redacted.passedCases, results: redacted.results, coverage: redacted.coverage };
-  const formats = config.reporters?.length ? config.reporters : ["json", "markdown", "junit"] as Array<"json" | "markdown" | "junit">;
+  writeFileSync(resolve(artifactDir, "gate.json"), JSON.stringify(gate, null, 2), "utf8");
+  const reportInput = { runId: redacted.runId, status: redacted.status, startedAt: redacted.startedAt, finishedAt: redacted.finishedAt, totalCases: redacted.totalCases, passedCases: redacted.passedCases, results: redacted.results, coverage: redacted.coverage, gate };
+  const formats = input.config.reporters?.length ? input.config.reporters : ["json", "markdown", "junit"] as Array<"json" | "markdown" | "junit">;
+  let junitXml = "";
   for (const format of formats) {
     const extension = format === "junit" ? "xml" : format === "markdown" ? "md" : "json";
-    writeFileSync(resolve(artifactDir, `report.${extension}`), renderReport(reportInput, format), "utf8");
+    const body = renderReport(reportInput, format);
+    if (format === "junit") junitXml = body;
+    writeFileSync(resolve(artifactDir, `report.${extension}`), body, "utf8");
   }
-  const suggestions = proposeFromResults(redacted.runId, redacted.results);
+  if (!junitXml) junitXml = renderReport(reportInput, "junit");
   writeFileSync(resolve(artifactDir, "improvement.json"), JSON.stringify(suggestions, null, 2), "utf8");
-  const exitCode = redacted.status === "completed" ? 0 : 1;
-  printRunSummary(redacted, { artifactPath: resolve(artifactDir, "run.json"), uiUrl: url, exitCode });
+  const junitFailures = countJunitFailures(junitXml);
+  const exitCode = exitCodeForRun({
+    runFailed: redacted.status !== "completed",
+    gatePassed: gate.passed,
+    junitFailures: Number.isFinite(junitFailures) ? junitFailures : 1,
+  });
+  if (!gate.passed) console.log(`coverage-gate: fail · ${gate.reason} · ${gate.failures.map((item) => item.message).join("; ")}`);
+  return { runId: run.runId, exitCode, artifactPath: resolve(artifactDir, "run.json"), snapshot: redacted };
+}
+
+export async function runCommandDetailed(options: CliOptions = {}): Promise<RunCommandResult> {
+  const cwd = resolveCwd(options.cwd);
+  const config = await loadConfig(resolve(cwd, options.configPath ?? "canary.config.ts"));
+  const cases = await loadCases(config.cases, cwd, config.coverage.exclude);
+  const selected = options.caseId
+    ? cases.filter((testCase) => testCase.id === options.caseId)
+    : options.caseIds
+      ? cases.filter((testCase) => options.caseIds!.includes(testCase.id))
+      : cases;
+  if (options.caseId && !selected.length) throw new Error(`No test case matched --case ${options.caseId}`);
+  if (options.caseIds?.length) {
+    const missing = options.caseIds.filter((id) => !selected.some((testCase) => testCase.id === id));
+    if (missing.length) throw new Error(`Replay cases not found in current config: ${missing.join(", ")}`);
+  }
+  const store = new RunStore();
+  const web = createWebServer(store, config.web?.host ?? "127.0.0.1", options.port ?? config.web?.port ?? 0, resolve(cwd, ".canary/artifacts"), {
+    onReplay: async (sourceId, request) => {
+      const source = store.get(sourceId);
+      if (!source) throw new Error(`Run not found: ${sourceId}`);
+      const wanted = request.caseId ? [request.caseId] : source.results.map((result) => result.caseId);
+      const replayCases = cases.filter((testCase) => wanted.includes(testCase.id));
+      if (!replayCases.length) throw new Error("No cases to replay");
+      const replayed = await persistExecution({ store, config, cwd, selected: replayCases, replayOf: sourceId });
+      return { replayRunId: replayed.runId };
+    },
+  });
+  const listening = await web.listen();
+  const executed = await persistExecution({ store, config, cwd, selected, replayOf: options.replayOf });
+  const url = `${listening.url}/?runId=${encodeURIComponent(executed.runId)}`;
+  console.log(`canary UI: ${url}`);
+  if (!options.headless && !options.noOpen && config.web?.open !== false) openBrowser(url);
+  printRunSummary(executed.snapshot, { artifactPath: executed.artifactPath, uiUrl: url, exitCode: executed.exitCode });
   let webClosed = false;
   const close = async (): Promise<void> => {
     if (webClosed || !web.server.listening) { webClosed = true; return; }
@@ -204,7 +252,7 @@ export async function runCommandDetailed(options: CliOptions = {}): Promise<RunC
     webClosed = true;
   };
   if (options.headless) await close();
-  return { exitCode, runId: run.runId, artifactPath: resolve(artifactDir, "run.json"), uiUrl: url, store, close };
+  return { exitCode: executed.exitCode, runId: executed.runId, artifactPath: executed.artifactPath, uiUrl: url, store, close };
 }
 export async function runCommand(options: CliOptions = {}): Promise<number> {
   return (await runCommandDetailed(options)).exitCode;
@@ -237,8 +285,8 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
     const snapshot = readRunArtifact(runId);
     if (!snapshot) { console.error(`Run not found: ${runId}`); return 1; }
     const formatIndex = rest.indexOf("--format");
-    const format = (formatIndex >= 0 ? rest[formatIndex + 1] : "markdown") as "json" | "markdown" | "junit";
-    console.log(renderReport({ runId: snapshot.runId, status: snapshot.status, startedAt: snapshot.startedAt, finishedAt: snapshot.finishedAt, totalCases: snapshot.totalCases, passedCases: snapshot.passedCases, results: snapshot.results, coverage: snapshot.coverage }, format === "junit" || format === "json" || format === "markdown" ? format : "markdown"));
+    const format = parseReportFormat(formatIndex >= 0 ? rest[formatIndex + 1] : "markdown");
+    console.log(renderReport({ runId: snapshot.runId, status: snapshot.status, startedAt: snapshot.startedAt, finishedAt: snapshot.finishedAt, totalCases: snapshot.totalCases, passedCases: snapshot.passedCases, results: snapshot.results, coverage: snapshot.coverage }, format));
     return snapshot.status === "completed" ? 0 : 1;
   }
   if (command === "improve") {
@@ -246,7 +294,12 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
     if (!runId) { console.log(USAGE); return 1; }
     const snapshot = readRunArtifact(runId);
     if (!snapshot) { console.error(`Run not found: ${runId}`); return 1; }
-    console.log(JSON.stringify(proposeFromResults(snapshot.runId, snapshot.results), null, 2));
+    const suggestions = proposeFromResults(snapshot.runId, snapshot.results);
+    const outIndex = rest.indexOf("--out");
+    const outDir = resolve(outIndex >= 0 && rest[outIndex + 1] ? rest[outIndex + 1]! : defaultRegressionDir());
+    const drafts = writeRegressionDrafts(suggestions, outDir);
+    writeFileSync(resolve(artifactRoot(), runId, "improvement.json"), JSON.stringify(suggestions, null, 2), "utf8");
+    console.log(JSON.stringify({ suggestions, drafts }, null, 2));
     return 0;
   }
   if (command === "compare") {
@@ -256,9 +309,27 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
     const baseline = readRunArtifact(baselineId);
     const candidate = readRunArtifact(candidateId);
     if (!baseline || !candidate) { console.error("Both baseline and candidate runs must exist"); return 1; }
-    const comparison = compareRuns(baseline, candidate, ["holdout-planning"]);
+    const holdout = holdoutCaseIds([...baseline.results, ...candidate.results]);
+    const comparison = compareRuns(baseline, candidate, holdout);
     console.log(JSON.stringify(comparison, null, 2));
     return comparison.verdict === "reject" ? 1 : 0;
+  }
+  if (command === "replay") {
+    const runId = rest[0];
+    if (!runId) { console.log(USAGE); return 1; }
+    const snapshot = readRunArtifact(runId);
+    if (!snapshot) { console.error(`Run not found: ${runId}`); return 1; }
+    const options: CliOptions = {
+      headless: rest.includes("--headless"),
+      noOpen: rest.includes("--no-open"),
+      caseIds: snapshot.results.map((result) => result.caseId),
+      replayOf: runId,
+    };
+    const configIndex = rest.indexOf("--config");
+    if (configIndex >= 0) options.configPath = rest[configIndex + 1];
+    const portIndex = rest.indexOf("--port");
+    if (portIndex >= 0) options.port = Number(rest[portIndex + 1]);
+    return runCommand(options);
   }
   if (command !== "run") { console.log(USAGE); return 1; }
   const options: CliOptions = { headless: rest.includes("--headless"), noOpen: rest.includes("--no-open") };
