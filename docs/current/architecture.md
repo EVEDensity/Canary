@@ -7,48 +7,50 @@
 
 ```mermaid
 flowchart TD
-    INSTALL["全局启动器：当前固定 cwd 到安装仓库"] --> CLI["CLI：解析配置 / 导入用例 / 编排"]
+    INSTALL["全局启动器：保留调用 cwd，CANARY_HOME=安装仓库"] --> CLI["CLI：ProjectContext / 导入用例 / 应用服务"]
     DIRECT["仓库 CLI 或直接 CLI 入口"] --> CLI
-    CLI --> WEB["Web：RunStore / FileArtifactRepository / HTTP / SSE"]
-    CLI --> MANIFEST["Coverage：源码 manifest"]
-    CLI --> RUNNER["Runner：按 case × repetition 调度"]
+    CLI --> APP["runEvaluation：共享运行用例"]
+    APP --> STORE["Trace：RunStore / FileArtifactRepository / JSONL"]
+    CLI -->|非 headless| WEB["Web：HTTP / SSE / 写口令"]
+    WEB --> STORE
+    APP --> MANIFEST["Coverage：源码 manifest"]
+    APP --> RUNNER["Runner：CaseExecutor 端口 + 子进程 worker"]
     RUNNER --> FUNCTION["function：Node 子进程 + 覆盖采集"]
-    RUNNER --> REMOTE["http / mcp：黑盒调用"]
+    RUNNER --> REMOTE["http / mcp：黑盒调用（可 abort fetch）"]
     FUNCTION --> ENV["工具 / MemoryStateStore / deterministic 或 echo model"]
-    RUNNER --> EVAL["固定断言 dispatcher：evaluateAgent"]
+    RUNNER --> EVAL["EvaluatorRegistry：evaluateAgent + 显式 Judge"]
     EVAL --> RESULTS["EvalResult + 轨迹 + 覆盖率"]
-    RESULTS --> WEB
-    RESULTS --> CLI
-    CLI --> GATES["coverage gate + hard gate + 报告 / 退出码"]
-    CLI --> IMPROVE["失败归因 / 建议 / 回归草稿"]
-    CLI --> DISK["配置目录下 .canary/artifacts"]
+    RESULTS --> STORE
+    APP --> GATES["coverage gate + hard gate + 报告 / 退出码"]
+    APP --> IMPROVE["失败归因 / 建议 / 回归草稿"]
+    STORE --> DISK["项目根 .canary/artifacts"]
 ```
 
-CLI 先启动 Web listener，再等待全部执行完成，最后打印地址并打开浏览器。`--headless` 也经历监听过程，完成后关闭；`web.enabled` 当前没有控制这一路径。不要用“实时 SSE 已存在”推导“用户启动时就自动看到实时页面”。
+CLI 在非 headless 时先分配 runId、监听并打印 UI 地址，再执行用例。`--headless` 不创建 HTTP 服务。`web.enabled: false` 同样跳过监听。
 
 ## 2. 包的实际职责与耦合
 
-| 位置                   | 已有职责                                                                       | 尚未完成的目标                                                 |
-| ---------------------- | ------------------------------------------------------------------------------ | -------------------------------------------------------------- |
-| `packages/core`        | 类型、FeatureRegistry、DSL、Zod 配置/产物/协议校验                             | 尚无 RFC 所描述的 domain/ports 拆分和已接线 Experiment 模型    |
-| `packages/runner`      | 内嵌 worker 脚本、Node 子进程、覆盖率、事件、断言、HTTP/MCP 分支、并发工具函数 | 尚未统一依赖注入 ports；子进程不是安全沙箱；跨适配器取消不一致 |
-| `packages/adapters`    | Function/HTTP/MCP Agent 包装；Mock/MCP stdio/MCP HTTP 工具；模型接口           | Runner 不是统一调用 AgentAdapter registry；MCP 是简化协议实现  |
-| `packages/environment` | JSON 可克隆的内存状态、snapshot/restore、工具环境                              | 不回滚文件、远程服务或真实世界副作用                           |
-| `packages/coverage`    | V8、源码映射、manifest、fragment、可选 Istanbul instrumentation、feature chain | 各 provider 精度不同；覆盖率不是语义质量或权限隔离证明         |
-| `packages/evaluators`  | 断言 dispatcher、JudgeProvider/HTTP 与 deterministic 实现、失败归因、门禁      | 没有通用 evaluator registry；CLI/Runner 未注入真实 Judge       |
-| `packages/trace`       | 事件缓存、查询、同步 JSONL append 和启发式脱敏                                 | 未统一所有输出的脱敏、异步 sink、可信证据与跨重启事件序列      |
-| `packages/improvement` | 建议状态机、回归草稿、两轮比较                                                 | 不修改 Agent；没有完整性/统计准入、候选生成、发布/回滚         |
-| `packages/reporters`   | JSON / Markdown / JUnit / console                                              | 不等于独立安全准入控制器                                       |
-| `packages/cli`         | 配置和用例导入、运行、落盘、报告、历史与改进命令                               | CLI 仍持有应用与持久化逻辑，且依赖 Web 内的存储类型            |
-| `apps/web`             | HTTP、SSE、UI、RunStore、artifact repository、建议状态写入与 compare           | 未形成与 CLI 无关的共享应用服务或已授权的写操作控制面          |
+| 位置                   | 已有职责                                                                            | 尚未完成的目标                                                |
+| ---------------------- | ----------------------------------------------------------------------------------- | ------------------------------------------------------------- |
+| `packages/core`        | 类型、FeatureRegistry、DSL、Zod、ProjectContext 契约；Experiment/Trial 已声明未接线 | 评估准入授权与发布仍待 H/S 系列                               |
+| `packages/runner`      | worker 脚本拆出、CaseExecutor 端口、HTTP/MCP 传递 AbortSignal                       | 子进程不是安全沙箱；完整隔离由 H-01 验收                      |
+| `packages/adapters`    | Function/HTTP/MCP Agent 包装；Mock/MCP stdio/MCP HTTP 工具；模型接口                | Runner 不是统一调用 AgentAdapter registry；MCP 是简化协议实现 |
+| `packages/environment` | JSON 可克隆的内存状态、snapshot/restore、工具环境                                   | 不回滚文件、远程服务或真实世界副作用                          |
+| `packages/coverage`    | V8、源码映射、manifest、fragment、可选 Istanbul instrumentation、feature chain      | 各 provider 精度不同；覆盖率不是语义质量或权限隔离证明        |
+| `packages/evaluators`  | 断言 dispatcher、EvaluatorRegistry、显式 Judge 注入、Metric/admission               | 没有统计显著性；admission 默认 hold，不是自动发布             |
+| `packages/trace`       | JSONL v1、异步 sink、统一脱敏、FileArtifactRepository、RunStore                     | SSE 游标不跨重启；不是云遥测                                  |
+| `packages/improvement` | trial 对账、holdout 标签/数据集、可序列化草稿、独立 admission                       | 不修改 Agent；没有统计显著性和发布/回滚                       |
+| `packages/reporters`   | JSON / Markdown / JUnit / console                                                   | 不等于独立安全准入控制器                                      |
+| `packages/cli`         | ProjectContext、runEvaluation 应用服务；headless 不加载 Web                         | Skill/硬进化仍待 S/H 系列                                     |
+| `apps/web`             | HTTP/SSE UI；写接口需要 token                                                       | 不是完整审批控制面                                            |
 
 ## 3. 当前可信边界
 
 - 配置和用例通过动态 import 在 CLI 进程执行，`output.predicate` 等评估逻辑也不是隔离的纯数据；整个项目及其依赖需被用户信任。
 - Function Agent 在子进程运行，具有继承的环境变量及宿主权限。已有超时、取消、进程树终止，不等于文件/网络/凭据访问控制。
 - HTTP/MCP Agent 只提供边界请求与响应，不能自动采集远端内部轨迹或 V8 coverage。
-- `judge.score` 在未传入 Judge 时使用 deterministic provider，默认主要检查输出存在；接口支持真实 Judge 不等于默认流程已做语义判断。
-- Trace JSONL 与结果轨迹有脱敏调用，但 output/input、聚合 events、Web/SSE、源码覆盖产物不能宣称已统一脱敏。
+- `judge.score` 未配置必需 Provider 时失败；deterministic stub 不会把“输出存在”当成语义评分。HTTP Judge 需 `allowOutbound` 并在超时 abort。
+- Trace JSONL、EvalResult 的 input/output、落盘 snapshot 走同一套脱敏。SSE 载荷仍可能含运行时字段；覆盖率产物仍可能含源码。
 - 当前硬门禁是结果检查，不是前置工具权限拦截；预期 policy/loop 事件在负向测试中可被豁免，不可直接升级成生产安全政策。
 
 ## 4. 当前 improvement 与未来自循环不是一回事
