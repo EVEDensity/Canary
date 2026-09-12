@@ -27,11 +27,12 @@ export function createFunctionAdapter(agent: (input: unknown, context: AgentCont
   };
 }
 
-export async function runHttpAgent(url: string, input: unknown, timeoutMs = 10_000): Promise<unknown> {
+export async function runHttpAgent(url: string, input: unknown, timeoutMs = 10_000, signal?: AbortSignal): Promise<unknown> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
+  const combined = signal ? AbortSignal.any([controller.signal, signal]) : controller.signal;
   try {
-    const response = await fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ input }), signal: controller.signal });
+    const response = await fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ input }), signal: combined });
     if (!response.ok) throw new Error(`HTTP agent failed with status ${response.status}`);
     return await response.json();
   } finally { clearTimeout(timer); }
@@ -50,11 +51,17 @@ export function createHttpAdapter(url: string): AgentAdapter {
   };
 }
 
-export async function runMcpAgent(command: string, args: string[], input: unknown, timeoutMs = 10_000): Promise<unknown> {
+export async function runMcpAgent(command: string, args: string[], input: unknown, timeoutMs = 10_000, signal?: AbortSignal): Promise<unknown> {
   const adapter = new McpStdioToolAdapter(command, args);
   const timer = setTimeout(() => { void adapter.close(); }, timeoutMs);
+  const onAbort = (): void => { void adapter.close(); };
+  signal?.addEventListener("abort", onAbort, { once: true });
   try { return await adapter.call("run", input); }
-  finally { clearTimeout(timer); await adapter.close(); }
+  finally {
+    clearTimeout(timer);
+    signal?.removeEventListener("abort", onAbort);
+    await adapter.close();
+  }
 }
 
 export function createMcpAdapter(command: string, args: string[] = []): AgentAdapter {

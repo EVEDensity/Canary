@@ -1,6 +1,6 @@
 import { createServer } from "node:http";
 import { describe, expect, it } from "vitest";
-import { createFunctionAdapter, createHttpAdapter, createMcpAdapter, createToolAdapter, McpHttpToolAdapter, McpStdioToolAdapter, MockToolAdapter } from "../src/index.js";
+import { createFunctionAdapter, createHttpAdapter, createMcpAdapter, createToolAdapter, McpHttpToolAdapter, McpStdioToolAdapter, MockToolAdapter, runHttpAgent } from "../src/index.js";
 
 describe("agent and tool adapters", () => {
   it("runs a local function agent", async () => {
@@ -78,6 +78,28 @@ describe("agent and tool adapters", () => {
     } finally {
       await new Promise<void>((resolve) => jsonServer.close(() => resolve()));
       await new Promise<void>((resolve) => sseServer.close(() => resolve()));
+    }
+  });
+
+  it("aborts an in-flight HTTP agent request instead of only stopping the waiter", async () => {
+    let aborted = false;
+    const server = createServer((request, response) => {
+      request.on("aborted", () => { aborted = true; });
+      request.on("close", () => { if (!response.writableEnded) aborted = true; });
+    });
+    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", () => resolve()));
+    const address = server.address();
+    const port = typeof address === "object" && address ? address.port : 0;
+    const controller = new AbortController();
+    try {
+      const pending = runHttpAgent(`http://127.0.0.1:${port}/agent`, "hang", 10_000, controller.signal);
+      await new Promise((resolve) => setTimeout(resolve, 40));
+      controller.abort();
+      await expect(pending).rejects.toThrow();
+      await new Promise((resolve) => setTimeout(resolve, 40));
+      expect(aborted).toBe(true);
+    } finally {
+      await new Promise<void>((resolve) => server.close(() => resolve()));
     }
   });
 
