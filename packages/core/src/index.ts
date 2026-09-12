@@ -18,6 +18,7 @@ export interface CanaryConfig {
   coverage: { include: string[]; exclude?: string[]; lines?: number; branches?: number; functions?: number };
   features?: FeatureDefinition[];
   runtime?: { timeoutMs?: number; maxSteps?: number; maxToolCalls?: number; maxBudget?: number };
+  reporters?: Array<"json" | "markdown" | "junit">;
   web?: { enabled?: boolean; host?: string; port?: number; open?: boolean };
 }
 

@@ -349,6 +349,15 @@ export class V8CoverageCollector implements CoverageProvider {
   private async cleanup(): Promise<void> { if (this.timer) clearInterval(this.timer); this.timer = undefined; this.started = false; try { this.session.disconnect(); } catch { /* disconnected */ } }
 }
 
+export function benchmarkCoverageSummarize(iterations = 250): { opsPerSec: number; elapsedMs: number; iterations: number } {
+  const source = "function one(value) {\n  if (value) return true;\n  return false;\n}\nfunction two() { return 0; }\n";
+  const script = { url: "file:///workspace/bench.js", source, functions: [{ functionName: "one", ranges: [{ startOffset: 0, endOffset: 70, count: 1 }] }] };
+  const started = Date.now();
+  for (let index = 0; index < iterations; index += 1) summarizeCoverage("run_bench", [script], { rootDir: "/workspace", include: ["bench.js"], sourceText: () => source });
+  const elapsedMs = Math.max(1, Date.now() - started);
+  return { opsPerSec: Number(((iterations / elapsedMs) * 1000).toFixed(2)), elapsedMs, iterations };
+}
+
 
 
 
