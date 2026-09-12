@@ -156,6 +156,7 @@ export interface EvalResult {
   metrics?: { latencyMs: number; steps: number; toolCalls: number; budgetUsed?: number };
   failureCategory?: string;
   trajectoryId?: string;
+  trajectory?: Trajectory;
   createdAt?: string;
 }
 
