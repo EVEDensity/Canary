@@ -51,8 +51,21 @@ const send = (message) => new Promise((resolve) => {
 });
 (async () => {
   const payload = JSON.parse(process.env.CANARY_WORKER_DATA || "{}");
-  const session = new Session(); let coverageStarted = false; let scripts = []; let partial = false; let sampleTimer;
-  const sample = async () => { if (!coverageStarted) return; try { const response = await post("Profiler.takePreciseCoverage"); await send({ type: "coverage", scripts: response.result || [], provisional: true }); } catch {} };
+  const session = new Session(); let coverageStarted = false; let scripts = []; let partial = false; let sampleTimer; let lastSampleAt = 0; let lastSampleKey = "";
+  const minInterval = Number(payload.sampleMinIntervalMs || 200);
+  const sample = async () => {
+    if (!coverageStarted) return;
+    const now = Date.now();
+    if (now - lastSampleAt < minInterval) return;
+    try {
+      const response = await post("Profiler.takePreciseCoverage");
+      const next = response.result || [];
+      const key = JSON.stringify(next.map((script) => ({ url: script.url, functions: script.functions })));
+      if (key === lastSampleKey) return;
+      lastSampleKey = key; lastSampleAt = now;
+      await send({ type: "coverage", scripts: next, provisional: true });
+    } catch {}
+  };
   const keepAlive = setInterval(() => {}, 2_147_483_647);
   const post = (method, params) => new Promise((resolve, reject) => session.post(method, params || {}, (error, result) => error ? reject(error) : resolve(result)));
   try {
@@ -91,7 +104,7 @@ function spawnExecution(options: ExecutionOptions, executionId: string): ChildPr
   const isTypeScript = /\.[cm]?tsx?$/.test(extname(options.entry));
   return spawn(options.nodeExecutable ?? process.execPath, ["--enable-source-maps", ...(isTypeScript ? ["--import", tsxLoader] : []), "-e", createChildScript()], {
     cwd,
-    env: { ...process.env, CANARY_WORKER_DATA: JSON.stringify({ entry, exportName: options.exportName, input: options.input, executionId, sampleIntervalMs: options.coverage.sampleIntervalMs ?? 0 }) },
+    env: { ...process.env, CANARY_WORKER_DATA: JSON.stringify({ entry, exportName: options.exportName, input: options.input, executionId, sampleIntervalMs: options.coverage.sampleIntervalMs ?? 0, sampleMinIntervalMs: options.coverage.sampleMinIntervalMs ?? 200 }) },
     stdio: ["ignore", "ignore", "pipe", "ipc"],
   });
 }
@@ -114,6 +127,8 @@ export async function runExecution(options: ExecutionOptions): Promise<EvalResul
   const executionId = `exec_${randomUUID()}`; const startedAt = Date.now(); const events: TrajectoryEvent[] = [];
   const child = spawnExecution(options, executionId); let settled = false; let failure: string | undefined; let output: unknown;
   let scripts: CoverageScript[] = []; let coveragePartial = false; let didTimeout = false; let didCancel = false; let exitCode: number | null = null; let stderr = "";
+  let lastProvisionalKey = ""; let lastProvisionalAt = 0;
+  const sampleMinIntervalMs = options.coverage.sampleMinIntervalMs ?? 200;
   options.onEvent?.({ type: "execution.started", runId: options.runId, executionId, caseId: options.caseId });
   child.stderr?.setEncoding("utf8"); child.stderr?.on("data", (chunk: string) => { stderr += chunk; });
   const cancel = (): void => { if (!settled) { didCancel = true; failure = "Execution cancelled"; child.kill(); } };
@@ -125,7 +140,18 @@ export async function runExecution(options: ExecutionOptions): Promise<EvalResul
       if (message.type === "event") { events.push(message.event); options.onEvent?.({ type: "trace.event", executionId, event: message.event }); }
       else if (message.type === "result") output = message.value;
       else if (message.type === "error") failure ??= message.error;
-      else if (message.type === "coverage") { scripts = message.scripts; coveragePartial = Boolean(message.partial); if (message.provisional) { const provisional = makeCoverage(options, scripts, false, events); options.onCoverage?.({ ...provisional, status: "provisional" }); options.onEvent?.({ type: "coverage.updated", executionId, coverage: { ...provisional, status: "provisional" } }); } }
+      else if (message.type === "coverage") {
+        scripts = message.scripts; coveragePartial = Boolean(message.partial);
+        if (message.provisional) {
+          const now = Date.now();
+          const key = JSON.stringify(scripts.map((script) => ({ url: script.url, functions: script.functions })));
+          if (key === lastProvisionalKey || now - lastProvisionalAt < sampleMinIntervalMs) return;
+          lastProvisionalKey = key; lastProvisionalAt = now;
+          const provisional = makeCoverage(options, scripts, false, events);
+          options.onCoverage?.({ ...provisional, status: "provisional" });
+          options.onEvent?.({ type: "coverage.updated", executionId, coverage: { ...provisional, status: "provisional" } });
+        }
+      }
     });
     child.once("error", (error: Error) => { failure ??= error.stack ?? error.message; done(); });
     child.once("close", (code: number | null) => { exitCode = code; if (code && !failure) failure = stderr.trim() ? `Execution child exited with code ${code}: ${stderr.trim()}` : `Execution child exited with code ${code}`; done(); });
@@ -143,7 +169,8 @@ export async function runExecution(options: ExecutionOptions): Promise<EvalResul
     runId: options.runId, executionId, caseId: options.caseId, passed: runtimePassed && evaluation.passed,
     assertions: [{ id: "agent.completed", passed: runtimePassed, message: failure ?? "Agent completed" }, ...evaluation.assertions], coverage, output,
     metrics: { latencyMs: Date.now() - startedAt, steps: trajectory.stepCount, toolCalls: trajectory.stepCount, budgetUsed: budgetUsed(events) },
-    failureCategory: didTimeout ? "timeout" : didCancel ? "cancelled" : failure ? "runtime_error" : evaluation.passed ? undefined : "assertion_failed", trajectoryId: trajectory.id, createdAt: new Date().toISOString(),
+    failureCategory: didTimeout ? "timeout" : didCancel ? "cancelled" : failure ? "runtime_error" : evaluation.passed ? undefined : "assertion_failed",
+    trajectoryId: trajectory.id, trajectory, createdAt: new Date().toISOString(),
   };
   options.onEvent?.({ type: "execution.finished", executionId, result }); return result;
 }
