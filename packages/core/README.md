@@ -7,6 +7,7 @@
 ## 边界
 
 - 只定义类型、轻量工厂和跨模块契约。
+- `packages/core/src/types.ts` 保存现有领域类型；`contracts.ts` 保存 ProjectContext 与未接线的 Experiment/Trial/Metric/提案记录。
 - `defineCase` / `defineCases` 与 `expect.*` 是 TestCase DSL；底层仍是 `AssertionSpec`。
 - Coverage DSL 两种写法等价：`expect.coverage.atLeast(id, n)` 与 `expect.coverage().feature(id).atLeast(n)`。
 - 不启动 Agent、不执行文件系统操作、不采集覆盖率、不提供 HTTP 服务。

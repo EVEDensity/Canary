@@ -42,7 +42,7 @@ const coverage = Object.assign(
 );
 
 const judge = () => ({
-  score: (options: { minScore?: number; minConfidence?: number; rubric?: string; timeoutMs?: number } = {}): AssertionSpec => ({
+  score: (options: { minScore?: number; minConfidence?: number; rubric?: string; timeoutMs?: number; required?: boolean } = {}): AssertionSpec => ({
     type: "judge.score",
     ...options,
   }),
