@@ -50,9 +50,9 @@ importers:
       '@canary/reporters':
         specifier: workspace:*
         version: link:../../packages/reporters
-      '@canary/runner':
+      '@canary/trace':
         specifier: workspace:*
-        version: link:../../packages/runner
+        version: link:../../packages/trace
 
   examples/local-agent:
     dependencies:
