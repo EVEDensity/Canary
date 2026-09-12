@@ -1,6 +1,6 @@
 import { createServer } from "node:http";
 import { describe, expect, it } from "vitest";
-import { createFunctionAdapter, createHttpAdapter, McpStdioToolAdapter, MockToolAdapter } from "../src/index.js";
+import { createFunctionAdapter, createHttpAdapter, createMcpAdapter, createModelProvider, createToolAdapter, McpHttpToolAdapter, McpStdioToolAdapter, MockToolAdapter } from "../src/index.js";
 
 describe("agent and tool adapters", () => {
   it("runs a local function agent", async () => {
@@ -45,5 +45,47 @@ describe("agent and tool adapters", () => {
     } finally {
       await mcp.close();
     }
+  });
+
+  it("runs an MCP agent adapter over stdio tools/call run", async () => {
+    const script = "process.stdin.setEncoding('utf8'); let b=''; process.stdin.on('data',c=>{b+=c; const i=b.indexOf('\\n'); if(i>=0){ const m=JSON.parse(b.slice(0,i)); process.stdout.write(JSON.stringify({jsonrpc:'2.0',id:m.id,result:{output:m.params.arguments}})+'\\n'); }});";
+    const adapter = createMcpAdapter(process.execPath, ["-e", script]);
+    const output = await adapter.run({ value: { goal: "mcp" } }, { executionId: "e3", emit: () => undefined });
+    expect(adapter.kind).toBe("mcp");
+    expect(output.value).toEqual({ output: { goal: "mcp" } });
+  });
+
+  it("calls MCP streamable HTTP JSON and SSE transports", async () => {
+    const jsonServer = createServer((_request, response) => {
+      response.writeHead(200, { "content-type": "application/json" });
+      response.end(JSON.stringify({ jsonrpc: "2.0", id: 1, result: { via: "json" } }));
+    });
+    await new Promise<void>((resolve) => jsonServer.listen(0, "127.0.0.1", () => resolve()));
+    const jsonPort = typeof jsonServer.address() === "object" && jsonServer.address() ? jsonServer.address()!.port : 0;
+    const sseServer = createServer((_request, response) => {
+      response.writeHead(200, { "content-type": "text/event-stream" });
+      response.end(`event: message\ndata: ${JSON.stringify({ jsonrpc: "2.0", id: 1, result: { via: "sse" } })}\n\n`);
+    });
+    await new Promise<void>((resolve) => sseServer.listen(0, "127.0.0.1", () => resolve()));
+    const ssePort = typeof sseServer.address() === "object" && sseServer.address() ? sseServer.address()!.port : 0;
+    try {
+      const json = new McpHttpToolAdapter(`http://127.0.0.1:${jsonPort}/mcp`);
+      const sse = await createToolAdapter({ adapter: "mcp-http", url: `http://127.0.0.1:${ssePort}/mcp` });
+      expect(await json.call("lookup", { q: 1 })).toEqual({ via: "json" });
+      expect(await sse.call("lookup", { q: 1 })).toEqual({ via: "sse" });
+      await json.close();
+      await sse.close();
+    } finally {
+      await new Promise<void>((resolve) => jsonServer.close(() => resolve()));
+      await new Promise<void>((resolve) => sseServer.close(() => resolve()));
+    }
+  });
+
+  it("keeps ModelProvider separate from AgentAdapter and ToolAdapter", async () => {
+    const model = createModelProvider("deterministic", { "hello": "world" });
+    expect(model.kind).toBe("deterministic");
+    expect((await model.complete("hello")).text).toBe("world");
+    expect((await model.complete("plan:task")).text).toBe("planned:task");
+    expect((await createModelProvider("echo").complete("raw")).text).toBe("raw");
   });
 });

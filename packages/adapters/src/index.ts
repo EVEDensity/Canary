@@ -5,7 +5,19 @@ export interface AgentInput { value: unknown }
 export interface AgentOutput { value: unknown }
 export interface AgentContext { executionId: string; emit: (event: unknown) => void }
 export interface AgentAdapter { id: string; kind: AgentAdapterKind; run(input: AgentInput, context: AgentContext): Promise<AgentOutput> }
-export interface ToolAdapter { readonly kind: "mock" | "mcp-stdio"; call(name: string, args: unknown): Promise<unknown>; close(): Promise<void> }
+export type ToolAdapterKind = "mock" | "mcp-stdio" | "mcp-http";
+export interface ToolAdapter { readonly kind: ToolAdapterKind; call(name: string, args: unknown): Promise<unknown>; close(): Promise<void> }
+export interface ModelCompletion { text: string; usage?: { tokens?: number } }
+export interface ModelProvider { readonly kind: "deterministic" | "echo"; complete(prompt: string): Promise<ModelCompletion> }
+export interface ToolAdapterConfig {
+  adapter: ToolAdapterKind;
+  entry?: string;
+  export?: string;
+  command?: string;
+  args?: string[];
+  url?: string;
+  tools?: Record<string, (args: unknown) => unknown | Promise<unknown>>;
+}
 
 export function createFunctionAdapter(agent: (input: unknown, context: AgentContext) => Promise<unknown> | unknown): AgentAdapter {
   return {
@@ -36,6 +48,45 @@ export function createHttpAdapter(url: string): AgentAdapter {
       return { value };
     },
   };
+}
+
+export async function runMcpAgent(command: string, args: string[], input: unknown, timeoutMs = 10_000): Promise<unknown> {
+  const adapter = new McpStdioToolAdapter(command, args);
+  const timer = setTimeout(() => { void adapter.close(); }, timeoutMs);
+  try { return await adapter.call("run", input); }
+  finally { clearTimeout(timer); await adapter.close(); }
+}
+
+export function createMcpAdapter(command: string, args: string[] = []): AgentAdapter {
+  return {
+    id: "mcp",
+    kind: "mcp",
+    async run(input, context) {
+      context.emit({ type: "mcp.request", command });
+      const value = await runMcpAgent(command, args, input.value);
+      context.emit({ type: "mcp.response" });
+      return { value };
+    },
+  };
+}
+
+export class DeterministicModelProvider implements ModelProvider {
+  readonly kind = "deterministic" as const;
+  constructor(private readonly responses: Record<string, string> = {}) {}
+  async complete(prompt: string): Promise<ModelCompletion> {
+    if (this.responses[prompt] !== undefined) return { text: this.responses[prompt] };
+    if (prompt.startsWith("plan:")) return { text: `planned:${prompt.slice("plan:".length)}` };
+    return { text: prompt };
+  }
+}
+
+export class EchoModelProvider implements ModelProvider {
+  readonly kind = "echo" as const;
+  async complete(prompt: string): Promise<ModelCompletion> { return { text: prompt }; }
+}
+
+export function createModelProvider(kind: "deterministic" | "echo" = "deterministic", responses?: Record<string, string>): ModelProvider {
+  return kind === "echo" ? new EchoModelProvider() : new DeterministicModelProvider(responses);
 }
 
 export class MockToolAdapter implements ToolAdapter {
@@ -102,4 +153,58 @@ export class McpStdioToolAdapter implements ToolAdapter {
     this.child.kill();
     this.child = undefined;
   }
+}
+
+async function readMcpHttpResult(response: Response): Promise<unknown> {
+  const contentType = response.headers.get("content-type") ?? "";
+  if (contentType.includes("text/event-stream")) {
+    const text = await response.text();
+    let last: { result?: unknown; error?: { message?: string } } | undefined;
+    for (const block of text.split("\n\n")) {
+      for (const line of block.split("\n")) {
+        if (!line.startsWith("data:")) continue;
+        try { last = JSON.parse(line.slice(5).trim()) as { result?: unknown; error?: { message?: string } }; }
+        catch { /* ignore malformed SSE data */ }
+      }
+    }
+    if (!last) throw new Error("MCP streamable HTTP response did not include a JSON-RPC result");
+    if (last.error) throw new Error(last.error.message ?? "MCP streamable HTTP error");
+    return last.result;
+  }
+  const payload = await response.json() as { result?: unknown; error?: { message?: string } };
+  if (payload.error) throw new Error(payload.error.message ?? "MCP HTTP error");
+  return payload.result;
+}
+
+export class McpHttpToolAdapter implements ToolAdapter {
+  readonly kind = "mcp-http" as const;
+  private seq = 0;
+  constructor(private readonly url: string, private readonly timeoutMs = 10_000) {}
+  async call(name: string, args: unknown): Promise<unknown> {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), this.timeoutMs);
+    try {
+      const response = await fetch(this.url, {
+        method: "POST",
+        headers: { "content-type": "application/json", accept: "application/json, text/event-stream" },
+        body: JSON.stringify({ jsonrpc: "2.0", id: ++this.seq, method: "tools/call", params: { name, arguments: args } }),
+        signal: controller.signal,
+      });
+      if (!response.ok) throw new Error(`MCP streamable HTTP failed with status ${response.status}`);
+      return await readMcpHttpResult(response);
+    } finally { clearTimeout(timer); }
+  }
+  async close(): Promise<void> { /* HTTP is stateless per call */ }
+}
+
+export async function createToolAdapter(config: ToolAdapterConfig): Promise<ToolAdapter> {
+  if (config.adapter === "mcp-stdio") {
+    if (!config.command) throw new Error("MCP stdio tool adapter requires command");
+    return new McpStdioToolAdapter(config.command, config.args ?? []);
+  }
+  if (config.adapter === "mcp-http") {
+    if (!config.url) throw new Error("MCP streamable HTTP tool adapter requires url");
+    return new McpHttpToolAdapter(config.url);
+  }
+  return new MockToolAdapter(config.tools ?? {});
 }
