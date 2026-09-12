@@ -3,7 +3,7 @@
 export default defineConfig({
   agent: { adapter: "function", entry: "./examples/local-agent/src/agent.ts", export: "runAgent" },
   cases: "./examples/local-agent/cases/**/*.ts",
-  coverage: { include: ["examples/local-agent/src/**/*.ts"], exclude: ["**/*.test.ts"], lines: 80, branches: 70, functions: 75 },
+  coverage: { include: ["examples/local-agent/src/**/*.ts"], exclude: ["**/*.test.ts"], lines: 80, branches: 70, functions: 75, featureChains: { planning: 70, "tool-routing": 80, "error-recovery": 60, termination: 70 } },
   features: [
     { id: "planning", name: "Planning", files: ["examples/local-agent/src/agent.ts"] },
     { id: "tool-routing", name: "Tool routing", files: ["examples/local-agent/src/agent.ts", "examples/local-agent/src/tools.ts"] },

@@ -9,9 +9,10 @@
 - `packages/core`：配置、TestCase、Coverage、Feature、断言契约
 - `packages/coverage`：Coverage Manifest、TypeScript AST、V8 / source-map 映射、Feature Coverage
 - `packages/runner`：每 case 独立子进程、timeout/cancel、provisional Coverage 采样
-- `packages/evaluators`：Agent 输出 / 轨迹 / 终止 / 预算断言
-- `packages/cli`：`canary run` / `canary runs` / `canary show`
-- `apps/web`：本地 UI、SSE、Artifact Replay
+- `packages/evaluators`：断言与 Coverage/Feature 门槛（CLI 与 CI 共用）
+- `packages/cli`：`canary run` / `runs` / `show` / `report` / `improve` / `compare` / `replay`
+- `apps/web`：Overview / Run Timeline / Feature Coverage / Case Detail / Improvement Queue；SSE 断线重连；报告下载
+- GitHub Actions：Node 22/24，`typecheck` → `test` → `build` → `canary run --headless --no-open`
 - `examples/local-agent`：无外部密钥的最小 Agent
 
 ## 运行
@@ -29,6 +30,7 @@ pnpm canary -- show <runId>
 pnpm canary -- report <runId> --format junit
 pnpm canary -- improve <runId>
 pnpm canary -- compare <baselineRunId> <candidateRunId>
+pnpm canary -- replay <runId> --headless --no-open
 ```
 
 根配置 `canary.config.ts` 指向 `examples/local-agent`（规划 / 工具路由 / 失败恢复）。产物写入 `.canary/artifacts/<runId>/`：
