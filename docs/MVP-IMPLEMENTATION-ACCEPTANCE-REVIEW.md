@@ -1,5 +1,29 @@
 ﻿# canary MVP 实现验收清单与风险审阅
 
+> 审阅对象：`docs/MVP-ARCHITECTURE-INITIAL-REPORT.md` 及 `canary` 实现
+>
+> 原稿日期：2026-09-12（骨架审阅）｜**状态更新：2026-09-12 晚，MVP 已落地**
+>
+> 说明：§1 原结论针对当时 scaffold，保留为历史。当前工程验收见 [`acceptance-10-min.md`](./acceptance-10-min.md)。
+
+## 0. 当前结论（取代骨架判定）
+
+仓库已具备白盒 V8 coverage、子进程 Runner、`canary run`、本地 UI/SSE、coverage fixture、三类 Demo CI 入口，以及 improvement 闭环。默认 Demo **15/15**。标记为 **v0.1 implemented / not yet npm-published**（发布需 tag + `NPM_TOKEN`）。
+
+| 能力              | 当前证据                                               | 状态 |
+| ----------------- | ------------------------------------------------------ | ---- |
+| Node/V8 覆盖率    | `@canary/coverage` + fixture matrix                    | 通过 |
+| Feature Registry  | config `features` + `feature()` + UI                   | 通过 |
+| 独立 execution    | runner 子进程 / 进程池                                 | 通过 |
+| Function/HTTP/MCP | adapters + examples                                    | 通过 |
+| CLI `canary run`  | artifacts、exit code、headless                         | 通过 |
+| Web UI / SSE      | snapshot、Last-Event-ID、poll 降级、noscript           | 通过 |
+| CI                | lint、Node 22/24、fixture job、3 demo、Bun smoke、pack | 通过 |
+
+---
+
+# canary MVP 实现验收清单与风险审阅
+
 > 审阅对象：`docs/MVP-ARCHITECTURE-INITIAL-REPORT.md` 及当前 `canary` MVP 实现
 >
 > 审阅日期：2026-09-12
@@ -25,19 +49,19 @@
 
 ## 2. 文档要求到实现的追踪矩阵
 
-| 能力 | 文档要求 | 当前实现证据 | 状态 | 主要缺口 |
-|---|---|---|---|---|
-| Node/V8 覆盖率 | 本地 Node/TypeScript 白盒 Agent；行、语句、函数、分支覆盖率 | `packages/coverage/src/index.ts` 只返回空指标；`instrumentation.ts` 为空 | 未通过 | 需要启动/停止 V8 coverage、Source Map 映射、过滤、合并、计算 |
-| Feature Registry | 显式 Feature Registry + 源码范围 + 实时增量 | `feature()` 仅执行 callback，不登记、不记录、不关联源码范围 | 未通过 | 需要 registry、feature event、覆盖率映射和去重 |
-| 每 execution 独立采集 | 单用例独立子进程、默认并发 1 | `packages/runner/src/index.ts` 仅 `describeRun()` | 未通过 | 需要 spawn、IPC、watchdog、退出码、清理、失败分类 |
-| Runner 生命周期 | timeout、取消、最大步骤、finally 清理 | 未实现 | 未通过 | 父子进程协议、SIGTERM/SIGKILL、僵尸进程防护 |
-| Agent 适配 | Function/HTTP/MCP 分层 | 只有类型/占位接口，未被 Runner/CLI 使用 | 未通过 | 统一 adapter contract、加载入口、错误边界 |
-| Trace | 结构化 trajectory 与 execution 关联 | `TraceBuffer` 仅内存追加 | 部分 | 缺少持久化、事件 schema、脱敏、实时广播 |
-| CLI `canary run` | 一键运行、写 run artifact、打开本地页面 | CLI 仅提供 `startLocalUi()` | 未通过 | 配置加载、case discovery、run orchestration、report、exit code、open |
-| 本地 Web UI | 页面保留、Overview/Timeline/Feature Coverage | `apps/web` 为硬编码占位页 | 部分 | Run Store、snapshot API、SSE 事件、覆盖率视图、错误态 |
-| SSE | 实时推送事件与覆盖率增量 | `/api/events` 只推送 `web.ready` | 未通过 | 事件总线、历史回放、断线重连、心跳、并发客户端清理 |
-| 覆盖率 fixture | 分支、函数、异常、未加载文件 | 未发现相关测试文件 | 未通过 | 至少四类 fixture 与期望值断言 |
-| CI/门禁 | typecheck、测试、fixture、build、Demo | pnpm 命令在审阅环境中未在限定时间内返回 | 未验证 | 依赖安装、脚本、Node matrix、失败退出码 |
+| 能力                  | 文档要求                                                    | 当前实现证据                                                             | 状态   | 主要缺口                                                             |
+| --------------------- | ----------------------------------------------------------- | ------------------------------------------------------------------------ | ------ | -------------------------------------------------------------------- |
+| Node/V8 覆盖率        | 本地 Node/TypeScript 白盒 Agent；行、语句、函数、分支覆盖率 | `packages/coverage/src/index.ts` 只返回空指标；`instrumentation.ts` 为空 | 未通过 | 需要启动/停止 V8 coverage、Source Map 映射、过滤、合并、计算         |
+| Feature Registry      | 显式 Feature Registry + 源码范围 + 实时增量                 | `feature()` 仅执行 callback，不登记、不记录、不关联源码范围              | 未通过 | 需要 registry、feature event、覆盖率映射和去重                       |
+| 每 execution 独立采集 | 单用例独立子进程、默认并发 1                                | `packages/runner/src/index.ts` 仅 `describeRun()`                        | 未通过 | 需要 spawn、IPC、watchdog、退出码、清理、失败分类                    |
+| Runner 生命周期       | timeout、取消、最大步骤、finally 清理                       | 未实现                                                                   | 未通过 | 父子进程协议、SIGTERM/SIGKILL、僵尸进程防护                          |
+| Agent 适配            | Function/HTTP/MCP 分层                                      | 只有类型/占位接口，未被 Runner/CLI 使用                                  | 未通过 | 统一 adapter contract、加载入口、错误边界                            |
+| Trace                 | 结构化 trajectory 与 execution 关联                         | `TraceBuffer` 仅内存追加                                                 | 部分   | 缺少持久化、事件 schema、脱敏、实时广播                              |
+| CLI `canary run`      | 一键运行、写 run artifact、打开本地页面                     | CLI 仅提供 `startLocalUi()`                                              | 未通过 | 配置加载、case discovery、run orchestration、report、exit code、open |
+| 本地 Web UI           | 页面保留、Overview/Timeline/Feature Coverage                | `apps/web` 为硬编码占位页                                                | 部分   | Run Store、snapshot API、SSE 事件、覆盖率视图、错误态                |
+| SSE                   | 实时推送事件与覆盖率增量                                    | `/api/events` 只推送 `web.ready`                                         | 未通过 | 事件总线、历史回放、断线重连、心跳、并发客户端清理                   |
+| 覆盖率 fixture        | 分支、函数、异常、未加载文件                                | 未发现相关测试文件                                                       | 未通过 | 至少四类 fixture 与期望值断言                                        |
+| CI/门禁               | typecheck、测试、fixture、build、Demo                       | pnpm 命令在审阅环境中未在限定时间内返回                                  | 未验证 | 依赖安装、脚本、Node matrix、失败退出码                              |
 
 ## 3. 关键验收清单
 

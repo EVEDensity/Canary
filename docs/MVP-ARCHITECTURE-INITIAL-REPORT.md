@@ -1,22 +1,22 @@
 ﻿# canary MVP 整体架构设计初始报表
 
-> 版本：0.1-draft｜日期：2026-09-11｜状态：设计基线，尚未实现
-> 本文是前序对话的结构化整理、技术核查及新增需求设计，不是逐字聊天记录。
-> 行业事实以文末 [S1]–[S12] 为依据；产品指标、接口、CLI 与计划均为 canary 的拟议设计，不代表现有能力。
+> 版本：0.1｜日期：2026-09-12｜状态：**已在本仓库实现**（设计基线见 2026-09-11 原稿）
+> 本文保留前序对话的结构化整理与技术核查。产品指标以当前 CLI / CI / Demo 为准。
+> 行业事实以文末 [S1]–[S12] 为依据。
 
 ## 0. 决策摘要与需求追溯
 
 **定位：canary 是 Agent 的本地评测与改进控制台：一键运行 Agent，关联执行轨迹、行为断言与源码覆盖率，并把失败转为可验证的改进任务。**
 
-| 需求 | 架构决策 | 验收位置 |
-|---|---|---|
-| 项目名称为 canary | 品牌、CLI、文档统一使用小写 canary；npm 包名及 scope 发布前核验，不假定名称可用 | §10、§14 |
-| MVP 量化代码覆盖率 | 本地 Node/TypeScript 白盒 Agent 为 P0；提供行、语句、函数、分支覆盖率 | §4、§5 |
-| 前端实时展示功能链路覆盖率 | 显式 Feature Registry + 源码范围 + 用例独立采集 + SSE 增量更新 | §5、§6 |
-| 帮助 Agent 自进化 | 评测→归因→改进候选→回归与留出集验证→批准/拒绝；默认不改用户源码 | §9 |
-| 第一阶段测试对象是 Agent | 测规划、路由、参数、记忆、错误恢复、终止、安全；不绑定订单等业务域 | §3、§8 |
-| 一键执行后看到本地页面 | 交互运行自动打开本地 UI；完成后页面保留；CI 使用独立无界面模式 | §6、§10 |
-| 对话和研究形成文档 | 本文、对话决策归档及 README 索引；保留需求变更与前版修正 | §1、§15 |
+| 需求                       | 架构决策                                                                        | 验收位置 |
+| -------------------------- | ------------------------------------------------------------------------------- | -------- |
+| 项目名称为 canary          | 品牌、CLI、文档统一使用小写 canary；npm 包名及 scope 发布前核验，不假定名称可用 | §10、§14 |
+| MVP 量化代码覆盖率         | 本地 Node/TypeScript 白盒 Agent 为 P0；提供行、语句、函数、分支覆盖率           | §4、§5   |
+| 前端实时展示功能链路覆盖率 | 显式 Feature Registry + 源码范围 + 用例独立采集 + SSE 增量更新                  | §5、§6   |
+| 帮助 Agent 自进化          | 评测→归因→改进候选→回归与留出集验证→批准/拒绝；默认不改用户源码                 | §9       |
+| 第一阶段测试对象是 Agent   | 测规划、路由、参数、记忆、错误恢复、终止、安全；不绑定订单等业务域              | §3、§8   |
+| 一键执行后看到本地页面     | 交互运行自动打开本地 UI；完成后页面保留；CI 使用独立无界面模式                  | §6、§10  |
+| 对话和研究形成文档         | 本文、对话决策归档及 README 索引；保留需求变更与前版修正                        | §1、§15  |
 
 ### MVP 的关键取舍
 
@@ -43,28 +43,28 @@ Dataset → Runner → Agent → Tool / Environment
           Evaluator + Coverage → Report → 改进候选
 ```
 
-| 痛点 | 对 canary 的设计约束 |
-|---|---|
+| 痛点                 | 对 canary 的设计约束                                                         |
+| -------------------- | ---------------------------------------------------------------------------- |
 | 模型与工具结果不确定 | 保存模型标识、参数、输入、工具版本和运行次数；重复运行而不是把失败重试到成功 |
-| 结果正确但过程错误 | 工具参数、禁止操作、状态变化、终止条件必须有独立断言 |
-| 死循环或无限等待 | 步数/工具次数/时间/预算限制；协作取消后由父进程终止受管子进程 |
-| 沙盒与真实 API 成本 | 默认 Mock 工具、内存环境；真实凭据显式启用；子进程不是安全沙盒 |
-| 状态污染与恢复困难 | 每次 execution 独立状态、临时目录与工具实例；finally 清理 |
-| Judge 本身不稳定 | 可执行断言优先；Judge 可选，保存评分规则与版本，错误不算通过 |
-| Trace 缺失或过多 | 明确观测能力；结构化事件、脱敏、裁剪和外置大附件 |
-| 高通过率掩盖测试不足 | 加入 Agent 源码覆盖率和未覆盖功能范围，但不宣称证明模型推理正确 |
+| 结果正确但过程错误   | 工具参数、禁止操作、状态变化、终止条件必须有独立断言                         |
+| 死循环或无限等待     | 步数/工具次数/时间/预算限制；协作取消后由父进程终止受管子进程                |
+| 沙盒与真实 API 成本  | 默认 Mock 工具、内存环境；真实凭据显式启用；子进程不是安全沙盒               |
+| 状态污染与恢复困难   | 每次 execution 独立状态、临时目录与工具实例；finally 清理                    |
+| Judge 本身不稳定     | 可执行断言优先；Judge 可选，保存评分规则与版本，错误不算通过                 |
+| Trace 缺失或过多     | 明确观测能力；结构化事件、脱敏、裁剪和外置大附件                             |
+| 高通过率掩盖测试不足 | 加入 Agent 源码覆盖率和未覆盖功能范围，但不宣称证明模型推理正确              |
 
 ### 1.2 项目对照与开源影响力
 
 下表为 2026-09-11 检索到的官方仓库页面展示值，Star 为四舍五入快照而非实时精确统计。Star 不能替代维护、许可证及适配成本评估；本次没有获得所有项目的精确最近提交时间，不据此宣称它们具有相同维护活跃度。
 
-| 项目 | 页面 Star 约值 | 架构与优势 | canary 借鉴 / 不复制 | 来源 |
-|---|---:|---|---|---|
-| DeepEval | 18.2k | Python 评测框架、测试与指标抽象 | 借鉴 CI 测试体验，不移植全部评分器 | [S1] |
-| Phoenix | 11.4k | OTel Trace、数据集、实验、评测 | 借鉴证据关联，MVP 不部署其平台；当前仓库标注 ELv2，不能当成 Apache/MIT 项目直接混用代码 | [S2] |
-| Promptfoo | 25.0k | 声明式评测、模型比较、CLI/CI、红队测试 | 借鉴配置和门禁，不声称其不能测试 Agent | [S3] |
-| τ-bench | 1.4k | 多轮用户模拟、工具环境、策略与状态验证 | 借鉴重复运行和环境验证，不把其业务题库作为第一版默认对象 | [S4] |
-| SWE-bench | 5.8k | Issue、代码仓库、补丁与执行测试 | 借鉴可执行 verifier，不在四周复制完整容器 harness | [S5] |
+| 项目      | 页面 Star 约值 | 架构与优势                             | canary 借鉴 / 不复制                                                                    | 来源 |
+| --------- | -------------: | -------------------------------------- | --------------------------------------------------------------------------------------- | ---- |
+| DeepEval  |          18.2k | Python 评测框架、测试与指标抽象        | 借鉴 CI 测试体验，不移植全部评分器                                                      | [S1] |
+| Phoenix   |          11.4k | OTel Trace、数据集、实验、评测         | 借鉴证据关联，MVP 不部署其平台；当前仓库标注 ELv2，不能当成 Apache/MIT 项目直接混用代码 | [S2] |
+| Promptfoo |          25.0k | 声明式评测、模型比较、CLI/CI、红队测试 | 借鉴配置和门禁，不声称其不能测试 Agent                                                  | [S3] |
+| τ-bench   |           1.4k | 多轮用户模拟、工具环境、策略与状态验证 | 借鉴重复运行和环境验证，不把其业务题库作为第一版默认对象                                | [S4] |
+| SWE-bench |           5.8k | Issue、代码仓库、补丁与执行测试        | 借鉴可执行 verifier，不在四周复制完整容器 harness                                       | [S5] |
 
 原始 τ-bench README 已指向 τ³-bench；引用旧结果必须保留模型及数据集时间，不能把 2024 年成绩当作 2026 年模型现状。[S4]
 
@@ -93,11 +93,11 @@ Dataset → Runner → Agent → Tool / Environment
 
 ### 2.2 范围表
 
-| 级别 | 范围 |
-|---|---|
-| P0，发布必须具备 | 本地 Function Agent、隔离 Runner、Mock 工具、MCP stdio 工具接入、Trace、运行时覆盖率、功能源码范围、实时本地 UI、JSON/Markdown/JUnit、无密钥 Demo、改进建议导出、基线比较 |
-| P1，四周有余量才做 | HTTP 黑盒 Adapter、MCP Streamable HTTP、并发进程池、Judge Provider、自动生成待审测试草稿 |
-| 明确不纳入 v0.1 | 全语言覆盖率、分布式请求级覆盖率、自动源码修复、模型训练、云端多租户、浏览器视觉、Docker 集群、公开排行榜 |
+| 级别               | 范围                                                                                                                                                                      |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| P0，发布必须具备   | 本地 Function Agent、隔离 Runner、Mock 工具、MCP stdio 工具接入、Trace、运行时覆盖率、功能源码范围、实时本地 UI、JSON/Markdown/JUnit、无密钥 Demo、改进建议导出、基线比较 |
+| P1，四周有余量才做 | HTTP 黑盒 Adapter、MCP Streamable HTTP、并发进程池、Judge Provider、自动生成待审测试草稿                                                                                  |
+| 明确不纳入 v0.1    | 全语言覆盖率、分布式请求级覆盖率、自动源码修复、模型训练、云端多租户、浏览器视觉、Docker 集群、公开排行榜                                                                 |
 
 ### 2.3 拟定验收指标（工程目标，不是实测成绩）
 
@@ -122,11 +122,11 @@ Agent 仍然需要具体输入、受控工具和可验证目标，否则无法�
 
 ### 3.2 三类观测能力
 
-| 接入方式 | 能测什么 | 不能承诺什么 |
-|---|---|---|
-| 本地 TS/Node 白盒 | 输出、显式 Trace、工具调用、状态、Agent 源码覆盖率 | 私有模型内部推理和神经网络覆盖率 |
-| 远程 HTTP 黑盒 | 请求/响应、总延迟，及对方显式提供的 Trace | 没有服务端插桩就无法获取其源码覆盖率 |
-| 受管本地 MCP 工具 | 工具协议、调用参数、错误、Mock 行为 | MCP Server 不是自动可运行的自主 Agent；其工具代码覆盖率不能冒充 Agent 覆盖率 |
+| 接入方式          | 能测什么                                           | 不能承诺什么                                                                 |
+| ----------------- | -------------------------------------------------- | ---------------------------------------------------------------------------- |
+| 本地 TS/Node 白盒 | 输出、显式 Trace、工具调用、状态、Agent 源码覆盖率 | 私有模型内部推理和神经网络覆盖率                                             |
+| 远程 HTTP 黑盒    | 请求/响应、总延迟，及对方显式提供的 Trace          | 没有服务端插桩就无法获取其源码覆盖率                                         |
+| 受管本地 MCP 工具 | 工具协议、调用参数、错误、Mock 行为                | MCP Server 不是自动可运行的自主 Agent；其工具代码覆盖率不能冒充 Agent 覆盖率 |
 
 AgentAdapter 负责执行用户 Agent；ModelProvider 负责模型调用；ToolAdapter 负责工具/MCP；CoverageProvider 负责受测运行时。四者不混用。用户通过上下文注入的工具调用可被采集；绕过 Hook 的 SDK 调用不能假定自动可见。
 
@@ -152,18 +152,18 @@ flowchart TD
   E --> IMP["改进任务 / 回归草稿 / 版本比较"]
 ```
 
-| 逻辑模块 | 输入→输出 | 关键职责 |
-|---|---|---|
-| Config / Dataset | TS 配置、JSONL→校验后 TestCase | Schema、标签、版本、文件路径范围 |
-| Orchestrator | Case→execution | 生命周期、超时、取消、资源与并发限制 |
-| AgentAdapter | 输入+上下文→输出 | 接入一个 Agent，不替用户实现所有 Agent SDK |
-| Tools / Environment | 工具请求→结果/状态 | Mock、故障注入、MCP、reset/cleanup |
-| Trace | Hook→带序号事件 | callId/spanId、脱敏、截断和关联 |
-| Coverage | 源码+V8 数据→coverage artifacts | 固定分母、源映射、增量合并、完整性 |
-| Evaluator | Case+Trace+状态+coverage→结果 | 确定性优先；错误与失败分离 |
-| Store / Report | 事件+结果→持久化报告 | 原子完成标志、可追溯 artifact |
-| Local UI | API/SSE→实时页面 | 状态、矩阵、源码、失败与比较 |
-| Improvement | 失败证据+基线→改进任务 | 不在 MVP 自动写源码或更改门槛 |
+| 逻辑模块            | 输入→输出                       | 关键职责                                   |
+| ------------------- | ------------------------------- | ------------------------------------------ |
+| Config / Dataset    | TS 配置、JSONL→校验后 TestCase  | Schema、标签、版本、文件路径范围           |
+| Orchestrator        | Case→execution                  | 生命周期、超时、取消、资源与并发限制       |
+| AgentAdapter        | 输入+上下文→输出                | 接入一个 Agent，不替用户实现所有 Agent SDK |
+| Tools / Environment | 工具请求→结果/状态              | Mock、故障注入、MCP、reset/cleanup         |
+| Trace               | Hook→带序号事件                 | callId/spanId、脱敏、截断和关联            |
+| Coverage            | 源码+V8 数据→coverage artifacts | 固定分母、源映射、增量合并、完整性         |
+| Evaluator           | Case+Trace+状态+coverage→结果   | 确定性优先；错误与失败分离                 |
+| Store / Report      | 事件+结果→持久化报告            | 原子完成标志、可追溯 artifact              |
+| Local UI            | API/SSE→实时页面                | 状态、矩阵、源码、失败与比较               |
+| Improvement         | 失败证据+基线→改进任务          | 不在 MVP 自动写源码或更改门槛              |
 
 MVP 采用一个工作区、三个实际构建单元：`packages/core`、`packages/cli`、`apps/web`。上述逻辑模块先做 core 内目录，避免为四周项目创建十多个独立 npm 包。
 
@@ -182,11 +182,11 @@ MVP 采用一个工作区、三个实际构建单元：`packages/core`、`packag
 
 ### 5.1 三种覆盖概念必须分开
 
-| 概念 | 定义 | 不代表什么 |
-|---|---|---|
-| Agent 源码覆盖率 | 被测 Agent 的执行语句/分支/函数/行命中比例 | 不代表任务正确、模型能力或“思维过程覆盖” |
-| 功能触达率 | 已观测 feature span / 声明功能数量 | 触达不代表功能内每个分支都测过 |
-| canary 自身测试覆盖率 | 框架单测/集成测试覆盖情况 | 不能展示成用户 Agent 的覆盖率 |
+| 概念                  | 定义                                       | 不代表什么                               |
+| --------------------- | ------------------------------------------ | ---------------------------------------- |
+| Agent 源码覆盖率      | 被测 Agent 的执行语句/分支/函数/行命中比例 | 不代表任务正确、模型能力或“思维过程覆盖” |
+| 功能触达率            | 已观测 feature span / 声明功能数量         | 触达不代表功能内每个分支都测过           |
+| canary 自身测试覆盖率 | 框架单测/集成测试覆盖情况                  | 不能展示成用户 Agent 的覆盖率            |
 
 四类代码指标均为 `covered / total × 100`。分母为配置选中的可执行源码单元，不能仅统计已加载文件。`total=0` 显示 N/A；缺数据、映射失败、崩溃漏采分别显示原因。
 
@@ -219,11 +219,11 @@ MVP 采用一个工作区、三个实际构建单元：`packages/core`、`packag
 
 ```ts
 features: [
-  { id: 'planning', files: ['src/agent/planner.ts'] },
-  { id: 'tool-routing', files: ['src/agent/router.ts'] },
-  { id: 'error-recovery', files: ['src/agent/recovery.ts'] },
-  { id: 'termination', files: ['src/agent/limits.ts'] },
-]
+  { id: "planning", files: ["src/agent/planner.ts"] },
+  { id: "tool-routing", files: ["src/agent/router.ts"] },
+  { id: "error-recovery", files: ["src/agent/recovery.ts"] },
+  { id: "termination", files: ["src/agent/limits.ts"] },
+];
 ```
 
 实现允许进一步声明源码行区间，后续再支持稳定符号 ID。边界跨过一个语句时，按该语句起点归属，规则固化并测试。文件/区间配置为空或无可执行单元必须告警。
@@ -308,7 +308,7 @@ export interface Trajectory {
   caseId: string;
   events: TrajectoryEvent[];
   stepCount: number;
-  termination: 'completed' | 'timeout' | 'budget_exceeded' | 'error' | 'loop_detected';
+  termination: "completed" | "timeout" | "budget_exceeded" | "error" | "loop_detected";
   startedAt: string;
   finishedAt?: string;
 }
@@ -316,7 +316,7 @@ export interface Trajectory {
 export interface CoverageSummary {
   runId: string;
   sourceHash: string;
-  status: 'provisional' | 'final' | 'partial' | 'unavailable';
+  status: "provisional" | "final" | "partial" | "unavailable";
   lines: CoverageMetric;
   statements: CoverageMetric;
   functions: CoverageMetric;
@@ -331,7 +331,15 @@ export interface EvalResult {
   passed: boolean;
   assertions: AssertionResult[];
   coverage: CoverageSummary;
-  failureCategory?: 'wrong_output' | 'wrong_tool' | 'wrong_arguments' | 'loop' | 'timeout' | 'state_mismatch' | 'coverage_below_threshold' | 'runtime_error';
+  failureCategory?:
+    | "wrong_output"
+    | "wrong_tool"
+    | "wrong_arguments"
+    | "loop"
+    | "timeout"
+    | "state_mismatch"
+    | "coverage_below_threshold"
+    | "runtime_error";
   metrics: { latencyMs: number; steps: number; toolCalls: number; estimatedCostUsd?: number };
 }
 ```
@@ -381,11 +389,11 @@ export interface ImprovementSuggestion {
   id: string;
   runId: string;
   caseId: string;
-  category: 'prompt' | 'routing' | 'tool_schema' | 'recovery' | 'guardrail' | 'test_gap';
+  category: "prompt" | "routing" | "tool_schema" | "recovery" | "guardrail" | "test_gap";
   rationale: string;
-  evidence: Array<{ type: 'trace' | 'assertion' | 'coverage' | 'state'; ref: string }>;
+  evidence: Array<{ type: "trace" | "assertion" | "coverage" | "state"; ref: string }>;
   proposedCase?: Partial<TestCase>;
-  status: 'proposed' | 'accepted' | 'rejected' | 'verified';
+  status: "proposed" | "accepted" | "rejected" | "verified";
   confidence: number;
 }
 ```
@@ -401,11 +409,11 @@ export interface ImprovementSuggestion {
 
 ## 10. 开发计划：4 周 MVP
 
-| 周期 | 核心交付物 | 验收 |
-|---|---|---|
-| Stage 1 / 第 1 周 | monorepo、strict TS、Vitest、Zod；Function Agent Adapter；TestCase/Trajectory/EvalResult；Runner 超时/步数/循环；Trace JSONL；V8 coverage PoC；README Quick Start | 本地确定性 Agent 可运行，拿到真实 coverage manifest 和基础报告 |
-| Stage 2 / 第 2 周 | MCP stdio ToolAdapter；Mock Tool/HTTP；内存 State Store、快照恢复；Tool/State/Trajectory 断言；Feature Registry；Source Map/coverage merge | 两个分支可被不同 Case 命中；UI 数据契约可展示 feature coverage |
-| Stage 3 / 第 3 周 | 本地 API；SSE；Overview/Timeline/Feature Coverage/Case Detail；JSON/Markdown/JUnit；repetitions、Replay、门槛；GitHub Actions | `canary run` 打开本地页面，运行期间实时变化，CI 失败返回 1 |
+| 周期              | 核心交付物                                                                                                                                                                                    | 验收                                                                      |
+| ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| Stage 1 / 第 1 周 | monorepo、strict TS、Vitest、Zod；Function Agent Adapter；TestCase/Trajectory/EvalResult；Runner 超时/步数/循环；Trace JSONL；V8 coverage PoC；README Quick Start                             | 本地确定性 Agent 可运行，拿到真实 coverage manifest 和基础报告            |
+| Stage 2 / 第 2 周 | MCP stdio ToolAdapter；Mock Tool/HTTP；内存 State Store、快照恢复；Tool/State/Trajectory 断言；Feature Registry；Source Map/coverage merge                                                    | 两个分支可被不同 Case 命中；UI 数据契约可展示 feature coverage            |
+| Stage 3 / 第 3 周 | 本地 API；SSE；Overview/Timeline/Feature Coverage/Case Detail；JSON/Markdown/JUnit；repetitions、Replay、门槛；GitHub Actions                                                                 | `canary run` 打开本地页面，运行期间实时变化，CI 失败返回 1                |
 | Stage 4 / 第 4 周 | 失败归因；ImprovementSuggestion；回归 Case 草稿；baseline/candidate/holdout 比较；脱敏；Node 22/24 CI、Bun smoke test；README、CONTRIBUTING、SECURITY、CHANGELOG、LICENSE、Issue 模板、v0.1.0 | 新用户 10 分钟内能运行 Demo、定位失败、导出报告和回放；发布 RC 后再打 tag |
 
 ### 每周工程门槛
@@ -456,30 +464,32 @@ canary/
 
 ```ts
 export default defineConfig({
-  agent: { adapter: 'function', entry: './src/agent.ts', export: 'runAgent' },
-  cases: './cases/**/*.ts',
+  agent: { adapter: "function", entry: "./src/agent.ts", export: "runAgent" },
+  cases: "./cases/**/*.ts",
   runtime: { timeoutMs: 60_000, maxSteps: 20, repetitions: 3 },
   coverage: {
-    include: ['src/agent/**/*.ts'],
-    exclude: ['**/*.test.ts', '**/node_modules/**'],
-    lines: 80, branches: 70, functions: 75,
+    include: ["src/agent/**/*.ts"],
+    exclude: ["**/*.test.ts", "**/node_modules/**"],
+    lines: 80,
+    branches: 70,
+    functions: 75,
     featureChains: { planning: 70, toolRouting: 80, errorRecovery: 60 },
   },
-  web: { enabled: true, host: '127.0.0.1', open: true },
-  reporters: ['console', 'json', 'markdown', 'junit'],
+  web: { enabled: true, host: "127.0.0.1", open: true },
+  reporters: ["console", "json", "markdown", "junit"],
 });
 ```
 
 ```ts
 export default defineCase({
-  id: 'agent-recovers-from-tool-error',
-  input: '执行一个需要规划、工具调用和失败恢复的任务。',
-  expectedFeatures: ['planning', 'tool-routing', 'error-recovery'],
+  id: "agent-recovers-from-tool-error",
+  input: "执行一个需要规划、工具调用和失败恢复的任务。",
+  expectedFeatures: ["planning", "tool-routing", "error-recovery"],
   assertions: [
     expect.output().exists(),
     expect.trajectory().hasNoLoop(),
     expect.trajectory().maxSteps(12),
-    expect.coverage().feature('error-recovery').atLeast(60),
+    expect.coverage().feature("error-recovery").atLeast(60),
   ],
 });
 ```
@@ -492,15 +502,15 @@ GitHub Actions 至少执行：format/lint、typecheck、canary 自身单测、co
 
 ## 14. 风险与明确限制
 
-| 风险/限制 | 处理 |
-|---|---|
-| 远程黑盒没有源码 | 显示 coverage unavailable；要求用户部署 canary Coverage SDK 或上传受信 manifest，不伪造白盒数据 |
-| V8/Source Map 变动 | 固定 Node、转换器和 fixture；manifest 记录版本/hash；映射失败 strict fail |
-| 多进程/Worker 漏采 | MVP 单进程/单 execution；后续建立 fragment 合并协议 |
-| 同步死循环阻塞实时 UI | 父进程 watchdog 强杀；标记终止原因，不能等待 SSE 自己恢复 |
-| Agent 自进化过拟合 | holdout、门槛不可由候选修改、保留版本对比 |
-| 运行数据含敏感信息 | 本地优先、字段脱敏、大小限制、显式外发开关 |
-| “覆盖率高”被误读为“Agent 智能高” | UI 同时展示三类指标和说明，不提供单一隐藏总分 |
+| 风险/限制                        | 处理                                                                                            |
+| -------------------------------- | ----------------------------------------------------------------------------------------------- |
+| 远程黑盒没有源码                 | 显示 coverage unavailable；要求用户部署 canary Coverage SDK 或上传受信 manifest，不伪造白盒数据 |
+| V8/Source Map 变动               | 固定 Node、转换器和 fixture；manifest 记录版本/hash；映射失败 strict fail                       |
+| 多进程/Worker 漏采               | MVP 单进程/单 execution；后续建立 fragment 合并协议                                             |
+| 同步死循环阻塞实时 UI            | 父进程 watchdog 强杀；标记终止原因，不能等待 SSE 自己恢复                                       |
+| Agent 自进化过拟合               | holdout、门槛不可由候选修改、保留版本对比                                                       |
+| 运行数据含敏感信息               | 本地优先、字段脱敏、大小限制、显式外发开关                                                      |
+| “覆盖率高”被误读为“Agent 智能高” | UI 同时展示三类指标和说明，不提供单一隐藏总分                                                   |
 
 ## 15. 后续路线
 
