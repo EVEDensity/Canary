@@ -7,8 +7,8 @@ export interface AgentContext { executionId: string; emit: (event: unknown) => v
 export interface AgentAdapter { id: string; kind: AgentAdapterKind; run(input: AgentInput, context: AgentContext): Promise<AgentOutput> }
 export type ToolAdapterKind = "mock" | "mcp-stdio" | "mcp-http";
 export interface ToolAdapter { readonly kind: ToolAdapterKind; call(name: string, args: unknown): Promise<unknown>; close(): Promise<void> }
-export interface ModelCompletion { text: string; usage?: { tokens?: number } }
-export interface ModelProvider { readonly kind: "deterministic" | "echo"; complete(prompt: string): Promise<ModelCompletion> }
+export type { ModelCompletion, ModelProvider, ModelProviderKind } from "./model.js";
+export { createModelProvider, DeterministicModelProvider, EchoModelProvider } from "./model.js";
 export interface ToolAdapterConfig {
   adapter: ToolAdapterKind;
   entry?: string;
@@ -68,25 +68,6 @@ export function createMcpAdapter(command: string, args: string[] = []): AgentAda
       return { value };
     },
   };
-}
-
-export class DeterministicModelProvider implements ModelProvider {
-  readonly kind = "deterministic" as const;
-  constructor(private readonly responses: Record<string, string> = {}) {}
-  async complete(prompt: string): Promise<ModelCompletion> {
-    if (this.responses[prompt] !== undefined) return { text: this.responses[prompt] };
-    if (prompt.startsWith("plan:")) return { text: `planned:${prompt.slice("plan:".length)}` };
-    return { text: prompt };
-  }
-}
-
-export class EchoModelProvider implements ModelProvider {
-  readonly kind = "echo" as const;
-  async complete(prompt: string): Promise<ModelCompletion> { return { text: prompt }; }
-}
-
-export function createModelProvider(kind: "deterministic" | "echo" = "deterministic", responses?: Record<string, string>): ModelProvider {
-  return kind === "echo" ? new EchoModelProvider() : new DeterministicModelProvider(responses);
 }
 
 export class MockToolAdapter implements ToolAdapter {
@@ -167,8 +148,8 @@ async function readMcpHttpResult(response: Response): Promise<unknown> {
         catch { /* ignore malformed SSE data */ }
       }
     }
-    if (!last) throw new Error("MCP streamable HTTP response did not include a JSON-RPC result");
-    if (last.error) throw new Error(last.error.message ?? "MCP streamable HTTP error");
+    if (!last) throw new Error("MCP HTTP SSE response did not include a JSON-RPC result");
+    if (last.error) throw new Error(last.error.message ?? "MCP HTTP error");
     return last.result;
   }
   const payload = await response.json() as { result?: unknown; error?: { message?: string } };
@@ -176,6 +157,7 @@ async function readMcpHttpResult(response: Response): Promise<unknown> {
   return payload.result;
 }
 
+/** JSON-RPC POST + optional SSE body. Not the full MCP Streamable HTTP session spec (out of v0.1). */
 export class McpHttpToolAdapter implements ToolAdapter {
   readonly kind = "mcp-http" as const;
   private seq = 0;
@@ -190,7 +172,7 @@ export class McpHttpToolAdapter implements ToolAdapter {
         body: JSON.stringify({ jsonrpc: "2.0", id: ++this.seq, method: "tools/call", params: { name, arguments: args } }),
         signal: controller.signal,
       });
-      if (!response.ok) throw new Error(`MCP streamable HTTP failed with status ${response.status}`);
+      if (!response.ok) throw new Error(`MCP HTTP failed with status ${response.status}`);
       return await readMcpHttpResult(response);
     } finally { clearTimeout(timer); }
   }
@@ -203,7 +185,7 @@ export async function createToolAdapter(config: ToolAdapterConfig): Promise<Tool
     return new McpStdioToolAdapter(config.command, config.args ?? []);
   }
   if (config.adapter === "mcp-http") {
-    if (!config.url) throw new Error("MCP streamable HTTP tool adapter requires url");
+    if (!config.url) throw new Error("MCP HTTP tool adapter requires url");
     return new McpHttpToolAdapter(config.url);
   }
   return new MockToolAdapter(config.tools ?? {});

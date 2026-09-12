@@ -1,6 +1,6 @@
 import { createServer } from "node:http";
 import { describe, expect, it } from "vitest";
-import { createFunctionAdapter, createHttpAdapter, createMcpAdapter, createModelProvider, createToolAdapter, McpHttpToolAdapter, McpStdioToolAdapter, MockToolAdapter } from "../src/index.js";
+import { createFunctionAdapter, createHttpAdapter, createMcpAdapter, createToolAdapter, McpHttpToolAdapter, McpStdioToolAdapter, MockToolAdapter } from "../src/index.js";
 
 describe("agent and tool adapters", () => {
   it("runs a local function agent", async () => {
@@ -55,7 +55,7 @@ describe("agent and tool adapters", () => {
     expect(output.value).toEqual({ output: { goal: "mcp" } });
   });
 
-  it("calls MCP streamable HTTP JSON and SSE transports", async () => {
+  it("calls MCP HTTP JSON and SSE demo transports (not full Streamable HTTP)", async () => {
     const jsonServer = createServer((_request, response) => {
       response.writeHead(200, { "content-type": "application/json" });
       response.end(JSON.stringify({ jsonrpc: "2.0", id: 1, result: { via: "json" } }));
@@ -81,9 +81,12 @@ describe("agent and tool adapters", () => {
     }
   });
 
-  it("keeps ModelProvider separate from AgentAdapter and ToolAdapter", async () => {
+  it("keeps ModelProvider as an independent module from AgentAdapter, ToolAdapter, and JudgeProvider", async () => {
+    const { createModelProvider } = await import("../src/model.js");
     const model = createModelProvider("deterministic", { "hello": "world" });
     expect(model.kind).toBe("deterministic");
+    expect(typeof model.complete).toBe("function");
+    expect((model as { score?: unknown }).score).toBeUndefined();
     expect((await model.complete("hello")).text).toBe("world");
     expect((await model.complete("plan:task")).text).toBe("planned:task");
     expect((await createModelProvider("echo").complete("raw")).text).toBe("raw");
