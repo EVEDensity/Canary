@@ -1,24 +1,25 @@
 {
-    "name":  "@canary/runner",
-    "version":  "0.1.0",
-    "private":  true,
-    "type":  "module",
-    "main":  "./dist/index.js",
-    "types":  "./dist/index.d.ts",
-    "exports":  {
-                    ".":  {
-                              "types":  "./dist/index.d.ts",
-                              "import":  "./dist/index.js",
-                              "default":  "./dist/index.js"
-                          }
-                },
-    "dependencies":  {
-                         "@canary/core":  "workspace:*",
-                         "@canary/coverage":  "workspace:*"
-                     },
-    "scripts":  {
-                    "build":  "tsc -p tsconfig.json",
-                    "typecheck":  "tsc -p tsconfig.json --pretty false",
-                    "test":  "vitest run"
-                }
+  "name": "@canary/runner",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "dependencies": {
+    "@canary/core": "workspace:*",
+    "@canary/coverage": "workspace:*",
+    "tsx": "^4.19.0"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --pretty false",
+    "test": "vitest run"
+  }
 }

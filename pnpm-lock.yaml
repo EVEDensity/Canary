@@ -56,6 +56,9 @@ importers:
       '@canary/web':
         specifier: workspace:*
         version: link:../../apps/web
+      tsx:
+        specifier: ^4.19.0
+        version: 4.23.13
 
   packages/core: {}
 
@@ -97,6 +100,9 @@ importers:
       '@canary/coverage':
         specifier: workspace:*
         version: link:../coverage
+      tsx:
+        specifier: ^4.19.0
+        version: 4.23.13
 
   packages/trace:
     dependencies:

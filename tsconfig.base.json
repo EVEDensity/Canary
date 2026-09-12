@@ -1,9 +1,10 @@
-{
+﻿{
   "compilerOptions": {
     "target": "ES2022",
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
     "strict": true,
+    "types": ["node"],
     "baseUrl": ".",
     "paths": {
       "@canary/core": ["packages/core/src/index.ts"],
@@ -28,3 +29,4 @@
     "incremental": true
   }
 }
+
