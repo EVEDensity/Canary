@@ -1,0 +1,29 @@
+name: Feature request
+description: A capability that fits canary's local evaluation scope
+title: "[feat] "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What cannot be evaluated or observed today?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposal
+      description: Keep MVP constraints in mind. canary does not auto-edit Agent source.
+    validations:
+      required: true
+  - type: dropdown
+    id: horizon
+    attributes:
+      label: Horizon
+      options:
+        - v0.1 documentation / DX
+        - v0.2 observability
+        - later
+    validations:
+      required: true
