@@ -1,7 +1,8 @@
-﻿import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
+import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { randomUUID } from "node:crypto";
 import { existsSync, readdirSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import type { CoverageGateResult, CoverageSummary, EvalResult } from "@canary/core";
 import {
   parseCoverageSummary,
@@ -283,6 +284,17 @@ async function handleRequest(store: RunStore, request: IncomingMessage, response
     const url = new URL(request.url ?? "/", "http://127.0.0.1");
     const parts = url.pathname.split("/").filter(Boolean);
     response.setHeader("Access-Control-Allow-Origin", "http://127.0.0.1");
+    if (url.pathname === "/logo.png" || url.pathname === "/favicon.ico") {
+      const logoPath = resolve(dirname(fileURLToPath(import.meta.url)), "../../../docs/images/logo.png");
+      if (existsSync(logoPath)) {
+        const buf = readFileSync(logoPath);
+        response.writeHead(200, { "content-type": "image/png", "cache-control": "public, max-age=86400" });
+        response.end(buf);
+        return;
+      }
+      response.writeHead(404); response.end("Not found");
+      return;
+    }
     if (url.pathname === "/" || url.pathname === "/index.html") {
       const runId = url.searchParams.get("runId");
       const run = runId ? store.get(runId) : undefined;
