@@ -5,10 +5,13 @@ import { pathToFileURL } from "node:url";
 import { createWebServer, FileArtifactRepository, RunStore, type RunSnapshot } from "@canary/web";
 import { runConfiguredCase } from "@canary/runner";
 import { createCoverageManifest, mergeCoverageSummaries } from "@canary/coverage";
+import { renderReport } from "@canary/reporters";
+import { compareRuns, proposeFromResults } from "@canary/improvement";
+import { redactTrajectory } from "@canary/trace";
 import type { CanaryConfig, CoverageSummary, TestCase } from "@canary/core";
 
 export interface CliOptions { configPath?: string; cwd?: string; headless?: boolean; noOpen?: boolean; port?: number; caseId?: string }
-const USAGE = "Usage: canary run [--headless] [--no-open] [--case <id>] [--port <number>] [--config <path>]\n       canary runs\n       canary show <runId>";
+const USAGE = "Usage: canary run [--headless] [--no-open] [--case <id>] [--port <number>] [--config <path>]\n       canary runs\n       canary show <runId>\n       canary report <runId> [--format json|markdown|junit]\n       canary improve <runId>\n       canary compare <baselineRunId> <candidateRunId>";
 
 async function importModule(filePath: string): Promise<Record<string, unknown>> {
   const url = pathToFileURL(resolve(filePath)).href;
@@ -164,15 +167,19 @@ export async function runCommandDetailed(options: CliOptions = {}): Promise<RunC
     if (!result.passed) store.update(run.runId, { status: "failed" });
   }
   const final = store.finish(run.runId);
-  writeFileSync(resolve(artifactDir, "run.json"), JSON.stringify(final, null, 2), "utf8");
-  if (final.coverage) writeFileSync(resolve(artifactDir, "coverage.json"), JSON.stringify(final.coverage, null, 2), "utf8");
-  writeFileSync(resolve(artifactDir, "trajectory.json"), JSON.stringify(final.results.map((result) => ({
+  const redacted = {
+    ...final,
+    results: final.results.map((result) => result.trajectory ? { ...result, trajectory: redactTrajectory(result.trajectory) } : result),
+  };
+  writeFileSync(resolve(artifactDir, "run.json"), JSON.stringify(redacted, null, 2), "utf8");
+  if (redacted.coverage) writeFileSync(resolve(artifactDir, "coverage.json"), JSON.stringify(redacted.coverage, null, 2), "utf8");
+  writeFileSync(resolve(artifactDir, "trajectory.json"), JSON.stringify(redacted.results.map((result) => ({
     caseId: result.caseId,
     trajectoryId: result.trajectoryId,
     termination: result.trajectory?.termination,
     events: result.trajectory?.events ?? [],
   })), null, 2), "utf8");
-  writeFileSync(resolve(artifactDir, "evaluator.json"), JSON.stringify(final.results.map((result) => ({
+  writeFileSync(resolve(artifactDir, "evaluator.json"), JSON.stringify(redacted.results.map((result) => ({
     caseId: result.caseId,
     execution: {
       status: result.failureCategory === "timeout" ? "timeout" : result.failureCategory === "cancelled" ? "cancelled" : result.failureCategory === "runtime_error" ? "failed" : "completed",
@@ -180,8 +187,16 @@ export async function runCommandDetailed(options: CliOptions = {}): Promise<RunC
     },
     evaluation: { status: result.passed ? "passed" : "failed", failureCategory: result.failureCategory, assertions: result.assertions },
   })), null, 2), "utf8");
-  const exitCode = final.status === "completed" ? 0 : 1;
-  printRunSummary(final, { artifactPath: resolve(artifactDir, "run.json"), uiUrl: url, exitCode });
+  const reportInput = { runId: redacted.runId, status: redacted.status, startedAt: redacted.startedAt, finishedAt: redacted.finishedAt, totalCases: redacted.totalCases, passedCases: redacted.passedCases, results: redacted.results, coverage: redacted.coverage };
+  const formats = config.reporters?.length ? config.reporters : ["json", "markdown", "junit"] as Array<"json" | "markdown" | "junit">;
+  for (const format of formats) {
+    const extension = format === "junit" ? "xml" : format === "markdown" ? "md" : "json";
+    writeFileSync(resolve(artifactDir, `report.${extension}`), renderReport(reportInput, format), "utf8");
+  }
+  const suggestions = proposeFromResults(redacted.runId, redacted.results);
+  writeFileSync(resolve(artifactDir, "improvement.json"), JSON.stringify(suggestions, null, 2), "utf8");
+  const exitCode = redacted.status === "completed" ? 0 : 1;
+  printRunSummary(redacted, { artifactPath: resolve(artifactDir, "run.json"), uiUrl: url, exitCode });
   let webClosed = false;
   const close = async (): Promise<void> => {
     if (webClosed || !web.server.listening) { webClosed = true; return; }
@@ -215,6 +230,35 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
     if (!snapshot) { console.error(`Run not found: ${runId}`); return 1; }
     printRunSummary(snapshot, { artifactPath: resolve(artifactRoot(), runId, "run.json"), exitCode: snapshot.status === "completed" ? 0 : 1 });
     return snapshot.status === "completed" ? 0 : 1;
+  }
+  if (command === "report") {
+    const runId = rest[0];
+    if (!runId) { console.log(USAGE); return 1; }
+    const snapshot = readRunArtifact(runId);
+    if (!snapshot) { console.error(`Run not found: ${runId}`); return 1; }
+    const formatIndex = rest.indexOf("--format");
+    const format = (formatIndex >= 0 ? rest[formatIndex + 1] : "markdown") as "json" | "markdown" | "junit";
+    console.log(renderReport({ runId: snapshot.runId, status: snapshot.status, startedAt: snapshot.startedAt, finishedAt: snapshot.finishedAt, totalCases: snapshot.totalCases, passedCases: snapshot.passedCases, results: snapshot.results, coverage: snapshot.coverage }, format === "junit" || format === "json" || format === "markdown" ? format : "markdown"));
+    return snapshot.status === "completed" ? 0 : 1;
+  }
+  if (command === "improve") {
+    const runId = rest[0];
+    if (!runId) { console.log(USAGE); return 1; }
+    const snapshot = readRunArtifact(runId);
+    if (!snapshot) { console.error(`Run not found: ${runId}`); return 1; }
+    console.log(JSON.stringify(proposeFromResults(snapshot.runId, snapshot.results), null, 2));
+    return 0;
+  }
+  if (command === "compare") {
+    const baselineId = rest[0];
+    const candidateId = rest[1];
+    if (!baselineId || !candidateId) { console.log(USAGE); return 1; }
+    const baseline = readRunArtifact(baselineId);
+    const candidate = readRunArtifact(candidateId);
+    if (!baseline || !candidate) { console.error("Both baseline and candidate runs must exist"); return 1; }
+    const comparison = compareRuns(baseline, candidate, ["holdout-planning"]);
+    console.log(JSON.stringify(comparison, null, 2));
+    return comparison.verdict === "reject" ? 1 : 0;
   }
   if (command !== "run") { console.log(USAGE); return 1; }
   const options: CliOptions = { headless: rest.includes("--headless"), noOpen: rest.includes("--no-open") };

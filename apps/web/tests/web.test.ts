@@ -29,6 +29,7 @@ describe("web run store and HTTP/SSE", () => {
       expect(JSON.parse(payload.body).featureChains).toEqual([]);
       const page = await get(`${listening.url}/?runId=${run.runId}`);
       expect(page.body).toContain("Coverage"); expect(page.body).toContain("coverage.updated");
+      expect(page.body).toContain("history");
     } finally { await close(web.server); }
   });
 
@@ -63,6 +64,11 @@ describe("web run store and HTTP/SSE", () => {
       expect(run.status).toBe(200);
       expect(JSON.parse(cov.body).lines.total).toBe(2);
       expect(new FileArtifactRepository(dir).readRun("run_hist")?.runId).toBe("run_hist");
+      const home = await get(`${listening.url}/`);
+      expect(home.body).toContain("/api/runs");
+      const report = await get(`${listening.url}/api/runs/run_hist/report/markdown`);
+      expect(report.status).toBe(200);
+      expect(report.body).toContain("run_hist");
     } finally { await close(web.server); }
   });
 

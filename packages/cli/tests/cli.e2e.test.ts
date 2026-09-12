@@ -51,6 +51,10 @@ describe("canary run --headless", () => {
     expect(artifact.results[0].trajectory.events.some((event: { type: string }) => event.type === "tool_call")).toBe(true);
     expect(trajectory[0].events.some((event: { type: string }) => event.type === "tool_call")).toBe(true);
     expect(evaluator[0].evaluation.status).toBe("passed");
+    expect(existsSync(join(dir, "report.json"))).toBe(true);
+    expect(existsSync(join(dir, "report.md"))).toBe(true);
+    expect(existsSync(join(dir, "report.xml"))).toBe(true);
+    expect(existsSync(join(dir, "improvement.json"))).toBe(true);
     expect(result.store.get(result.runId)?.coverage?.lines.total).toBeGreaterThan(0);
     expect(listRunArtifacts(cwd).some((run) => run.runId === result.runId)).toBe(true);
     expect(readRunArtifact(result.runId, cwd)?.coverage?.status).toBe("final");
