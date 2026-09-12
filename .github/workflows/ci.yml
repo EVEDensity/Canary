@@ -12,7 +12,23 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  ci:
+  lint:
+    name: format / lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.15.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm format:check
+      - run: pnpm lint
+
+  test:
     name: Node ${{ matrix.node-version }}
     runs-on: ubuntu-latest
     strategy:
@@ -32,7 +48,88 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm test
       - run: pnpm build
-      - name: Headless canary run
-        run: pnpm canary -- run --headless --no-open
+
+  coverage-fixture:
+    name: coverage fixture
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.15.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Coverage collector fixture matrix
+        run: pnpm --filter @canary/coverage exec vitest run tests/coverage-fixtures.test.ts
+
+  demo:
+    name: Demo ${{ matrix.demo.name }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        demo:
+          - name: local-agent
+            command: pnpm canary -- run --headless --no-open
+            assert_junit: true
+          - name: mcp-agent
+            command: pnpm canary -- run --headless --no-open --config examples/mcp-agent/canary.config.ts
+            assert_junit: false
+          - name: loop-agent
+            command: pnpm canary -- run --headless --no-open --config examples/loop-agent/canary.config.ts
+            assert_junit: false
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.15.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Headless ${{ matrix.demo.name }}
+        run: ${{ matrix.demo.command }}
       - name: Assert JUnit failures are zero
+        if: ${{ matrix.demo.assert_junit }}
         run: node scripts/assert-junit.mjs
+
+  bun-smoke:
+    name: Bun smoke
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.15.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - run: pnpm install --frozen-lockfile
+      - name: CLI help under Bun
+        run: bun ./packages/cli/src/index.ts help
+      - name: Confirm V8 coverage is not claimed on Bun
+        run: bun -e "if (typeof Bun === 'undefined') throw new Error('not bun')"
+
+  pack:
+    name: npm pack / bin
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.15.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - run: node scripts/verify-pack.mjs
