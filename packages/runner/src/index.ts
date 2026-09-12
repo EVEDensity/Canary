@@ -4,11 +4,11 @@ import { randomUUID } from "node:crypto";
 import { extname, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import type { CanaryConfig, CoverageScript, CoverageSummary, EvalResult, FeatureDefinition, TestCase, Trajectory, TrajectoryEvent } from "@canary/core";
-import { FeatureRegistry } from "@canary/core";
 import { assignFeatureCoverage, emptyCoverage, summarizeCoverage } from "@canary/coverage";
 import type { FeatureEvent } from "@canary/coverage";
 import type { CoverageSourceConfig } from "@canary/coverage";
 import { evaluateAgent } from "@canary/evaluators";
+import { runHttpAgent } from "@canary/adapters";
 
 export interface ExecutionOptions {
   cwd?: string;
@@ -157,27 +157,50 @@ export async function runExecution(options: ExecutionOptions): Promise<EvalResul
     child.once("close", (code: number | null) => { exitCode = code; if (code && !failure) failure = stderr.trim() ? `Execution child exited with code ${code}: ${stderr.trim()}` : `Execution child exited with code ${code}`; done(); });
   });
   clearTimeout(timeout); options.signal?.removeEventListener("abort", cancel);
-  const trajectory: Trajectory = { id: `trajectory_${executionId}`, runId: options.runId, caseId: options.caseId, events, stepCount: events.filter((event) => event.type === "tool_call").length, termination: didTimeout ? "timeout" : didCancel ? "cancelled" : failure ? "error" : "completed" };
+  const termination: Trajectory["termination"] = didTimeout ? "timeout" : didCancel ? "cancelled" : failure ? "error" : "completed";
   const coverage = makeCoverage(options, scripts, coveragePartial || didTimeout || didCancel, events);
   options.onCoverage?.(coverage); options.onEvent?.({ type: "coverage.updated", executionId, coverage });
   if (failure) options.onEvent?.({ type: "execution.failed", executionId, error: failure });
-  const runtimePassed = !failure && exitCode === 0;
+  return finishEvaluation(options, executionId, startedAt, events, output, failure, coverage, termination);
+}
+
+export interface RunOptions { config: CanaryConfig; cwd?: string; runId: string; onEvent?: (event: RunnerEvent) => void; onCoverage?: (summary: CoverageSummary) => void; manifest?: CoverageSourceConfig["manifest"] }
+
+async function finishEvaluation(options: ExecutionOptions, executionId: string, startedAt: number, events: TrajectoryEvent[], output: unknown, failure: string | undefined, coverage: CoverageSummary, termination: Trajectory["termination"]): Promise<EvalResult> {
+  const trajectory: Trajectory = { id: `trajectory_${executionId}`, runId: options.runId, caseId: options.caseId, events, stepCount: events.filter((event) => event.type === "tool_call" || event.type === "tool.call").length, termination };
   const testCase: TestCase = options.testCase ?? { id: options.caseId, input: options.input, assertions: [] };
-  const registry = new FeatureRegistry(options.features ?? []);
   const evaluation = await evaluateAgent({ assertions: testCase.assertions ?? [], context: { testCase, output, trajectory, executionStatus: trajectory.termination, latencyMs: Date.now() - startedAt, toolCalls: trajectory.stepCount, budgetUsed: budgetUsed(events), expectedFeatures: testCase.expectedFeatures, featureStatuses: Object.fromEntries(coverage.featureChains.map((feature) => [feature.featureId, feature.status])) } });
+  const expectedTermination = (testCase.assertions ?? []).some((assertion) => assertion.type === "execution.termination" && "expected" in assertion && assertion.expected === trajectory.termination);
+  const runtimePassed = !failure || expectedTermination;
   const result: EvalResult = {
     runId: options.runId, executionId, caseId: options.caseId, passed: runtimePassed && evaluation.passed,
     assertions: [{ id: "agent.completed", passed: runtimePassed, message: failure ?? "Agent completed" }, ...evaluation.assertions], coverage, output,
     metrics: { latencyMs: Date.now() - startedAt, steps: trajectory.stepCount, toolCalls: trajectory.stepCount, budgetUsed: budgetUsed(events) },
-    failureCategory: didTimeout ? "timeout" : didCancel ? "cancelled" : failure ? "runtime_error" : evaluation.passed ? undefined : "assertion_failed",
+    failureCategory: runtimePassed && evaluation.passed ? undefined : termination === "timeout" ? "timeout" : termination === "cancelled" ? "cancelled" : failure ? "runtime_error" : "assertion_failed",
     trajectoryId: trajectory.id, trajectory, createdAt: new Date().toISOString(),
   };
-  options.onEvent?.({ type: "execution.finished", executionId, result }); return result;
+  options.onEvent?.({ type: "execution.finished", executionId, result });
+  return result;
 }
 
-export interface RunOptions { config: CanaryConfig; cwd?: string; runId: string; onEvent?: (event: RunnerEvent) => void; onCoverage?: (summary: CoverageSummary) => void; manifest?: CoverageSourceConfig["manifest"] }
+export async function runHttpExecution(options: ExecutionOptions): Promise<EvalResult> {
+  const executionId = `exec_${randomUUID()}`; const startedAt = Date.now(); const events: TrajectoryEvent[] = [];
+  options.onEvent?.({ type: "execution.started", runId: options.runId, executionId, caseId: options.caseId });
+  const emit = (event: TrajectoryEvent) => { events.push(event); options.onEvent?.({ type: "trace.event", executionId, event }); };
+  emit({ type: "http.request", timestamp: new Date().toISOString(), url: options.entry });
+  let output: unknown; let failure: string | undefined;
+  try { output = await runHttpAgent(options.entry, options.input, options.timeoutMs ?? 10_000); emit({ type: "http.response", timestamp: new Date().toISOString() }); }
+  catch (error) { failure = error instanceof Error ? error.message : String(error); options.onEvent?.({ type: "execution.failed", executionId, error: failure }); }
+  const coverage = emptyCoverage(options.runId);
+  options.onCoverage?.(coverage);
+  options.onEvent?.({ type: "coverage.updated", executionId, coverage });
+  return finishEvaluation(options, executionId, startedAt, events, output, failure, coverage, failure ? "error" : "completed");
+}
+
 export async function runConfiguredCase(options: RunOptions, testCase: TestCase): Promise<EvalResult> {
-  return runExecution({ cwd: options.cwd, entry: options.config.agent.entry, exportName: options.config.agent.export, input: testCase.input, runId: options.runId, caseId: testCase.id, testCase, features: options.config.features, timeoutMs: testCase.options?.timeoutMs ?? options.config.runtime?.timeoutMs ?? 60_000, maxSteps: testCase.options?.maxSteps ?? options.config.runtime?.maxSteps, maxToolCalls: testCase.options?.maxToolCalls ?? options.config.runtime?.maxToolCalls, maxBudget: testCase.options?.maxBudget ?? options.config.runtime?.maxBudget, coverage: { include: options.config.coverage.include, exclude: options.config.coverage.exclude, rootDir: options.cwd, manifest: options.manifest, features: options.config.features }, onEvent: options.onEvent, onCoverage: options.onCoverage });
+  const shared = { cwd: options.cwd, entry: options.config.agent.entry, exportName: options.config.agent.export, input: testCase.input, runId: options.runId, caseId: testCase.id, testCase, features: options.config.features, timeoutMs: testCase.options?.timeoutMs ?? options.config.runtime?.timeoutMs ?? 60_000, maxSteps: testCase.options?.maxSteps ?? options.config.runtime?.maxSteps, maxToolCalls: testCase.options?.maxToolCalls ?? options.config.runtime?.maxToolCalls, maxBudget: testCase.options?.maxBudget ?? options.config.runtime?.maxBudget, coverage: { include: options.config.coverage.include, exclude: options.config.coverage.exclude, rootDir: options.cwd, manifest: options.manifest, features: options.config.features }, onEvent: options.onEvent, onCoverage: options.onCoverage };
+  if (options.config.agent.adapter === "http") return runHttpExecution(shared);
+  return runExecution(shared);
 }
 
 

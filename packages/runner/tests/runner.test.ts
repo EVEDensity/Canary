@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
+import { createServer } from "node:http";
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { runExecution } from "../src/index.js";
+import { runConfiguredCase, runExecution, runHttpExecution } from "../src/index.js";
 
 const options = (cwd: string, entry = "agent.mjs") => ({ cwd, entry, input: "ok" as unknown, runId: "run_test", caseId: "case", timeoutMs: 1000, coverage: { rootDir: cwd, include: [entry] } });
 
@@ -90,5 +91,37 @@ describe("provisional coverage sampling", () => {
     expect(statuses).toContain("provisional");
     expect(statuses.at(-1)).toBe("final");
     expect(statuses.filter((status) => status === "provisional").length).toBeLessThan(8);
+  });
+});
+
+describe("http black-box adapter", () => {
+  it("marks coverage unavailable when the agent is a remote HTTP endpoint", async () => {
+    const server = createServer((_request, response) => {
+      response.writeHead(200, { "content-type": "application/json" });
+      response.end(JSON.stringify({ output: "remote" }));
+    });
+    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", () => resolve()));
+    const address = server.address();
+    const port = typeof address === "object" && address ? address.port : 0;
+    try {
+      const result = await runHttpExecution({
+        entry: `http://127.0.0.1:${port}/agent`,
+        input: { goal: "remote" },
+        runId: "run_http",
+        caseId: "http-case",
+        timeoutMs: 2000,
+        coverage: { include: ["**/*.ts"] },
+      });
+      expect(result.passed).toBe(true);
+      expect(result.coverage.status).toBe("unavailable");
+      expect(result.coverage.lines.total).toBe(0);
+      const configured = await runConfiguredCase({
+        config: { agent: { adapter: "http", entry: `http://127.0.0.1:${port}/agent` }, cases: "none", coverage: { include: [] } },
+        runId: "run_http_cfg",
+      }, { id: "http-case", input: { goal: "remote" } });
+      expect(configured.coverage.status).toBe("unavailable");
+    } finally {
+      await new Promise<void>((resolve) => server.close(() => resolve()));
+    }
   });
 });
