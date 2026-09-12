@@ -2,6 +2,7 @@
   "name": "canary",
   "version": "0.1.0",
   "private": true,
+  "license": "Apache-2.0",
   "description": "Local Agent evaluation, runtime coverage, and improvement workspace.",
   "packageManager": "pnpm@10.15.0",
   "engines": {
@@ -9,16 +10,26 @@
   },
   "scripts": {
     "build": "pnpm -r --if-present build",
-    "check": "pnpm typecheck && pnpm test",
+    "check": "pnpm typecheck && pnpm test && pnpm lint && pnpm format:check",
     "test": "pnpm -r --if-present test",
     "typecheck": "pnpm -r --if-present typecheck",
+    "lint": "eslint .",
+    "format": "prettier --write README.md CHANGELOG.md CONTRIBUTING.md SECURITY.md docs .github .changeset .prettierrc.json eslint.config.mjs",
+    "format:check": "prettier --check README.md CHANGELOG.md CONTRIBUTING.md SECURITY.md docs .github .changeset .prettierrc.json eslint.config.mjs",
+    "changeset": "changeset",
     "dev": "pnpm --filter @canary/cli dev",
     "canary": "pnpm --filter @canary/cli canary"
   },
   "devDependencies": {
+    "@changesets/cli": "^3.0.2",
+    "@eslint/js": "^10.0.1",
     "@types/node": "^22.0.0",
+    "eslint": "^10.10.0",
+    "globals": "^17.12.0",
+    "prettier": "^3.9.6",
     "tsx": "^4.19.0",
     "typescript": "^5.7.0",
+    "typescript-eslint": "^8.70.0",
     "vitest": "^3.0.0"
   }
 }
