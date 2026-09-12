@@ -4,13 +4,16 @@ import { createRequire } from "node:module";
 import { randomUUID } from "node:crypto";
 import { extname, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import type { CanaryConfig, CanaryModelConfig, CanaryToolsConfig, CoverageScript, CoverageSummary, EvalResult, FeatureDefinition, TestCase, Trajectory, TrajectoryEvent } from "@canary/core";
-import { IPC_MAX_BYTES, IPC_PROTOCOL_VERSION, parseChildMessage } from "@canary/core";
+import type { CanaryConfig, CanaryModelConfig, CanaryToolsConfig, CoverageScript, CoverageSummary, EvalResult, FeatureDefinition, RunnerEvent, TestCase, Trajectory, TrajectoryEvent } from "@canary/core";
+import { IPC_MAX_BYTES, IPC_PROTOCOL_VERSION, parseChildMessage, snapshotSourceCase } from "@canary/core";
 import { assignFeatureCoverage, emptyCoverage, mergeV8Scripts, summarizeCoverage } from "@canary/coverage";
 import type { FeatureEvent } from "@canary/coverage";
 import type { CoverageSourceConfig } from "@canary/coverage";
-import { evaluateAgent, attributeFailure } from "@canary/evaluators";
+import { evaluateAgent, attributeFailure, createJudgeProvider, type JudgePolicy, type JudgeProvider } from "@canary/evaluators";
 import { runHttpAgent, runMcpAgent } from "@canary/adapters";
+import { createChildScript } from "./child-script.js";
+
+export type { RunnerEvent } from "@canary/core";
 
 export const DEFAULT_SAMPLE_INTERVAL_MS = 1000;
 export const DEFAULT_KILL_GRACE_MS = 500;
@@ -51,13 +54,9 @@ export interface ExecutionOptions {
   model?: CanaryModelConfig;
   initialState?: Record<string, unknown>;
   killGraceMs?: number;
+  judge?: JudgeProvider;
+  judgePolicy?: JudgePolicy;
 }
-export type RunnerEvent =
-  | { type: "execution.started"; runId: string; executionId: string; caseId: string }
-  | { type: "trace.event"; executionId: string; event: TrajectoryEvent }
-  | { type: "coverage.updated"; executionId: string; coverage: CoverageSummary }
-  | { type: "execution.finished"; executionId: string; result: EvalResult }
-  | { type: "execution.failed"; executionId: string; error: string };
 type ChildMessage =
   | { v: 1; type: "ready" }
   | { v: 1; type: "event"; event: TrajectoryEvent }
@@ -65,111 +64,6 @@ type ChildMessage =
   | { v: 1; type: "error"; error: string }
   | { v: 1; type: "coverage"; scripts: CoverageScript[]; partial?: boolean; provisional?: boolean; phase?: "init" | "task" | "final"; processId?: number; isolateId?: string; sequence?: number };
 
-function createChildScript(): string {
-  return String.raw`
-const { Session } = require("node:inspector");
-const fs = require("node:fs");
-const os = require("node:os");
-const path = require("node:path");
-const { fileURLToPath, pathToFileURL } = require("node:url");
-const proto = 1;
-const send = (message) => new Promise((resolve) => {
-  if (typeof process.send !== "function" || !process.connected) return resolve();
-  const envelope = Object.assign({ v: proto }, message);
-  let encoded = "";
-  try { encoded = JSON.stringify(envelope); } catch { return resolve(); }
-  const maxBytes = Number((JSON.parse(process.env.CANARY_WORKER_DATA || "{}")).ipcMaxBytes || 8388608);
-  if (Buffer.byteLength(encoded) > maxBytes) {
-    try { process.send({ v: proto, type: "error", error: "IPC payload exceeds maximum size" }, undefined, undefined, () => resolve()); } catch { resolve(); }
-    return;
-  }
-  try { process.send(envelope, undefined, undefined, () => resolve()); } catch { resolve(); }
-});
-(async () => {
-  const payload = JSON.parse(process.env.CANARY_WORKER_DATA || "{}");
-  const useIstanbul = payload.coverageProvider === "istanbul";
-  const session = new Session(); let coverageStarted = false; let scripts = []; let partial = false; let sampleTimer; let lastSampleAt = 0; let lastSampleKey = ""; let tools; let seq = 0; let coverageMod; let istanbulTmp;
-  const minInterval = Number(payload.sampleMinIntervalMs || 200);
-  const coverageMeta = () => ({ processId: process.pid, isolateId: String(process.pid), sequence: ++seq });
-  const istanbulScripts = () => coverageMod ? coverageMod.istanbulToScripts(coverageMod.readIstanbulCoverage()) : [];
-  const sample = async () => {
-    const now = Date.now();
-    if (now - lastSampleAt < minInterval) return;
-    try {
-      const next = useIstanbul ? istanbulScripts() : (coverageStarted ? ((await post("Profiler.takePreciseCoverage")).result || []) : []);
-      if (!useIstanbul && !coverageStarted) return;
-      const key = JSON.stringify(next.map((script) => ({ url: script.url, functions: script.functions })));
-      if (key === lastSampleKey) return;
-      lastSampleKey = key; lastSampleAt = now;
-      await send(Object.assign({ type: "coverage", scripts: next, provisional: true, phase: "task" }, coverageMeta()));
-    } catch {}
-  };
-  const keepAlive = setInterval(() => {}, 2_147_483_647);
-  const post = (method, params) => new Promise((resolve, reject) => session.post(method, params || {}, (error, result) => error ? reject(error) : resolve(result)));
-  try {
-    if (!useIstanbul) {
-      session.connect(); await post("Profiler.enable"); await post("Debugger.enable"); await post("Profiler.startPreciseCoverage", { callCount: true, detailed: true }); coverageStarted = true;
-    } else if (payload.coverageUrl) {
-      coverageMod = await import(payload.coverageUrl);
-    }
-    const emit = (event) => send({ type: "event", event: { ...event, timestamp: new Date().toISOString() } });
-    if (payload.sampleIntervalMs > 0) sampleTimer = setInterval(sample, payload.sampleIntervalMs);
-    globalThis[Symbol.for("canary.feature.emit")] = (event) => emit(event);
-    const adapters = payload.adaptersUrl ? await import(payload.adaptersUrl) : undefined;
-    const environment = payload.environmentUrl ? await import(payload.environmentUrl) : undefined;
-    const state = environment ? new environment.MemoryStateStore(payload.initialState || {}) : undefined;
-    const model = adapters ? adapters.createModelProvider((payload.model && payload.model.provider) || "deterministic", payload.model && payload.model.responses) : undefined;
-    let toolConfig = payload.tools;
-    if (toolConfig && toolConfig.adapter === "mock" && toolConfig.entry) {
-      const toolMod = await import(toolConfig.entry);
-      const exported = toolMod[toolConfig.export || "default"];
-      toolConfig = Object.assign({}, toolConfig, { tools: exported && typeof exported === "object" ? exported : {} });
-    }
-    tools = toolConfig && adapters ? await adapters.createToolAdapter(toolConfig) : undefined;
-    let entryUrl = payload.entry;
-    if (useIstanbul && coverageMod) {
-      const entryPath = fileURLToPath(payload.entry);
-      const instrumented = coverageMod.instrumentIstanbul(fs.readFileSync(entryPath, "utf8"), entryPath);
-      istanbulTmp = path.join(os.tmpdir(), "canary-istanbul-" + process.pid + path.extname(entryPath));
-      fs.writeFileSync(istanbulTmp, instrumented.code);
-      entryUrl = pathToFileURL(istanbulTmp).href;
-    }
-    const mod = await import(entryUrl); const agent = mod[payload.exportName || "default"];
-    if (typeof agent !== "function") throw new Error("Agent export is not a function");
-    // Module-load window: sample then let V8 reset counters before the agent task.
-    if (useIstanbul) {
-      await send(Object.assign({ type: "coverage", scripts: istanbulScripts(), phase: "init" }, coverageMeta()));
-    } else if (coverageStarted) {
-      try {
-        const init = await post("Profiler.takePreciseCoverage");
-        await send(Object.assign({ type: "coverage", scripts: init.result || [], phase: "init" }, coverageMeta()));
-      } catch {}
-    }
-    await send({ type: "ready" }); const value = await agent(payload.input, { executionId: payload.executionId, emit, tools, state, model }); await send({ type: "result", value });
-  } catch (error) { partial = true; await send({ type: "error", error: error && (error.stack || error.message) || String(error) }); }
-  finally {
-    if (tools) try { await tools.close(); } catch {}
-    clearInterval(keepAlive);
-    if (sampleTimer) clearInterval(sampleTimer);
-    if (useIstanbul) {
-      scripts = istanbulScripts();
-    } else if (coverageStarted) {
-      try {
-        const response = await post("Profiler.takePreciseCoverage"); scripts = response.result || [];
-        scripts = await Promise.all(scripts.map(async (script) => {
-          try { const source = await post("Debugger.getScriptSource", { scriptId: script.scriptId }); return { ...script, source: source.scriptSource }; }
-          catch { return script; }
-        }));
-      } catch { partial = true; }
-      try { await post("Profiler.stopPreciseCoverage"); } catch { partial = true; }
-      try { await post("Profiler.disable"); await post("Debugger.disable"); } catch { partial = true; }
-    }
-    if (istanbulTmp) try { fs.unlinkSync(istanbulTmp); } catch {}
-    try { delete globalThis[Symbol.for("canary.feature.emit")]; if (!useIstanbul) session.disconnect(); } catch {}
-    await send(Object.assign({ type: "coverage", scripts, partial, phase: "final" }, coverageMeta())); if (process.connected) process.disconnect();
-  }
-})().catch(async (error) => { await send({ type: "error", error: error && (error.stack || error.message) || String(error) }); if (process.connected) process.disconnect(); });`;
-}
 function resolveWorkspaceModule(packageDir: string): string {
   const runnerRoot = resolve(fileURLToPath(import.meta.url), "..", "..");
   const src = resolve(runnerRoot, "..", packageDir, "src", "index.ts");
@@ -294,7 +188,7 @@ export async function runExecution(options: ExecutionOptions): Promise<EvalResul
   return finishEvaluation(options, executionId, startedAt, events, output, failure, coverage, termination);
 }
 
-export interface RunOptions { config: CanaryConfig; cwd?: string; runId: string; onEvent?: (event: RunnerEvent) => void; onCoverage?: (summary: CoverageSummary) => void; manifest?: CoverageSourceConfig["manifest"]; signal?: AbortSignal; repetition?: number; repetitionTotal?: number }
+export interface RunOptions { config: CanaryConfig; cwd?: string; runId: string; onEvent?: (event: RunnerEvent) => void; onCoverage?: (summary: CoverageSummary) => void; manifest?: CoverageSourceConfig["manifest"]; signal?: AbortSignal; repetition?: number; repetitionTotal?: number; judge?: JudgeProvider; judgePolicy?: JudgePolicy }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
@@ -316,7 +210,7 @@ async function finishEvaluation(options: ExecutionOptions, executionId: string, 
   const trajectory: Trajectory = { id: `trajectory_${executionId}`, runId: options.runId, caseId: options.caseId, events, stepCount: events.filter((event) => event.type === "tool_call" || event.type === "tool.call").length, termination };
   const testCase: TestCase = options.testCase ?? { id: options.caseId, input: options.input, assertions: [] };
   const stateDiff = stateDiffFor(testCase, events, output);
-  const evaluation = await evaluateAgent({ assertions: testCase.assertions ?? [], context: { testCase, output, trajectory, executionStatus: trajectory.termination, latencyMs: Date.now() - startedAt, toolCalls: trajectory.stepCount, budgetUsed: budgetUsed(events), expectedFeatures: testCase.expectedFeatures, featureStatuses: Object.fromEntries(coverage.featureChains.map((feature) => [feature.featureId, feature.status])), coverage, state: stateDiff.after } });
+  const evaluation = await evaluateAgent({ assertions: testCase.assertions ?? [], context: { testCase, output, trajectory, executionStatus: trajectory.termination, latencyMs: Date.now() - startedAt, toolCalls: trajectory.stepCount, budgetUsed: budgetUsed(events), expectedFeatures: testCase.expectedFeatures, featureStatuses: Object.fromEntries(coverage.featureChains.map((feature) => [feature.featureId, feature.status])), coverage, state: stateDiff.after, judge: options.judge, judgePolicy: options.judgePolicy } });
   const expectedTermination = (testCase.assertions ?? []).some((assertion) => assertion.type === "execution.termination" && "expected" in assertion && assertion.expected === trajectory.termination);
   const runtimePassed = !failure || expectedTermination;
   const passed = runtimePassed && evaluation.passed;
@@ -326,6 +220,7 @@ async function finishEvaluation(options: ExecutionOptions, executionId: string, 
     passed, assertions: [{ id: "agent.completed", passed: runtimePassed, message: failure ?? "Agent completed" }, ...evaluation.assertions], coverage, output, input: options.input,
     metrics: { latencyMs: Date.now() - startedAt, steps: trajectory.stepCount, toolCalls: trajectory.stepCount, budgetUsed: budgetUsed(events) },
     trajectoryId: trajectory.id, trajectory, stateDiff, createdAt: new Date().toISOString(),
+    sourceCase: snapshotSourceCase(testCase),
   };
   if (!passed) result.failureCategory = attributeFailure(result).kind;
   options.onEvent?.({ type: "execution.finished", executionId, result });
@@ -338,7 +233,7 @@ export async function runHttpExecution(options: ExecutionOptions): Promise<EvalR
   const emit = (event: TrajectoryEvent) => { events.push(event); options.onEvent?.({ type: "trace.event", executionId, event }); };
   emit({ type: "http.request", timestamp: new Date().toISOString(), url: options.entry });
   let output: unknown; let failure: string | undefined;
-  try { output = await runHttpAgent(options.entry, options.input, options.timeoutMs ?? 10_000); emit({ type: "http.response", timestamp: new Date().toISOString() }); }
+  try { output = await runHttpAgent(options.entry, options.input, options.timeoutMs ?? 10_000, options.signal); emit({ type: "http.response", timestamp: new Date().toISOString() }); }
   catch (error) { failure = error instanceof Error ? error.message : String(error); options.onEvent?.({ type: "execution.failed", executionId, error: failure }); }
   const coverage = emptyCoverage(options.runId);
   options.onCoverage?.(coverage);
@@ -359,7 +254,7 @@ export async function runMcpExecution(options: ExecutionOptions): Promise<EvalRe
   const args = isTypeScript ? ["--import", tsxLoader, entry] : [entry];
   emit({ type: "mcp.request", timestamp: new Date().toISOString(), command, entry });
   let output: unknown; let failure: string | undefined;
-  try { output = await runMcpAgent(command, args, options.input, options.timeoutMs ?? 10_000); emit({ type: "mcp.response", timestamp: new Date().toISOString() }); }
+  try { output = await runMcpAgent(command, args, options.input, options.timeoutMs ?? 10_000, options.signal); emit({ type: "mcp.response", timestamp: new Date().toISOString() }); }
   catch (error) { failure = error instanceof Error ? error.message : String(error); options.onEvent?.({ type: "execution.failed", executionId, error: failure }); }
   const coverage = emptyCoverage(options.runId);
   options.onCoverage?.(coverage);
@@ -414,10 +309,20 @@ export async function runConfiguredCase(options: RunOptions, testCase: TestCase)
     signal: options.signal,
     repetition: options.repetition,
     repetitionTotal: options.repetitionTotal,
+    judge: options.judge ?? (options.config.judge ? createJudgeProvider(options.config.judge) : undefined),
+    judgePolicy: options.judgePolicy ?? { required: options.config.judge?.required, providerKind: options.config.judge?.provider },
   };
   if (options.config.agent.adapter === "http") return runHttpExecution(shared);
   if (options.config.agent.adapter === "mcp") return runMcpExecution(shared);
   return runExecution(shared);
+}
+
+export interface RunnerPorts {
+  executeCase: typeof runConfiguredCase;
+}
+
+export function createRunnerPorts(): RunnerPorts {
+  return { executeCase: runConfiguredCase };
 }
 
 
