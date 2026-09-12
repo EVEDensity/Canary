@@ -12,7 +12,9 @@ pnpm lint
 pnpm format:check
 ```
 
-Node.js 22+. Use `pnpm canary -- run --headless --no-open` for a no-UI check of the default suite.
+Node.js 22+. Enable Corepack once (`corepack enable`). No global npm install is required.
+
+Use `pnpm demo:headless` for a no-UI check of the default suite (same command CI uses).
 
 ## Pull requests
 

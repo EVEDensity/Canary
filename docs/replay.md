@@ -1,5 +1,7 @@
 # Replay
 
+From the repo root, after a prior `pnpm demo` or `pnpm demo:headless`:
+
 ```powershell
 pnpm canary -- replay <runId> --headless --no-open
 ```

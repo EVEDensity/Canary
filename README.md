@@ -46,27 +46,30 @@ Agent runs locally and you think it works? Not quite. `canary` treats your Agent
 
 ## 🚀 Quick Start
 
-> Requires [pnpm](https://pnpm.io/) and Node ≥22.
+> **Personal developers:** clone this repo and use pnpm scripts. No global npm install or `npx` required.
+
+Requires [pnpm](https://pnpm.io/) 10 and Node ≥22. Enable Corepack once: `corepack enable`.
 
 ```bash
 git clone https://github.com/EVEDensity/Canary
 cd Canary
 pnpm install
-pnpm canary -- run
+pnpm demo
 ```
+
+`pnpm demo` runs the default suite and opens the local UI. Headless (CI-style): `pnpm demo:headless`.
 
 Default suite: 15 deterministic cases under `cases/` against `examples/local-agent` — no API keys needed. Artifacts land at `.canary/artifacts/<runId>/`.
 
 ### Common Commands
 
 ```bash
-pnpm canary -- show <runId>                         # Open Web UI
-pnpm canary -- report <runId> --format markdown      # Markdown report
-pnpm canary -- compare <baselineId> <candidateId>    # Compare two runs
-pnpm canary -- replay <runId> --headless --no-open   # Headless replay (CI)
-
-# CI-friendly
-pnpm canary -- run --headless --no-open --repetitions 3 --tag nightly
+pnpm demo                              # Interactive run + browser
+pnpm demo:headless                     # No browser; exit code for gates
+pnpm canary -- report <runId> --format markdown
+pnpm canary -- compare <baselineId> <candidateId>
+pnpm canary -- replay <runId> --headless --no-open
+pnpm canary -- run --repetitions 3 --tag nightly
 ```
 
 ## 📦 Monorepo Structure
@@ -93,13 +96,13 @@ Canary/
 
 ## 📋 Adapter & Coverage Matrix
 
-| Target         | Adapter                    | Coverage                                     |
-| -------------- | -------------------------- | -------------------------------------------- |
-| Local TS Agent | `function`                 | V8 lines / branches / functions / statements |
-| HTTP Agent     | `http`                     | `unavailable`                                |
-| MCP Agent      | `mcp` stdio                | `unavailable`                                |
-| MCP Tools      | `mcp-stdio` / `mcp-http`   | N/A (tools)                                  |
-| Bun            | CLI smoke only             | not claimed                                  |
+| Target         | Adapter                  | Coverage                                     |
+| -------------- | ------------------------ | -------------------------------------------- |
+| Local TS Agent | `function`               | V8 lines / branches / functions / statements |
+| HTTP Agent     | `http`                   | `unavailable`                                |
+| MCP Agent      | `mcp` stdio              | `unavailable`                                |
+| MCP Tools      | `mcp-stdio` / `mcp-http` | N/A (tools)                                  |
+| Bun            | CLI smoke only           | not claimed                                  |
 
 ## ⚠️ Honest Boundaries
 
@@ -115,6 +118,7 @@ Issues and Pull Requests are always welcome. For adding new features, please dis
 git clone https://github.com/EVEDensity/Canary
 pnpm install
 pnpm check          # format / lint / typecheck / test
+pnpm demo:headless  # default 15-case smoke (same as CI)
 ```
 
 ## 🌍 Community & Links

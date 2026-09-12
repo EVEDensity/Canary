@@ -96,8 +96,8 @@ Dataset → Runner → Agent → Tool / Environment
 | 级别               | 范围                                                                                                                                                                      |
 | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | P0，发布必须具备   | 本地 Function Agent、隔离 Runner、Mock 工具、MCP stdio 工具接入、Trace、运行时覆盖率、功能源码范围、实时本地 UI、JSON/Markdown/JUnit、无密钥 Demo、改进建议导出、基线比较 |
-| P1，四周有余量才做 | HTTP 黑盒 Adapter、MCP Streamable HTTP、并发进程池、Judge Provider、自动生成待审测试草稿                                                                                  |
-| 明确不纳入 v0.1    | 全语言覆盖率、分布式请求级覆盖率、自动源码修复、模型训练、云端多租户、浏览器视觉、Docker 集群、公开排行榜                                                                 |
+| P1，四周有余量才做 | HTTP 黑盒 Adapter、并发进程池、Judge Provider、自动生成待审测试草稿                                                                                                       |
+| 明确不纳入 v0.1    | 全语言覆盖率、分布式请求级覆盖率、自动源码修复、模型训练、云端多租户、浏览器视觉、Docker 集群、公开排行榜、MCP Streamable HTTP 完整会话生命周期                           |
 
 ### 2.3 拟定验收指标（工程目标，不是实测成绩）
 
@@ -258,10 +258,11 @@ features: [
 ### 6.1 一键运行体验
 
 ```bash
-npx canary run
+git clone https://github.com/EVEDensity/Canary
+cd Canary && pnpm install && pnpm demo
 ```
 
-交互运行：启动本地服务、绑定 `127.0.0.1`、选择可用端口、打印地址并默认自动打开浏览器。CI 使用 `--no-open --headless`，只产出 artifacts 和退出码。
+个人开发者从仓库根目录运行，**不需要** `npm i -g @canary/cli` 或 `npx canary run`。交互运行：启动本地服务、绑定 `127.0.0.1`、选择可用端口、打印地址并默认自动打开浏览器。CI 与脚本使用 `pnpm demo:headless`（等价 `--no-open --headless`），只产出 artifacts 和退出码。
 
 页面包含 Overview、Run Timeline、Feature Coverage、Case Detail、Improvement Queue 五个视图。实时通道优先使用 SSE；事件包括 `run.started`、`case.started`、`trace.event`、`coverage.updated`、`case.finished`、`run.finished` 和 `run.error`。浏览器重连后用 `lastEventId` 或 run 快照补齐，不重复累计 coverage fragment。
 
@@ -490,6 +491,7 @@ export default defineCase({
     expect.trajectory().hasNoLoop(),
     expect.trajectory().maxSteps(12),
     expect.coverage().feature("error-recovery").atLeast(60),
+    expect.coverage.atLeast("planning", 70),
   ],
 });
 ```

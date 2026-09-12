@@ -13,5 +13,5 @@ export default defineConfig({
     { id: "termination", name: "Termination", files: ["examples/local-agent/src/agent.ts"] },
   ],
   reporters: ["json", "markdown", "junit"],
-  web: { enabled: true, host: "127.0.0.1", open: false },
+  web: { enabled: true, host: "127.0.0.1", open: true },
 });

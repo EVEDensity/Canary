@@ -2,7 +2,9 @@ name: CI
 
 on:
   push:
+    branches: [main, master]
   pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -49,6 +51,7 @@ jobs:
       - run: pnpm test
       - run: pnpm build
 
+  # Dedicated job: fixture matrix is not folded into `pnpm test`.
   coverage-fixture:
     name: coverage fixture
     runs-on: ubuntu-latest
@@ -73,13 +76,13 @@ jobs:
       matrix:
         demo:
           - name: local-agent
-            command: pnpm canary -- run --headless --no-open
+            command: pnpm demo:headless
             assert_junit: true
           - name: mcp-agent
-            command: pnpm canary -- run --headless --no-open --config examples/mcp-agent/canary.config.ts
+            command: pnpm --filter @canary/cli canary run --headless --no-open --config examples/mcp-agent/canary.config.ts
             assert_junit: false
           - name: loop-agent
-            command: pnpm canary -- run --headless --no-open --config examples/loop-agent/canary.config.ts
+            command: pnpm --filter @canary/cli canary run --headless --no-open --config examples/loop-agent/canary.config.ts
             assert_junit: false
     steps:
       - uses: actions/checkout@v4
@@ -95,7 +98,9 @@ jobs:
         run: ${{ matrix.demo.command }}
       - name: Assert JUnit failures are zero
         if: ${{ matrix.demo.assert_junit }}
-        run: node scripts/assert-junit.mjs
+        run: |
+          pnpm build
+          node scripts/assert-junit.mjs
 
   bun-smoke:
     name: Bun smoke
@@ -114,12 +119,15 @@ jobs:
           bun-version: latest
       - run: pnpm install --frozen-lockfile
       - name: CLI help under Bun
-        run: bun ./packages/cli/src/index.ts help
+        run: |
+          output=$(bun ./packages/cli/src/index.ts help)
+          echo "$output"
+          echo "$output" | grep -F "Usage: canary run"
       - name: Confirm V8 coverage is not claimed on Bun
         run: bun -e "if (typeof Bun === 'undefined') throw new Error('not bun')"
 
   pack:
-    name: npm pack / bin
+    name: release pack smoke
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
