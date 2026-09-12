@@ -1,66 +1,146 @@
-﻿# Canary Week 1 Issues
+﻿# Canary Week 1 — Real Validation Results and Remaining Limits
 
-## Scope delivered
+> Validation date: **September 12, 2026**
+> 
+> Rule for this report: only commands and runtime paths that were actually executed are marked `PASS`.
 
-- Normalized workspace package exports and CLI `bin` to `dist/index` output.
-- Reworked TypeScript project references and source/dist boundaries.
-- Frozen coverage contracts in `@canary/core` and added branch/function/error/unloaded fixtures and summary tests.
-- Added Node/V8 coverage collection inside the execution child isolate.
-- Added Runner timeout, cancellation signal, child cleanup, and idempotent collector stop behavior.
-- Added Web RunStore coverage endpoint, coverage dashboard section, and SSE disconnect cleanup.
-- Added CLI detailed headless orchestration with artifact path and RunStore access for E2E assertions.
+## Delivered scope
 
-## Real validation log — September 12, 2026
+- Normalized workspace package exports, TypeScript project references, and empty-package Vitest behavior.
+- Frozen the coverage contracts in `@canary/core`; implemented Node/V8 collection in the **agent execution child process**.
+- Implemented Runner lifecycle management: child process launch, runtime error propagation, timeout, cancellation, cleanup, and coverage delivery.
+- Implemented CLI orchestration, local artifact writing, RunStore propagation, local Web UI, HTTP coverage endpoint, and SSE subscriber cleanup.
+- Added and exercised coverage contract/summary/collector tests, Runner lifecycle tests, Web/SSE tests, and a CLI headless E2E test.
 
-### Static syntax
+## Final validation matrix
 
-- `node --check packages/runner/src/index.ts`: PASS.
-- `node --check packages/cli/src/index.ts`: PASS.
-- `node --check apps/web/src/index.ts`: PASS.
-- `node --check packages/coverage/src/index.ts`: PASS.
+| Check | Actual command / verification | Result | Evidence |
+|---|---|---|---|
+| Local dependency links | `pnpm install --offline` | **PASS** | pnpm `10.15.0`; `Already up to date`; no network download or registry-metadata lookup (`downloaded 0`). |
+| Workspace typecheck | `pnpm typecheck` | **PASS** | All 12 workspace projects completed TypeScript checking. |
+| Full tests | `pnpm test` | **PASS** | Coverage: 3 files / 6 tests; Runner: 1 file / 4 tests; Web: 1 file / 2 tests; CLI: 1 file / 1 test. Empty workspace packages use `--passWithNoTests`. |
+| Workspace build | `pnpm build` | **PASS** | All 12 workspace projects built. |
+| Dist exports | Existence check after build | **PASS** | Verified `dist/index.js` and `dist/index.d.ts` for core, coverage, runner, CLI, and Web (10 expected files). |
+| CLI headless E2E test | `pnpm --filter @canary/cli test` | **PASS** | Writes an artifact and asserts non-zero coverage reaches both `run.json` and `RunStore`. |
+| Real CLI headless execution | `pnpm canary -- --headless --no-open` | **PASS** | Executed the TypeScript root config and one TypeScript agent case successfully. |
+| Artifact verification | Read generated `.canary/artifacts/<runId>/run.json` | **PASS** | See the recorded run below. |
+| Web coverage endpoint | Started a non-headless local run and fetched `/api/runs/:runId/coverage` | **PASS** | HTTP `200`; `coverageStatus: final`; `lineTotal: 1`; `RunStore` had coverage. |
+| SSE subscriber release | Connected to `/api/runs/run_sse_manual/events`, destroyed client response, then inspected `RunStore` | **PASS** | `subscriberCountAfterClientClose: 0`. |
 
-### Dependency installation
+## Recorded runtime evidence
 
-- `pnpm install --reporter append-only`: TIMEOUT after 240 seconds while recreating `node_modules`.
-- `pnpm install` without CI mode: aborted because pnpm could not remove modules without a TTY.
-- Environment used the fallback pnpm 11.19.0 executable.
+### Real CLI headless run
 
-### Typecheck
+Executed:
 
-- Workspace `pnpm typecheck`: TIMEOUT while pnpm attempted registry policy/attestation requests; registry requests returned `EACCES`.
-- Direct TypeScript 5.9.3 build: FAIL. Initial failures include incomplete dependency links/types, coverage parser syntax error, and project configuration/runtime typing issues. This is not a passing typecheck.
+```powershell
+pnpm canary -- --headless --no-open
+```
 
-### Tests
+Recorded artifact:
 
-- `pnpm test`: NOT RUN to completion because dependency installation did not complete and the workspace runner remained unable to resolve dependencies reliably.
-- Vitest suites therefore remain unverified in this environment.
+```text
+C:\Users\temp-admin\Desktop\Canary\.canary\artifacts\run_2f1cc8e8-775b-4066-a58c-e4a6d9864913\run.json
+```
 
-### CLI E2E and artifact verification
+Observed result:
 
-- Headless CLI E2E test was added but NOT RUN to completion for the same dependency/install blocker.
-- `.canary/artifacts/<runId>/run.json` writing is implemented in `packages/cli/src/index.ts`; existence and JSON assertions are covered by the new E2E test, but no successful runtime result is claimed.
-- Coverage propagation is implemented through `runExecution -> onCoverage -> RunStore.setCoverage`; runtime verification remains pending.
+```text
+status: completed
+cases: 1 total / 1 passed
+coverage status: final
+lines: 1 covered / 1 total
+functions: 0 covered / 2 total
+branches: 0 covered / 2 total
+```
 
-## Known limitations
+The zero function/branch result is a known source-to-V8 mapping limitation, not a missing coverage message; see “Remaining limits”.
 
-- Branch and statement mapping currently use conservative source-text heuristics; this is not AST/Istanbul-level precision.
-- V8 coverage is isolate-local and must be collected in the execution child.
-- RunStore is in-memory; artifact-backed replay is not implemented.
-- SSE does not yet replay by `Last-Event-ID`.
-- CLI case discovery remains intentionally small and needs robust glob support.
-- Threshold enforcement and richer evaluator assertions remain follow-up items.
+### Web coverage endpoint
 
-## Toolchain
+A live, non-headless execution produced run ID:
 
-- Node: v24.18.0.
-- npm: 11.16.0; use `npm.cmd` in this PowerShell environment.
-- Corepack: 0.35.0.
-- pnpm fallback runtime: 11.19.0.
+```text
+run_e8f6a811-ce34-4d22-9a2b-5fbf58d32d85
+```
 
-## Remaining blockers
+The local HTTP validation returned:
 
-1. Restore package registry access or provide complete local pnpm metadata/cache.
-2. Run a clean `pnpm install` to completion.
-3. Run and fix `pnpm typecheck`, including remaining Node typings and coverage/Runner errors.
-4. Run `pnpm test`, CLI headless E2E, and Web/SSE HTTP tests.
-5. Run `pnpm build` and verify package exports against actual `dist/index.*` files.
+```json
+{
+  "exitCode": 0,
+  "httpStatus": 200,
+  "coverageStatus": "final",
+  "lineTotal": 1,
+  "runStoreCoverage": true
+}
+```
+
+Endpoint validated:
+
+```text
+/api/runs/run_e8f6a811-ce34-4d22-9a2b-5fbf58d32d85/coverage
+```
+
+### SSE cleanup
+
+The direct server/client validation returned:
+
+```json
+{
+  "subscriberCountAfterClientClose": 0
+}
+```
+
+This confirms `request.close` / `response.close` cleanup removes the SSE subscriber from the in-memory `RunStore`.
+
+## Real failures found and fixed in this validation cycle
+
+1. **Runner successful execution returned `passed=false`.**
+   - Cause: the dynamically generated child code emitted an invalid nested template literal; the child exited with code `1`.
+   - Fix: simplified the execution child so the Node/V8 inspector and the agent execute in the same isolated child process. The child sends `result`, `error`, and final `coverage` IPC messages before disconnecting.
+
+2. **Windows ESM file URL handling failed.**
+   - Cause: `new URL(absoluteWindowsPath, "file:")` created a `c:` URL that Node rejected.
+   - Fix: use `pathToFileURL()` in Runner and `fileURLToPath()` with a cross-platform fixture fallback in Coverage.
+
+3. **Timeout/cancel test agents exited too early.**
+   - Cause: a never-settling Promise alone does not keep a Node event loop alive.
+   - Fix: keep the execution child alive while the agent Promise is pending, and clear that handle in normal finalization. Timeout/cancel tests now pass.
+
+4. **CLI root invocation looked for config under `packages/cli`.**
+   - Cause: pnpm filtered scripts set the package directory as the current process directory.
+   - Fix: CLI defaults to `INIT_CWD` when no explicit `cwd` is supplied.
+
+5. **CLI case glob produced zero selected cases.**
+   - Cause: the initial minimal glob conversion incorrectly turned `cases/**/*.ts` into a non-existent `cases.ts` path.
+   - Fix: recursively discover matching case files under the static portion of the configured glob.
+
+6. **CLI TypeScript config/case module loading produced a nested default export.**
+   - Cause: `tsx/esm/api` can expose `default.default` under the active Node/tsx interop path.
+   - Fix: unwrap this interop shape consistently for config and case modules.
+
+7. **Root coverage was final but had no configured files.**
+   - Causes: an absolute-pattern conversion in CLI and incorrect Windows normalization / `**/` matching in Coverage.
+   - Fix: preserve root-relative coverage patterns in CLI; normalize V8 file URLs correctly; implement optional-directory `**/` glob behavior.
+
+## Remaining limits / follow-up work
+
+1. **Coverage precision — important.** The current branch, function, and statement mapping is source-text heuristic based. V8 offsets from `tsx`-transpiled TypeScript can differ from original source offsets; therefore executed functions/branches can undercount (as in the recorded root run). Do not use these MVP percentages as Istanbul/AST-grade threshold enforcement.
+2. **Coverage update cadence.** Runner currently publishes the final coverage summary after each execution. Continuous in-flight coverage samples and per-feature live progress are not yet surfaced to the UI.
+3. **Run persistence.** `RunStore` is in-memory. `run.json` is persisted, but startup replay and artifact-backed history browsing are not implemented.
+4. **Case discovery.** The MVP recursively loads JavaScript/TypeScript files under the static prefix of a glob. It is not a full glob engine and does not yet support sophisticated include/exclude semantics.
+5. **Evaluator semantics.** The Runner currently asserts execution completion. Domain assertions, trajectory quality evaluators, loop detection, and feature-level pass/fail gates are follow-up work.
+6. **CLI distribution packaging.** Development/root execution (`pnpm canary`) and the programmatic CLI E2E are verified. A published-package `bin` wrapper/shebang test on a clean consumer project remains a release-hardening task.
+7. **Sandbox controls.** Execution uses a subprocess boundary, but it does not yet enforce filesystem/network permissions or resource quotas beyond timeout/cancellation.
+
+## Toolchain observed
+
+```text
+Node: v24.18.0
+npm: 11.16.0
+Corepack: 0.35.0
+pnpm: 10.15.0
+TypeScript: 5.9.3
+Vitest: 3.2.7
+```
