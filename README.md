@@ -73,7 +73,7 @@ Open a **new terminal**, then:
 canary run
 ```
 
-Normally runs the installed checkout’s default 15-case demo. The current CLI opens/prints the UI after execution, although the server listens earlier. Headless: `canary run --headless --no-open` (currently still briefly binds a server). For another project, pass an absolute `--config` path and read the history-command limitations in the guide.
+Normally runs the selected project's suite: local `canary.config.ts` wins over the installed demo. The CLI prints `runId` and the UI URL **before** cases execute. Headless or `web.enabled: false` does not bind a port: `canary run --headless --no-open`. For another project, pass `--config <path>` (relative paths resolve from the invocation directory); `runs` / `show` / `report` / `replay` / `compare` use the same project root.
 
 Already inside the repo? `node scripts/install-global.mjs` or `pnpm install:global`.
 
