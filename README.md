@@ -1,7 +1,7 @@
-<p align="center">
+<div align="center">
   <img src="docs/images/logo-hero.png" height="200" align="middle" />
-  <span style="font-size:96px; font-weight:800; letter-spacing:-3px; margin-left:24px; vertical-align:middle;">Canary</span>
-</p>
+  <h1 style="display:inline-block; margin:0 0 0 24px; vertical-align:middle; font-size:72px; letter-spacing:-3px; font-weight:800;">Canary</h1>
+</div>
 
 <div align="center">
 

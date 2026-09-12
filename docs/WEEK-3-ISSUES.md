@@ -84,5 +84,5 @@ CLI           3 passed
 
 - GitHub Actions Node 22/24 matrix
 - Published npm `bin` on a clean consumer project
-- Full MCP Streamable HTTP
+- Full MCP Streamable HTTP session lifecycle — **explicitly out of v0.1** (see `docs/mcp.md`)
 - Automatic source patches
