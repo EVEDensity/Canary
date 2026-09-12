@@ -80,7 +80,7 @@ if (!existsSync(cli)) {
   process.exit(1);
 }
 const result = spawnSync(process.execPath, ["--import", "tsx", cli, ...process.argv.slice(2)], {
-  cwd: repoRoot,
+  cwd: process.cwd(),
   stdio: "inherit",
   env: { ...process.env, CANARY_HOME: repoRoot },
 });
