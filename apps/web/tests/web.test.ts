@@ -11,15 +11,16 @@ function get(url: string): Promise<{ status: number; body: string }> {
     req.on("error", reject); req.end();
   });
 }
-function post(url: string, body: unknown): Promise<{ status: number; body: string }> {
+function post(url: string, body: unknown, headers: Record<string, string> = {}): Promise<{ status: number; body: string }> {
   return new Promise((resolvePromise, reject) => {
-    const req = request(url, { method: "POST", headers: { "content-type": "application/json" } }, (response) => {
+    const req = request(url, { method: "POST", headers: { "content-type": "application/json", ...headers } }, (response) => {
       let data = ""; response.setEncoding("utf8"); response.on("data", (part) => data += part); response.on("end", () => resolvePromise({ status: response.statusCode ?? 0, body: data }));
     });
     req.on("error", reject);
     req.end(JSON.stringify(body));
   });
 }
+const WRITE = { "x-canary-write-token": "test-token" };
 function close(server: ReturnType<typeof createWebServer>["server"]): Promise<void> {
   return new Promise((resolvePromise) => server.close(() => resolvePromise()));
 }
@@ -161,7 +162,7 @@ describe("web run store and HTTP/SSE", () => {
     writeFileSync(join(dir, "run_imp", "run.json"), JSON.stringify({ runId: "run_imp", status: "failed", startedAt: "2026-01-01T00:00:00.000Z", totalCases: 1, completedCases: 1, passedCases: 0, results: [], events: [] }), "utf8");
     writeFileSync(join(dir, "run_imp", "improvement.json"), JSON.stringify([{ id: "s1", caseId: "broken", category: "prompt", status: "proposed", rationale: "missing output", evidence: [] }]), "utf8");
     const store = new RunStore();
-    const web = createWebServer(store, "127.0.0.1", 0, dir);
+    const web = createWebServer(store, "127.0.0.1", 0, dir, { writeToken: "test-token" });
     const listening = await web.listen();
     try {
       const payload = await get(`${listening.url}/api/runs/run_imp/improvements`);
@@ -170,10 +171,12 @@ describe("web run store and HTTP/SSE", () => {
       const page = await get(`${listening.url}/?runId=run_imp`);
       expect(page.body).toContain("Improvement Queue");
       expect(page.body).toContain("/api/runs/'+runId+'/improvements");
-      const accepted = await post(`${listening.url}/api/runs/run_imp/improvements/s1`, { status: "accepted" });
+      const denied = await post(`${listening.url}/api/runs/run_imp/improvements/s1`, { status: "accepted" });
+      expect(denied.status).toBe(403);
+      const accepted = await post(`${listening.url}/api/runs/run_imp/improvements/s1`, { status: "accepted" }, WRITE);
       expect(accepted.status).toBe(200);
       expect(JSON.parse(accepted.body).status).toBe("accepted");
-      const verified = await post(`${listening.url}/api/runs/run_imp/improvements/s1`, { status: "verified" });
+      const verified = await post(`${listening.url}/api/runs/run_imp/improvements/s1`, { status: "verified" }, WRITE);
       expect(verified.status).toBe(200);
       expect(JSON.parse(verified.body).status).toBe("verified");
     } finally { await close(web.server); }
@@ -232,11 +235,11 @@ describe("web run store and HTTP/SSE", () => {
     const store = new RunStore();
     const run = store.create(1, "run_replay");
     store.setCoverage(run.runId, coverage(run.runId));
-    const web = createWebServer(store);
+    const web = createWebServer(store, "127.0.0.1", 0, undefined, { writeToken: "test-token" });
     const listening = await web.listen();
     try {
       const replayed = await new Promise<{ status: number; body: string }>((resolvePromise, reject) => {
-        const req = request(`${listening.url}/api/runs/${run.runId}/replay`, { method: "POST", headers: { "content-type": "application/json" } }, (response) => {
+        const req = request(`${listening.url}/api/runs/${run.runId}/replay`, { method: "POST", headers: { "content-type": "application/json", "x-canary-write-token": "test-token" } }, (response) => {
           let body = ""; response.setEncoding("utf8"); response.on("data", (part) => body += part); response.on("end", () => resolvePromise({ status: response.statusCode ?? 0, body }));
         });
         req.on("error", reject);
@@ -318,6 +321,60 @@ describe("web run store and HTTP/SSE", () => {
       if (previous === undefined) delete process.env.CANARY_SSE_HEARTBEAT_MS;
       else process.env.CANARY_SSE_HEARTBEAT_MS = previous;
       await close(web.server);
+    }
+  });
+
+  it("redacts secrets on run JSON and SSE payloads", async () => {
+    const store = new RunStore();
+    const run = store.create(1, "run_secret");
+    store.appendEvent(run.runId, {
+      type: "execution.finished",
+      executionId: "exec_secret",
+      result: {
+        runId: run.runId,
+        executionId: "exec_secret",
+        caseId: "smoke",
+        passed: true,
+        assertions: [],
+        coverage: coverage(run.runId),
+        input: { apiKey: "sk-live" },
+        output: { password: "p" },
+      },
+    });
+    const web = createWebServer(store);
+    const listening = await web.listen();
+    try {
+      const payload = await get(`${listening.url}/api/runs/${run.runId}`);
+      expect(payload.status).toBe(200);
+      const body = JSON.parse(payload.body);
+      expect(body.results[0].input.apiKey).toBe("[redacted]");
+      expect(body.results[0].output.password).toBe("[redacted]");
+      const streamed = await new Promise<string>((resolvePromise, reject) => {
+        const req = request(`${listening.url}/api/runs/${run.runId}/events`);
+        req.on("response", (res) => {
+          let data = "";
+          res.setEncoding("utf8");
+          res.on("data", (chunk) => {
+            data += chunk;
+            if (data.includes("event: run.snapshot")) { res.destroy(); resolvePromise(data); }
+          });
+        });
+        req.on("error", (error: NodeJS.ErrnoException) => { if (error.code !== "ECONNRESET") reject(error); });
+        req.end();
+      });
+      expect(streamed).toContain("[redacted]");
+      expect(streamed).not.toContain("sk-live");
+    } finally { await close(web.server); }
+  });
+
+  it("fails clearly when the requested UI port is already in use", async () => {
+    const occupied = createWebServer(new RunStore(), "127.0.0.1", 0);
+    const listening = await occupied.listen();
+    try {
+      const conflict = createWebServer(new RunStore(), "127.0.0.1", listening.port);
+      await expect(conflict.listen()).rejects.toThrow(/already in use/);
+    } finally {
+      await close(occupied.server);
     }
   });
 });
