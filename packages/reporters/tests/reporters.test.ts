@@ -47,4 +47,11 @@ describe("run reporters", () => {
     expect(json.cases.failed).toBe(1);
     expect(json.results).toHaveLength(2);
   });
+
+  it("renders a console reporter with pass/fail rows", () => {
+    const body = renderReport(run, "console");
+    expect(body).toContain("canary run_1");
+    expect(body).toContain("PASS ok");
+    expect(body).toContain("FAIL bad");
+  });
 });

@@ -63,9 +63,10 @@ export function renderJunit(run: RunReportInput): string {
   const failures = caseFailures.length + (gateFailed ? 1 : 0);
   const tests = run.results.map((result) => {
     const seconds = ((result.metrics?.latencyMs ?? 0) / 1000).toFixed(3);
-    if (result.passed) return `  <testcase name="${xmlEscape(result.caseId)}" classname="canary" time="${seconds}"/>`;
+    const name = xmlEscape(caseLabel(result));
+    if (result.passed) return `  <testcase name="${name}" classname="canary" time="${seconds}"/>`;
     const message = xmlEscape(result.assertions.filter((item) => !item.passed).map((item) => item.message ?? item.id).join("; ") || result.failureCategory || "failed");
-    return `  <testcase name="${xmlEscape(result.caseId)}" classname="canary" time="${seconds}">\n    <failure message="${message}"/>\n  </testcase>`;
+    return `  <testcase name="${name}" classname="canary" time="${seconds}">\n    <failure message="${message}"/>\n  </testcase>`;
   });
   if (gateFailed) {
     const message = xmlEscape(run.gate?.failures.map((item) => item.message).join("; ") || run.gate?.reason || "coverage_below_threshold");
@@ -74,8 +75,33 @@ export function renderJunit(run: RunReportInput): string {
   return `<?xml version="1.0" encoding="UTF-8"?>\n<testsuite name="canary" tests="${run.totalCases + (gateFailed ? 1 : 0)}" failures="${failures}" time="${time.toFixed(3)}">\n${tests.join("\n")}\n</testsuite>\n`;
 }
 
-export function renderReport(run: RunReportInput, format: "json" | "markdown" | "junit"): string {
+function caseLabel(result: EvalResult): string {
+  if (result.repetition && result.repetitionTotal && result.repetitionTotal > 1) return `${result.caseId}#${result.repetition}`;
+  return result.caseId;
+}
+
+export function renderConsole(run: RunReportInput): string {
+  const failed = run.totalCases - run.passedCases;
+  const coverage = run.coverage
+    ? `${run.coverage.status} lines ${run.coverage.lines.covered}/${run.coverage.lines.total} (${run.coverage.lines.pct}%)`
+    : "unavailable";
+  const rows = run.results.map((result) => {
+    const latency = result.metrics?.latencyMs ?? 0;
+    const reason = result.passed ? "" : ` · ${result.assertions.filter((item) => !item.passed).map((item) => item.message ?? item.id).join("; ") || result.failureCategory || "failed"}`;
+    return `${result.passed ? "PASS" : "FAIL"} ${caseLabel(result)} (${latency}ms)${reason}`;
+  });
+  return [
+    `canary ${run.runId}`,
+    `status ${run.status}`,
+    `cases ${run.passedCases} passed / ${failed} failed / ${run.totalCases} total`,
+    `coverage ${coverage}`,
+    ...rows,
+  ].join("\n");
+}
+
+export function renderReport(run: RunReportInput, format: "json" | "markdown" | "junit" | "console"): string {
   if (format === "markdown") return renderMarkdown(run);
   if (format === "junit") return renderJunit(run);
+  if (format === "console") return renderConsole(run);
   return renderJson(run);
 }
