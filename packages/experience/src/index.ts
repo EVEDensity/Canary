@@ -97,6 +97,13 @@ export class ExperienceStore {
     const record = readJson<ExperienceRecord | undefined>(this.recordFile(id), undefined);
     return record?.v === EXPERIENCE_SCHEMA_VERSION ? record : undefined;
   }
+  /** Copies a validated record into an isolated trial store without changing the project store. */
+  /** Copies a validated record into an isolated trial store without changing the project store. */
+  importRecord(record: ExperienceRecord): ExperienceRecord {
+    if (record.v !== EXPERIENCE_SCHEMA_VERSION) throw new Error("Invalid experience record");
+    atomicWrite(this.recordFile(record.id), record);
+    return record;
+  }
   list(): ExperienceRecord[] {
     if (!existsSync(this.recordsDir)) return [];
     const records: ExperienceRecord[] = [];
@@ -156,6 +163,16 @@ export class ExperienceStore {
     return this.get(id)!;
   }
   clear(projectRoot: string): void { atomicWrite(this.pointerFile, { v: 1, projectRoot: resolve(projectRoot), entries: [], updatedAt: nowIso() } satisfies ActiveExperiencePointer); }
+  /** Restores an explicitly captured manual activation pointer for S-04 rollback. */
+  restorePointer(pointer: ActiveExperiencePointer): void {
+    const expectedProjectRoot = resolve(this.rootDir, "..", "..");
+    if (resolve(pointer.projectRoot) !== expectedProjectRoot) throw new Error("Experience pointer belongs to another project");
+    const activeIds = new Set(pointer.entries.map((entry) => entry.id));
+    for (const record of this.list()) {
+      if (activeIds.has(record.id) && record.status !== "active") atomicWrite(this.recordFile(record.id), { ...record, status: "active", updatedAt: nowIso() });
+    }
+    atomicWrite(this.pointerFile, { ...pointer, projectRoot: expectedProjectRoot, updatedAt: nowIso() } satisfies ActiveExperiencePointer);
+  }
   revoke(id: string, reason = "revoked by operator"): ExperienceRecord { return this.transition(id, "revoked", reason); }
   load(context: ExperienceLoadContext): ExperienceLoadResult {
     const pointer = this.activePointer(context.projectRoot);
