@@ -76,4 +76,40 @@ function resolveWorkspaceModule(packageDir: string): string {
 
 function resolveToolPayload(cwd: string, tools?: CanaryToolsConfig): CanaryToolsConfig | undefined {
   if (!tools) return undefined;
-  const next
+  const next: CanaryToolsConfig = { ...tools, args: tools.args ? [...tools.args] : undefined };
+  if (next.command === "node") next.command = process.execPath;
+  if (next.entry) next.entry = pathToFileURL(resolve(cwd, next.entry)).href;
+  return next;
+}
+
+function spawnExecution(options: ExecutionOptions, executionId: string): ChildProcess {
+  const cwd = options.cwd ?? process.cwd();
+  const require = createRequire(import.meta.url);
+  const tsxLoader = pathToFileURL(require.resolve("tsx")).href;
+  const entry = pathToFileURL(resolve(cwd, options.entry)).href;
+  return spawn(options.nodeExecutable ?? process.execPath, ["--enable-source-maps", "--import", tsxLoader, "-e", createChildScript()], {
+    cwd,
+    detached: process.platform !== "win32",
+    env: {
+      ...process.env,
+      CANARY_WORKER_DATA: JSON.stringify({
+        entry,
+        exportName: options.exportName,
+        input: options.input,
+        executionId,
+        sampleIntervalMs: options.coverage.sampleIntervalMs ?? DEFAULT_SAMPLE_INTERVAL_MS,
+        sampleMinIntervalMs: options.coverage.sampleMinIntervalMs ?? 200,
+        ipcMaxBytes: IPC_MAX_BYTES,
+        ipcVersion: IPC_PROTOCOL_VERSION,
+        coverageProvider: options.coverage.provider ?? "v8",
+        coverageUrl: resolveWorkspaceModule("coverage"),
+        adaptersUrl: resolveWorkspaceModule("adapters"),
+        environmentUrl: resolveWorkspaceModule("environment"),
+        tools: resolveToolPayload(cwd, options.tools),
+        model: options.model,
+        initialState: options.initialState ?? options.testCase?.environment?.state ?? {},
+        experiences: options.experiences ?? [],
+      }),
+    },
+    stdio: ["ignore", "ignore", "pipe", "ipc"],
+  }
