@@ -478,4 +478,82 @@ async function softTrialCommand(rest: string[], configPath?: string): Promise<nu
     softTrialOutput({ valid: true, action, record: next, active: store.activePointer(context.projectRoot), loaded: store.load({ projectRoot: context.projectRoot }).loaded.map((item) => item.id) });
     return 0;
   }
-  softTrialOutput({ valid
+  softTrialOutput({ valid: false, status: "rejected", errors: ["Unknown soft-trial action: " + (action ?? "")] });
+  return 1;
+}
+
+async function hostCommand(rest: string[], configPath?: string): Promise<number> {
+  const action = rest[0];
+  if (action === "discover") {
+    const context = resolveProjectContext({ configPath });
+    printHost({
+      v: 1,
+      kind: "canary.host.discovery",
+      project: {
+        projectRoot: context.projectRoot,
+        configFile: context.configFile,
+        artifactRoot: context.artifactRoot,
+        source: context.source,
+        configExists: existsSync(context.configFile),
+      },
+      writableSourceRequested: false,
+    });
+    return existsSync(context.configFile) ? 0 : 1;
+  }
+  if (action === "evidence") {
+    const runId = rest[1];
+    if (!runId) { console.log(USAGE); return 1; }
+    const snapshot = readRunArtifact(runId, undefined, configPath);
+    if (!snapshot) { printHost({ v: 1, kind: "canary.host.evidence", error: `Run not found: ${runId}` }); return 1; }
+    try {
+      printHost(hostEvidenceOutput(snapshot, {
+        caseId: flagValue(rest, "--case"),
+        maxCases: parseBoundedInteger(flagValue(rest, "--max-cases"), "--max-cases"),
+        maxEventsPerCase: parseBoundedInteger(flagValue(rest, "--max-events"), "--max-events"),
+      }));
+      return 0;
+    } catch (error) {
+      printHost({ v: 1, kind: "canary.host.evidence", error: error instanceof Error ? error.message : String(error) });
+      return 1;
+    }
+  }
+  if (action === "validate-proposal") {
+    const runId = rest[1];
+    const file = flagValue(rest, "--file");
+    if (!runId || !file) { console.log(USAGE); return 1; }
+    const snapshot = readRunArtifact(runId, undefined, configPath);
+    if (!snapshot) { printHost({ v: 1, kind: "canary.host.proposal-validation", valid: false, status: "rejected", errors: [`Run not found: ${runId}`] }); return 1; }
+    const context = resolveProjectContext({ configPath });
+    const proposalPath = resolve(context.invocationRoot, file);
+    const validation = validateHostProposalFile(proposalPath, snapshot, context.artifactRoot);
+    printHost(validation);
+    return validation.valid ? 0 : 1;
+  }
+  console.log(USAGE);
+  return 1;
+}
+
+export async function main(argv = process.argv.slice(2)): Promise<number> {
+  const { command, rest } = parseArgv(argv);
+  const configPath = flagValue(rest, "--config");
+  if (command === "host") return hostCommand(rest, configPath);
+  if (command === "soft-trial") return softTrialCommand(rest, configPath);
+  if (command === "experience") return experienceCommand(rest, configPath);
+  if (command === "help") { console.log(USAGE); return 0; }
+  if (command === "runs") {
+    printRunList(listRunArtifacts(undefined, configPath));
+    return 0;
+  }
+  if (command === "show") {
+    const runId = rest[0];
+    if (!runId) { console.log(USAGE); return 1; }
+    const snapshot = readRunArtifact(runId, undefined, configPath);
+    if (!snapshot) { console.error(`Run not found: ${runId}`); return 1; }
+    printRunSummary(snapshot, { artifactPath: resolve(artifactRoot(undefined, configPath), runId, "run.json"), exitCode: snapshot.status === "completed" ? 0 : 1 });
+    return snapshot.status === "completed" ? 0 : 1;
+  }
+  if (command === "report") {
+    const runId = rest[0];
+    if (!runId) { console.log(USAGE); return 1; }
+    const snapshot = readRunArtifact(runId, undefined, configPath);
+    if (!snapshot) { console.error(`Run not found
