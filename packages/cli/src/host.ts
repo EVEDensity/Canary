@@ -219,4 +219,61 @@ export function validateHostProposal(value: unknown, run: RunSnapshot): HostProp
     runId: run.runId,
     caseRefs,
     summary,
-    observ
+    observations: (value.observations as Array<Record<string, unknown>>).map((item) => ({ caseId: String(item.caseId).trim(), claim: String(item.claim).trim() })),
+    suggestedActions,
+    limitations,
+  };
+  const proposalId = `proposal_${createHash("sha256").update(JSON.stringify(proposal)).digest("hex").slice(0, 16)}`;
+  return {
+    v: HOST_PROTOCOL_VERSION,
+    kind: "canary.host.proposal-validation",
+    valid: true,
+    status: "recorded_unapproved",
+    proposalId,
+    runId: proposal.runId,
+    caseRefs: proposal.caseRefs,
+    approval: {
+      status: "not_approved",
+      reason: "A host proposal is evidence for human review only; it cannot activate experience or authorize source changes.",
+    },
+  };
+}
+
+function rejected(errors: string[]): HostProposalValidation {
+  return {
+    v: HOST_PROTOCOL_VERSION,
+    kind: "canary.host.proposal-validation",
+    valid: false,
+    status: "rejected",
+    approval: {
+      status: "not_approved",
+      reason: "Rejected proposals are never approvals and do not change Canary state.",
+    },
+    errors,
+  };
+}
+
+export function validateHostProposalFile(proposalPath: string, run: RunSnapshot, artifactRoot: string): HostProposalValidation {
+  if (!existsSync(proposalPath)) return rejected([`Proposal file not found: ${proposalPath}`]);
+  let raw: unknown;
+  try {
+    raw = JSON.parse(readFileSync(proposalPath, "utf8"));
+  } catch (error) {
+    return rejected([`Proposal file is not valid JSON: ${error instanceof Error ? error.message : String(error)}`]);
+  }
+  const validation = validateHostProposal(raw, run);
+  if (!validation.valid) return validation;
+  const artifactPath = resolve(artifactRoot, run.runId, "host-proposal.json");
+  const record = {
+    proposalId: validation.proposalId,
+    proposal: raw,
+    validation: {
+      valid: true,
+      status: validation.status,
+      recordedAt: new Date().toISOString(),
+      approval: validation.approval,
+    },
+  };
+  writeFileSync(artifactPath, JSON.stringify(record, null, 2), "utf8");
+  return { ...validation, artifactPath };
+}
