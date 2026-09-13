@@ -23,7 +23,8 @@
     "@canary/reporters": "workspace:*",
     "@canary/improvement": "workspace:*",
     "@canary/trace": "workspace:*",
-    "@canary/evaluators": "workspace:*"
+    "@canary/evaluators": "workspace:*",
+    "@canary/experience": "workspace:*"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
