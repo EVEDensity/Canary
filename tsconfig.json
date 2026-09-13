@@ -26,6 +26,9 @@
       "path": "packages/trace"
     },
     {
+      "path": "packages/experience"
+    },
+    {
       "path": "packages/runner"
     },
     {
