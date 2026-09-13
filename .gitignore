@@ -7,3 +7,13 @@ dist/
 !.canary/artifacts/.gitkeep
 *.log
 .DS_Store
+ 
+# Build artifacts 
+dist/ 
+*.js 
+*.d.ts 
+*.map 
+ 
+# Split scripts 
+*.bat 
+split_*.ps1 
