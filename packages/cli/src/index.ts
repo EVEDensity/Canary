@@ -420,4 +420,31 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
   const configPath = flagValue(rest, "--config");
   if (command === "host") return hostCommand(rest, configPath);
   if (command === "experience") return experienceCommand(rest, configPath);
-  if (command === "help") { console.log(USAGE)
+  if (command === "help") { console.log(USAGE); return 0; }
+  if (command === "runs") {
+    printRunList(listRunArtifacts(undefined, configPath));
+    return 0;
+  }
+  if (command === "show") {
+    const runId = rest[0];
+    if (!runId) { console.log(USAGE); return 1; }
+    const snapshot = readRunArtifact(runId, undefined, configPath);
+    if (!snapshot) { console.error(`Run not found: ${runId}`); return 1; }
+    printRunSummary(snapshot, { artifactPath: resolve(artifactRoot(undefined, configPath), runId, "run.json"), exitCode: snapshot.status === "completed" ? 0 : 1 });
+    return snapshot.status === "completed" ? 0 : 1;
+  }
+  if (command === "report") {
+    const runId = rest[0];
+    if (!runId) { console.log(USAGE); return 1; }
+    const snapshot = readRunArtifact(runId, undefined, configPath);
+    if (!snapshot) { console.error(`Run not found: ${runId}`); return 1; }
+    const formatIndex = rest.indexOf("--format");
+    const format = parseReportFormat(formatIndex >= 0 ? rest[formatIndex + 1] : "markdown");
+    console.log(renderReport({ runId: snapshot.runId, status: snapshot.status, startedAt: snapshot.startedAt, finishedAt: snapshot.finishedAt, totalCases: snapshot.totalCases, passedCases: snapshot.passedCases, results: snapshot.results, coverage: snapshot.coverage }, format));
+    return snapshot.status === "completed" ? 0 : 1;
+  }
+  if (command === "improve") {
+    const runId = rest[0];
+    if (!runId) { console.log(USAGE); return 1; }
+    const snapshot = readRunArtifact(runId, undefined, configPath);
+    if (!snapshot) { console.error(`Run not found: ${run
