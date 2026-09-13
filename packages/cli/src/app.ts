@@ -148,4 +148,19 @@ export async function runEvaluation(input: EvaluationInput): Promise<{ runId: st
     input.store.reportError(run.runId, error instanceof Error ? error.message : String(error));
     input.store.update(run.runId, { status: "failed" });
     writeLiveArtifacts(artifactDir, diskSnapshot(input.store, run.runId));
-    await t
+    await trace.close();
+    throw error;
+  }
+  await trace.close();
+  if (summaries.length) input.store.setCoverage(run.runId, mergeCoverageSummaries(run.runId, summaries, input.config.features, cwd));
+  const final = cancelled ? input.store.finish(run.runId, "cancelled") : input.store.finish(run.runId);
+  const suggestions = proposeFromResults(final.runId, final.results);
+  const coverageGate = evaluateCoverageGates(final.coverage, input.config.coverage);
+  const hardGate = evaluateHardGates({
+    results: final.results,
+    coverage: final.coverage,
+    coreFeatures: input.config.features?.map((feature) => feature.id),
+  });
+  const gate = mergeQualityGates(coverageGate, hardGate);
+  input.store.update(run.runId, { ...(!gate.passed && final.status !== "cancelled" ? { status: "failed" as const } : {}), improvements: suggestions, gate });
+  const redacted = diskSnapshot(input.store, run.runId);
