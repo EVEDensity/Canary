@@ -232,4 +232,55 @@ describe("improvement CLI loop", () => {
   it("runs an approved experience trial with regression, holdout, activation and rollback gates", async () => {
     const cwd = mkdtempSync(join(tmpdir(), "canary-s04-") );
     const sourceFile = join(cwd, "agent.mjs");
-    const source = "export default async (input, ctx) => ctx.experiences.length ? ({ value: input, experienceIds: ctx.experiences.map((i
+    const source = "export default async (input, ctx) => ctx.experiences.length ? ({ value: input, experienceIds: ctx.experiences.map((item) => item.id) }) : (input === 'broken' ? null : { value: input });";
+    writeFileSync(sourceFile, source, "utf8");
+    writeFileSync(join(cwd, "cases.ts"), "export default [{ id: 'broken', input: 'broken', assertions: [{ type: 'output.exists' }] }, { id: 'holdout', input: 'holdout', tags: ['holdout'], dataset: { split: 'holdout', version: 's04-demo' }, assertions: [{ type: 'output.exists' }] }];", "utf8");
+    const configPath = join(cwd, "canary.config.ts");
+    writeFileSync(configPath, "export default { agent: { adapter: 'function', entry: './agent.mjs' }, cases: './cases.ts', coverage: { include: ['agent.mjs'], exclude: [] }, web: { enabled: false } };", "utf8");
+    const sourceBefore = readFileSync(sourceFile, "utf8");
+    const baseline = await runCommandDetailed({ cwd, configPath, headless: true, noOpen: true });
+    expect(baseline.exitCode).toBe(1);
+    const proposalPath = join(cwd, "experience.json");
+    writeFileSync(proposalPath, JSON.stringify({ key: "s04-recovery", source: { kind: "human", ref: "s04-test" }, summary: "Use bounded advisory context to recover the known broken case.", content: "When the bounded context is present, return a normal value for the known broken input.", scope: { caseIds: ["broken"] } }), "utf8");
+    const previousCwd = process.env.INIT_CWD;
+    process.env.INIT_CWD = cwd;
+    try {
+      const logs = [];
+      const originalLog = console.log;
+      console.log = (...items) => logs.push(items.map(String).join(" "));
+      let proposal;
+      try { expect(await main(["experience", "propose", "--file", proposalPath, "--config", configPath])).toBe(0); proposal = JSON.parse(logs.pop()); } finally { console.log = originalLog; }
+      const experienceId = proposal.record.id;
+      expect(await main(["experience", "validate", experienceId, "--config", configPath])).toBe(0);
+      const preparedLogs = [];
+      console.log = (...items) => preparedLogs.push(items.map(String).join(" "));
+      let prepared;
+      try { expect(await main(["soft-trial", "prepare", baseline.runId, "--experience", experienceId, "--regression", "broken", "--holdout", "holdout", "--config", configPath])).toBe(0); prepared = JSON.parse(preparedLogs.pop()); } finally { console.log = originalLog; }
+      const trialId = prepared.record.id;
+      expect(prepared.record.authorization.status).toBe("not_approved");
+      const rejectedBeforeApprovalLogs = [];
+      console.log = (...items) => rejectedBeforeApprovalLogs.push(items.map(String).join(" "));
+      try { expect(await main(["soft-trial", "run", trialId, "--config", configPath])).toBe(1); } finally { console.log = originalLog; }
+      expect(JSON.parse(rejectedBeforeApprovalLogs[0]).errors[0]).toMatch(/approval/);
+      const validateLogs = [];
+      console.log = (...items) => validateLogs.push(items.map(String).join(" "));
+      try { expect(await main(["soft-trial", "validate", trialId, "--config", configPath])).toBe(0); } finally { console.log = originalLog; }
+      const validated = JSON.parse(validateLogs[0]);
+
+      expect(validated.record.status).toBe("validated");
+      expect(validated.record.validation.regressionCaseIds).toEqual(["broken"]);
+      expect(validated.record.validation.holdoutCaseIds).toEqual(["holdout"]);
+      const approvalLogs = [];
+      console.log = (...items) => approvalLogs.push(items.map(String).join(" "));
+      try { expect(await main(["soft-trial", "approve", trialId, "--actor", "human-reviewer", "--reason", "independent regression and holdout evidence reviewed", "--config", configPath])).toBe(0); } finally { console.log = originalLog; }
+      expect(JSON.parse(approvalLogs[0]).record.authorization.status).toBe("approved");
+      const runLogs = [];
+      console.log = (...items) => runLogs.push(items.map(String).join(" "));
+      try { expect(await main(["soft-trial", "run", trialId, "--config", configPath])).toBe(0); } finally { console.log = originalLog; }
+      const activated = JSON.parse(runLogs[0]);
+      expect(activated.record.status).toBe("activated");
+      expect(activated.loadedExperienceIds).toContain(experienceId);
+      expect(activated.sourceUnchanged).toBe(true);
+      expect(readFileSync(sourceFile, "utf8")).toBe(sourceBefore);
+      const rollbackLogs = [];
+      console.log = (...items) => rollbackLogs.push(items.map(String).join(" "))
