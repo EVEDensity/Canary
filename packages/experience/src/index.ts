@@ -93,4 +93,38 @@ export class ExperienceStore {
     mkdirSync(this.recordsDir, { recursive: true });
   }
   private recordFile(id: string): string { return resolve(this.recordsDir, `${id}.json`); }
-  get(id: string): ExperienceRecor
+  get(id: string): ExperienceRecord | undefined {
+    const record = readJson<ExperienceRecord | undefined>(this.recordFile(id), undefined);
+    return record?.v === EXPERIENCE_SCHEMA_VERSION ? record : undefined;
+  }
+  list(): ExperienceRecord[] {
+    if (!existsSync(this.recordsDir)) return [];
+    const records: ExperienceRecord[] = [];
+    // The directory is intentionally small and bounded by the caller's authoring process.
+    for (const file of readdirSync(this.recordsDir)) {
+      if (!file.endsWith(".json")) continue;
+      const record = this.get(file.slice(0, -5));
+      if (record) records.push(record);
+    }
+    return records.sort((a, b) => a.key.localeCompare(b.key) || b.version - a.version);
+  }
+  activePointer(projectRoot: string): ActiveExperiencePointer {
+    const pointer = readJson<ActiveExperiencePointer>(this.pointerFile, { v: 1, projectRoot, entries: [], updatedAt: nowIso() });
+    return pointer.projectRoot === projectRoot ? pointer : { v: 1, projectRoot, entries: [], updatedAt: nowIso() };
+  }
+  propose(input: ExperienceInput): ExperienceRecord {
+    const validation = validateExperienceInput(input);
+    if (!validation.valid) throw new Error(`Experience rejected: ${validation.errors.join("; ")}`);
+    const versions = this.list().filter((item) => item.projectRoot === input.projectRoot && item.key === input.key);
+    const version = (versions[0]?.version ?? 0) + 1;
+    const stamp = nowIso();
+    const record: ExperienceRecord = {
+      v: 1, id: `experience_${input.key.replace(/[^A-Za-z0-9_-]+/g, "-")}_${version}_${hashContent(input.content).slice(0, 12)}`,
+      key: input.key, version, status: "proposed", projectRoot: resolve(input.projectRoot), source: { ...input.source }, summary: input.summary.trim(), content: input.content.trim(), contentHash: validation.contentHash!, counterexamples: [...(input.counterexamples ?? [])].slice(0, 16),
+      scope: { projectRoot: resolve(input.projectRoot), ...(input.scope?.caseIds?.length ? { caseIds: [...new Set(input.scope.caseIds)] } : {}), ...(input.scope?.tags?.length ? { tags: [...new Set(input.scope.tags)] } : {}), ...(input.scope?.featureIds?.length ? { featureIds: [...new Set(input.scope.featureIds)] } : {}) },
+      createdAt: stamp, updatedAt: stamp, ...(input.expiresAt ? { expiresAt: input.expiresAt } : {}), ...(input.expiryReason ? { expiryReason: input.expiryReason } : {}),
+    };
+    atomicWrite(this.recordFile(record.id), record);
+    return record;
+  }
+  transition(id: string, status: Ex
