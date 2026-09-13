@@ -400,4 +400,169 @@ describe("tool adapters, http black-box and concurrency", () => {
     expect(artifact.results).toHaveLength(2);
     expect(artifact.passedCases).toBe(2);
   });
+
+  it("emits bounded structured host output and records only an unapproved proposal", async () => {
+    const cwd = mkdtempSync(join(tmpdir(), "canary-host-protocol-"));
+    const configPath = join(cwd, "canary.config.ts");
+    writeFileSync(join(cwd, "agent.mjs"), "export default async (input, ctx) => { ctx.emit({ type: 'tool_call', name: 'echo', secret: 'trace-secret' }); return { value: input, secret: 'output-secret' }; };", "utf8");
+    writeFileSync(join(cwd, "cases.ts"), "export default [{ id: 'visible-case', input: 'input-secret', assertions: [{ type: 'output.exists' }] }];", "utf8");
+    writeFileSync(configPath, "export default { agent: { adapter: 'function', entry: './agent.mjs' }, cases: './cases.ts', coverage: { include: ['agent.mjs'], exclude: [] }, web: { enabled: false } };", "utf8");
+
+    const logs: string[] = [];
+    const originalLog = console.log;
+    console.log = (...args: unknown[]) => { logs.push(args.map(String).join(" ")); };
+    try {
+      const exitCode = await main(["run", "--headless", "--no-open", "--json", "--config", configPath]);
+      expect(exitCode).toBe(0);
+    } finally {
+      console.log = originalLog;
+    }
+    expect(logs).toHaveLength(1);
+    const runOutput = JSON.parse(logs[0]!) as { kind: string; run: { runId: string; artifactPath: string }; references: { runId: string } };
+    expect(runOutput.kind).toBe("canary.host.run");
+    expect(runOutput.run.runId).toMatch(/^run_/);
+    expect(runOutput.references.runId).toBe(runOutput.run.runId);
+    expect(existsSync(runOutput.run.artifactPath)).toBe(true);
+
+    logs.length = 0;
+    console.log = (...args: unknown[]) => { logs.push(args.map(String).join(" ")); };
+    try {
+      expect(await main(["host", "evidence", runOutput.run.runId, "--max-cases", "1", "--max-events", "1", "--config", configPath])).toBe(0);
+    } finally {
+      console.log = originalLog;
+    }
+    expect(logs).toHaveLength(1);
+    const evidenceText = logs[0]!;
+    const evidence = JSON.parse(evidenceText) as { kind: string; untrustedEvidence: boolean; cases: Array<{ reference: { caseId: string }; traceEventTypes: string[] }>; bounds: { rawInputIncluded: boolean; rawOutputIncluded: boolean; rawTraceIncluded: boolean } };
+    expect(evidence.kind).toBe("canary.host.evidence");
+    expect(evidence.untrustedEvidence).toBe(true);
+    expect(evidence.cases).toHaveLength(1);
+    expect(evidence.cases[0]?.reference.caseId).toBe("visible-case");
+    expect(evidence.cases[0]?.traceEventTypes).toEqual(["tool_call"]);
+    expect(evidence.bounds).toEqual({ maxCases: 1, maxEventsPerCase: 1, rawInputIncluded: false, rawOutputIncluded: false, rawTraceIncluded: false });
+    expect(evidenceText).not.toContain("input-secret");
+    expect(evidenceText).not.toContain("output-secret");
+    expect(evidenceText).not.toContain("trace-secret");
+
+    logs.length = 0;
+    console.log = (...args: unknown[]) => { logs.push(args.map(String).join(" ")); };
+    try {
+      expect(await main(["host", "evidence", runOutput.run.runId, "--max-cases", "33", "--config", configPath])).toBe(1);
+    } finally {
+      console.log = originalLog;
+    }
+    expect(JSON.parse(logs[0]!) as { error: string }).toMatchObject({ error: expect.stringMatching(/between 1 and 32/) });
+
+    const proposalPath = join(cwd, "proposal.json");
+    writeFileSync(proposalPath, JSON.stringify({
+      v: 1,
+      kind: "canary.host.proposal",
+      runId: runOutput.run.runId,
+      caseRefs: ["visible-case"],
+      summary: "The evaluated case completed.",
+      observations: [{ caseId: "visible-case", claim: "The bounded evidence contains a tool_call event." }],
+      suggestedActions: ["Review the evidence before making any source change."],
+      limitations: ["This proposal is not approval."],
+    }), "utf8");
+    logs.length = 0;
+    console.log = (...args: unknown[]) => { logs.push(args.map(String).join(" ")); };
+    try {
+      expect(await main(["host", "validate-proposal", runOutput.run.runId, "--file", proposalPath, "--config", configPath])).toBe(0);
+    } finally {
+      console.log = originalLog;
+    }
+    const validation = JSON.parse(logs[0]!) as { valid: boolean; status: string; approval: { status: string }; artifactPath: string };
+    expect(validation).toMatchObject({ valid: true, status: "recorded_unapproved", approval: { status: "not_approved" } });
+    expect(existsSync(validation.artifactPath)).toBe(true);
+    expect(existsSync(join(cwd, "agent.mjs"))).toBe(true);
+
+    writeFileSync(proposalPath, "{not-json", "utf8");
+    logs.length = 0;
+    console.log = (...args: unknown[]) => { logs.push(args.map(String).join(" ")); };
+    try {
+      expect(await main(["host", "validate-proposal", runOutput.run.runId, "--file", proposalPath, "--config", configPath])).toBe(1);
+    } finally {
+      console.log = originalLog;
+    }
+    const rejected = JSON.parse(logs[0]!) as { valid: boolean; status: string; approval: { status: string }; errors: string[] };
+    expect(rejected).toMatchObject({ valid: false, status: "rejected", approval: { status: "not_approved" } });
+    expect(rejected.errors.join(" ")).toMatch(/not valid JSON/);
+  });
+
+});
+
+describe("S-03 versioned experiences", () => {
+  it("requires proposal validation and activation, injects only active context, and records references", async () => {
+    const cwd = mkdtempSync(join(tmpdir(), "canary-s03-cli-"));
+    const sourceFile = join(cwd, "agent.mjs");
+    const sourceBefore = "export default async (input, ctx) => ({ input, experienceIds: ctx.experiences.map((item) => item.id), experienceVersions: ctx.experiences.map((item) => item.version) });";
+    writeFileSync(sourceFile, sourceBefore, "utf8");
+    writeFileSync(join(cwd, "cases.ts"), "export default [{ id: 'experience-case', input: 'ok' }];", "utf8");
+    const configPath = join(cwd, "canary.config.ts");
+    writeFileSync(configPath, "export default { agent: { adapter: 'function', entry: './agent.mjs' }, cases: './cases.ts', coverage: { include: ['agent.mjs'], exclude: [] }, web: { enabled: false } };", "utf8");
+    const proposalPath = join(cwd, "experience.json");
+    writeFileSync(proposalPath, JSON.stringify({
+      key: "deterministic-context",
+      source: { kind: "human", ref: "s03-test" },
+      summary: "Keep this case deterministic.",
+      content: "Prefer deterministic assertions for this case.",
+      scope: { caseIds: ["experience-case"] },
+    }), "utf8");
+    const invoke = async (args: string[]): Promise<Record<string, any>> => {
+      const logs: string[] = [];
+      const originalLog = console.log;
+      console.log = (...items: unknown[]) => logs.push(items.map(String).join(" "));
+      try { expect(await main([...args, "--config", configPath])).toBe(0); }
+      finally { console.log = originalLog; }
+      expect(logs).toHaveLength(1);
+      return JSON.parse(logs[0]!) as Record<string, any>;
+    };
+
+    const proposed = await invoke(["experience", "propose", "--file", proposalPath]);
+    expect(proposed.kind).toBe("canary.experience.proposal");
+    expect(proposed.approval.status).toBe("not_approved");
+    expect(proposed.record.status).toBe("proposed");
+    const experienceId = proposed.record.id as string;
+
+    const beforeActivation = await invoke(["experience", "load", "--case", "experience-case"]);
+    expect(beforeActivation.loaded).toEqual([]);
+    await invoke(["experience", "validate", experienceId]);
+    const validated = await invoke(["experience", "list"]);
+    expect(validated.records.find((record: any) => record.id === experienceId).status).toBe("validated");
+    const stillNotActive = await invoke(["experience", "load", "--case", "experience-case"]);
+    expect(stillNotActive.loaded).toEqual([]);
+
+    await invoke(["experience", "activate", experienceId]);
+    const loaded = await invoke(["experience", "load", "--case", "experience-case"]);
+    expect(loaded.loaded).toHaveLength(1);
+    expect(loaded.loaded[0]).toMatchObject({ id: experienceId, version: 1 });
+
+    const sourceHashBeforeRun = readFileSync(sourceFile, "utf8");
+    const run = await runCommandDetailed({ cwd, configPath, headless: true, noOpen: true });
+    expect(run.exitCode).toBe(0);
+    expect(readFileSync(sourceFile, "utf8")).toBe(sourceHashBeforeRun);
+    expect(run.snapshot.experiences).toEqual([expect.objectContaining({ id: experienceId, version: 1, contentHash: proposed.record.contentHash })]);
+    expect(run.snapshot.results[0]?.output).toMatchObject({ experienceIds: [experienceId], experienceVersions: [1] });
+    const runJson = JSON.parse(readFileSync(run.artifactPath, "utf8")) as { experiences?: Array<{ id: string; version: number; contentHash: string }> };
+    expect(runJson.experiences).toEqual([expect.objectContaining({ id: experienceId, version: 1, contentHash: proposed.record.contentHash })]);
+
+    const rejectedPath = join(cwd, "rejected-experience.json");
+    writeFileSync(rejectedPath, JSON.stringify({ key: "unsafe", summary: "api_key=secret", content: "safe", source: { kind: "human" } }), "utf8");
+    const rejectedLogs: string[] = [];
+    const originalLog = console.log;
+    console.log = (...items: unknown[]) => rejectedLogs.push(items.map(String).join(" "));
+    try { expect(await main(["experience", "propose", "--file", rejectedPath, "--config", configPath])).toBe(1); }
+    finally { console.log = originalLog; }
+    expect(JSON.parse(rejectedLogs[0]!) as { valid: boolean; errors: string[] }).toMatchObject({ valid: false, errors: [expect.stringMatching(/sensitive data/)] });
+
+    await invoke(["experience", "expire", experienceId]);
+    const expiredRun = await runCommandDetailed({ cwd, configPath, headless: true, noOpen: true });
+    expect(expiredRun.exitCode).toBe(0);
+    expect(expiredRun.snapshot.experiences ?? []).toEqual([]);
+    expect(expiredRun.snapshot.results[0]?.output).toMatchObject({ experienceIds: [], experienceVersions: [] });
+
+    await invoke(["experience", "clear"]);
+    const cleared = await invoke(["experience", "load", "--case", "experience-case"]);
+    expect(cleared.loaded).toEqual([]);
+  });
 });
