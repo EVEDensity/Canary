@@ -136,4 +136,16 @@ export async function runEvaluation(input: EvaluationInput): Promise<{ runId: st
         if (summaries.length) input.store.setCoverage(run.runId, mergeCoverageSummaries(run.runId, summaries, input.config.features, cwd));
         if (!result.passed) input.store.update(run.runId, { status: result.failureCategory === "cancelled" ? "cancelled" : "failed" });
         if (input.consoleReporter && !input.silent) {
-   
+          const label = item.repetitionTotal > 1 ? `${item.testCase.id}#${item.repetition}` : item.testCase.id;
+          const reason = result.passed ? "" : ` · ${result.assertions.filter((assertion) => !assertion.passed).map((assertion) => assertion.message ?? assertion.id).join("; ") || result.failureCategory || "failed"}`;
+          console.log(`${result.passed ? "PASS" : "FAIL"} ${label} (${result.metrics?.latencyMs ?? 0}ms)${reason}`);
+        }
+        writeLiveArtifacts(artifactDir, diskSnapshot(input.store, run.runId));
+      });
+      if (result.failureCategory === "cancelled" || input.signal?.aborted) cancelled = true;
+    });
+  } catch (error) {
+    input.store.reportError(run.runId, error instanceof Error ? error.message : String(error));
+    input.store.update(run.runId, { status: "failed" });
+    writeLiveArtifacts(artifactDir, diskSnapshot(input.store, run.runId));
+    await t
