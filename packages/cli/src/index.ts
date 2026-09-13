@@ -130,4 +130,69 @@ export function artifactRoot(cwd?: string, configPath?: string): string {
 export function defaultRegressionDir(cwd?: string, configPath?: string): string {
   const root = resolveProjectContext({ cwd, configPath }).projectRoot;
   if (existsSync(resolve(root, "cases/regression"))) return resolve(root, "cases/regression");
-  if (existsSync
+  if (existsSync(resolve(root, "examples/local-agent/cases"))) return resolve(root, "examples/local-agent/cases/regression");
+  return resolve(root, "cases/regression");
+}
+export function listRunArtifacts(cwd?: string, configPath?: string): RunSnapshot[] {
+  return new FileArtifactRepository(artifactRoot(cwd, configPath)).listRuns();
+}
+export function readRunArtifact(runId: string, cwd?: string, configPath?: string): RunSnapshot | undefined {
+  const repository = new FileArtifactRepository(artifactRoot(cwd, configPath));
+  const run = repository.readRun(runId);
+  if (!run) return undefined;
+  const coverage = run.coverage ?? repository.readCoverage(runId);
+  const improvements = repository.readJson<unknown[]>(runId, "improvement.json");
+  return {
+    ...run,
+    ...(coverage ? { coverage } : {}),
+    ...(Array.isArray(improvements) ? { improvements } : {}),
+  };
+}
+
+function openBrowser(url: string): void {
+  if (process.platform === "win32") void import("node:child_process").then(({ spawn }) => spawn("cmd", ["/c", "start", "", url], { detached: true, stdio: "ignore" }));
+  else if (process.platform === "darwin") void import("node:child_process").then(({ spawn }) => spawn("open", [url], { detached: true, stdio: "ignore" }));
+  else void import("node:child_process").then(({ spawn }) => spawn("xdg-open", [url], { detached: true, stdio: "ignore" }));
+}
+
+function formatCoverage(coverage?: CoverageSummary): string {
+  if (!coverage) return "unavailable";
+  const part = (key: "lines" | "functions" | "branches" | "statements") => `${key} ${coverage[key].covered}/${coverage[key].total} (${coverage[key].pct}%)`;
+  return `${coverage.status} · ${part("lines")} · ${part("functions")} · ${part("branches")} · ${part("statements")}`;
+}
+
+export function printRunSummary(run: RunSnapshot, extras: { artifactPath: string; uiUrl?: string; exitCode: number }): void {
+  const failedCases = Math.max(0, run.completedCases - run.passedCases);
+  const assertions = run.results.flatMap((result) => result.assertions);
+  const failedAssertions = assertions.filter((item) => !item.passed).length;
+  console.log(`runId: ${run.runId}`);
+  console.log(`status: ${run.status}`);
+  console.log(`cases: ${run.passedCases} passed / ${failedCases} failed / ${run.totalCases} total`);
+  console.log(`coverage: ${formatCoverage(run.coverage)}`);
+  console.log(`evaluation: ${assertions.length - failedAssertions} passed / ${failedAssertions} failed assertions`);
+  console.log(`artifact: ${extras.artifactPath}`);
+  if (extras.uiUrl) console.log(`ui: ${extras.uiUrl}`);
+  console.log(`exit: ${extras.exitCode}`);
+}
+
+function printRunList(runs: RunSnapshot[]): void {
+  if (!runs.length) { console.log("No runs found."); return; }
+  for (const run of runs) {
+    console.log(`${run.runId}\t${run.status}\t${run.passedCases}/${run.totalCases}\t${run.startedAt}`);
+  }
+}
+
+export interface RunCommandResult { exitCode: number; runId: string; artifactPath: string; uiUrl: string; snapshot: RunSnapshot; store: RunStore; close: () => Promise<void> }
+
+function flagValue(rest: string[], name: string): string | undefined {
+  const index = rest.indexOf(name);
+  return index >= 0 ? rest[index + 1] : undefined;
+}
+function flagValues(rest: string[], name: string): string[] {
+  const values: string[] = [];
+  for (let index = 0; index < rest.length; index += 1) {
+    if (rest[index] === name && rest[index + 1]) values.push(rest[++index]!);
+  }
+  return values;
+}
+function parseRepetitio
