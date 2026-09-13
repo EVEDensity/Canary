@@ -176,4 +176,60 @@ describe("improvement CLI loop", () => {
     try {
       const improveCode = await main(["improve", failed.runId, "--out", join(cwd, "cases/regression")]);
       expect(improveCode).toBe(0);
-      expect(existsSync(join(cwd, "cases/regressi
+      expect(existsSync(join(cwd, "cases/regression", "broken.regression.ts"))).toBe(true);
+      expect(readFileSync(join(cwd, "cases/regression", "broken.regression.ts"), "utf8")).toContain("broken.regression");
+    } finally {
+      process.env.INIT_CWD = previousCwd;
+    }
+
+    writeFileSync(join(cwd, "agent.mjs"), "export default async (input) => ({ value: input });", "utf8");
+    writeFileSync(join(cwd, "cases.ts"), "export default [{ id: 'safe', input: 'ok', assertions: [{ type: 'output.exists' }] }, { id: 'holdout-planning', input: 'holdout', tags: ['holdout'], dataset: { split: 'holdout' }, assertions: [{ type: 'output.exists' }] }];", "utf8");
+    const baseline = await runCommandDetailed({ cwd, headless: true, noOpen: true });
+    expect(baseline.exitCode).toBe(0);
+    writeFileSync(join(cwd, "agent.mjs"), "export default async (input) => String(input).includes('holdout') ? null : { value: input };", "utf8");
+    const candidate = await runCommandDetailed({ cwd, headless: true, noOpen: true });
+    expect(candidate.exitCode).toBe(1);
+    process.env.INIT_CWD = cwd;
+    try {
+      const compareCode = await main(["compare", baseline.runId, candidate.runId]);
+      expect(compareCode).toBe(1);
+    } finally {
+      process.env.INIT_CWD = previousCwd;
+    }
+  });
+
+  it("accepts and verifies a suggestion then runs a one-click candidate pipeline", async () => {
+    const cwd = mkdtempSync(join(tmpdir(), "canary-candidate-"));
+    writeFileSync(join(cwd, "broken.mjs"), "export default async (input) => input === 'broken' ? null : { value: input };", "utf8");
+    writeFileSync(join(cwd, "fixed.mjs"), "export default async (input) => ({ value: input });", "utf8");
+    writeFileSync(join(cwd, "cases.ts"), "export default [{ id: 'safe', input: 'ok', assertions: [{ type: 'output.exists' }] }, { id: 'broken', input: 'broken', assertions: [{ type: 'output.exists' }] }, { id: 'holdout-planning', input: 'holdout', tags: ['holdout'], dataset: { split: 'holdout' }, assertions: [{ type: 'output.exists' }] }];", "utf8");
+    writeFileSync(join(cwd, "canary.config.ts"), `export default { agent: { adapter: 'function', entry: './broken.mjs' }, cases: './cases.ts', coverage: { include: ['broken.mjs', 'fixed.mjs'], exclude: [] }, web: { host: '127.0.0.1', open: false } };`, "utf8");
+    const baseline = await runCommandDetailed({ cwd, headless: true, noOpen: true });
+    expect(baseline.exitCode).toBe(1);
+    const previousCwd = process.env.INIT_CWD;
+    process.env.INIT_CWD = cwd;
+    try {
+      expect(await main(["improve", baseline.runId, "--out", join(cwd, "cases/drafts")])).toBe(0);
+      const suggestions = JSON.parse(readFileSync(join(cwd, ".canary/artifacts", baseline.runId, "improvement.json"), "utf8")) as Array<{ id: string; kind: string; caseId: string }>;
+      const target = suggestions.find((item) => item.caseId === "broken");
+      expect(target?.kind).toBe("wrong_output");
+      expect(await main(["suggest", baseline.runId, "--accept", target!.id])).toBe(0);
+      expect(await main(["suggest", baseline.runId, "--verify", target!.id, "--out", join(cwd, "cases/regression")])).toBe(0);
+      expect(existsSync(join(cwd, "cases/regression", "broken.regression.ts"))).toBe(true);
+      expect(readFileSync(join(cwd, "cases/regression", "broken.regression.ts"), "utf8")).toContain("verified");
+      const code = await main(["candidate", baseline.runId, "--entry", "./fixed.mjs", "--headless", "--no-open"]);
+      expect(code).toBe(0);
+      const candidateId = listRunArtifacts(cwd).find((run) => existsSync(join(cwd, ".canary/artifacts", run.runId, "comparison.json")))?.runId;
+      expect(candidateId).toBeTruthy();
+      const comparison = JSON.parse(readFileSync(join(cwd, ".canary/artifacts", candidateId!, "comparison.json"), "utf8"));
+      expect(comparison.verdict).toBe("improve");
+      expect(comparison.improvements).toContain("broken");
+    } finally {
+      process.env.INIT_CWD = previousCwd;
+    }
+  });
+
+  it("runs an approved experience trial with regression, holdout, activation and rollback gates", async () => {
+    const cwd = mkdtempSync(join(tmpdir(), "canary-s04-") );
+    const sourceFile = join(cwd, "agent.mjs");
+    const source = "export default async (input, ctx) => ctx.experiences.length ? ({ value: input, experienceIds: ctx.experiences.map((i
