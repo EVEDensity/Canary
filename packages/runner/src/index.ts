@@ -132,4 +132,25 @@ function budgetUsed(events: TrajectoryEvent[]): number {
 export async function runExecution(options: ExecutionOptions): Promise<EvalResult> {
   const executionId = `exec_${randomUUID()}`; const startedAt = Date.now(); const events: TrajectoryEvent[] = [];
   if (options.signal?.aborted) {
-    options.onEvent?.({ type: "execution.started", runId: options.runId, executionId, caseId: opt
+    options.onEvent?.({ type: "execution.started", runId: options.runId, executionId, caseId: options.caseId });
+    const coverage = emptyCoverage(options.runId);
+    options.onCoverage?.(coverage);
+    options.onEvent?.({ type: "execution.failed", executionId, error: "Execution cancelled" });
+    return finishEvaluation(options, executionId, startedAt, events, undefined, "Execution cancelled", coverage, "cancelled");
+  }
+  const child = spawnExecution(options, executionId); let settled = false; let failure: string | undefined; let output: unknown;
+  let scripts: CoverageScript[] = []; let initScripts: CoverageScript[] = []; let coveragePartial = false; let didTimeout = false; let didCancel = false; let exitCode: number | null = null; let stderr = "";
+  let lastProvisionalKey = ""; let lastProvisionalAt = 0;
+  const sampleMinIntervalMs = options.coverage.sampleMinIntervalMs ?? 200;
+  const killGraceMs = options.killGraceMs ?? DEFAULT_KILL_GRACE_MS;
+  let killTimer: NodeJS.Timeout | undefined;
+  const stopChild = (): void => {
+    if (!child.pid || child.exitCode !== null) return;
+    try { child.kill("SIGTERM"); } catch { /* ignore */ }
+    killTimer = setTimeout(() => { if (child.exitCode === null && child.pid) killProcessTree(child.pid, "SIGKILL"); }, killGraceMs);
+  };
+  options.onEvent?.({ type: "execution.started", runId: options.runId, executionId, caseId: options.caseId });
+  child.stderr?.setEncoding("utf8"); child.stderr?.on("data", (chunk: string) => { stderr += chunk; });
+  const cancel = (): void => { if (!settled) { didCancel = true; failure = "Execution cancelled"; stopChild(); } };
+  options.signal?.addEventListener("abort", cancel, { once: true });
+  const timeout = setTimeout(() => { if (!settled) { didTimeout = true; failure = `Execution timed out after ${optio
