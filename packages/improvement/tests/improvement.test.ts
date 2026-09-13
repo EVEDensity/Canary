@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { compareRuns, decideSuggestion, exitCodeForComparison, proposeFromResults, serializeAssertion, writeRegressionDrafts } from "../src/index.js";
+import { assessSoftTrial, compareRuns, decideSuggestion, exitCodeForComparison, proposeFromResults, serializeAssertion, writeRegressionDrafts } from "../src/index.js";
 import type { EvalResult } from "@canary/core";
 
 const coverage = { runId: "r", sourceHash: "h", status: "final" as const, lines: { covered: 1, total: 2, pct: 50 }, statements: { covered: 1, total: 2, pct: 50 }, functions: { covered: 1, total: 1, pct: 100 }, branches: { covered: 0, total: 1, pct: 0 }, featureChains: [{ featureId: "planning", name: "Planning", status: "uncovered" as const, caseIds: [], expectedCaseIds: [], failedCaseIds: [], filePaths: [], coverage: { covered: 0, total: 1, pct: 0 }, uncoveredLocations: [] }] };
@@ -45,6 +45,22 @@ describe("improvement loop", () => {
     expect(comparison.regressions).toContain("holdout:holdout-planning");
   });
 
+  it("rejects a soft trial when a required holdout result is missing", () => {
+    const baseline = { runId: "base", status: "completed", results: [evalResult("broken", false), evalResult("holdout-planning", true)], coverage };
+    const candidate = { runId: "cand", status: "completed", results: [evalResult("broken", true)], coverage };
+    const comparison = compareRuns(baseline, candidate, ["holdout-planning"]);
+    const validation = assessSoftTrial({
+      baseline,
+      candidate,
+      comparison,
+      regressionCaseIds: ["broken"],
+      holdoutCaseIds: ["holdout-planning"],
+      candidateExitCode: 0,
+      comparisonArtifact: "comparison.json",
+    });
+    expect(validation.valid).toBe(false);
+    expect(validation.reasons.join(" ")).toMatch(/incomparable|missing|holdout/i);
+  });
   it("does not treat an id substring as holdout without tags or dataset.split", () => {
     const named = evalResult("holdout-looking", true, { sourceCase: { id: "holdout-looking", input: "x", tags: [], assertions: [{ type: "output.exists" }] } });
     const comparison = compareRuns(
