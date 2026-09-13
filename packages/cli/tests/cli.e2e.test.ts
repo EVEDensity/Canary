@@ -447,4 +447,48 @@ describe("tool adapters, http black-box and concurrency", () => {
   it("injects MockToolAdapter so the agent uses ctx.tools.call", async () => {
     const cwd = mkdtempSync(join(tmpdir(), "canary-mock-tools-"));
     writeFileSync(join(cwd, "tools.mjs"), "export const demoTools = { echo: (args) => ({ echoed: args }) };", "utf8");
-    writeFileSync(join(cwd, "agent.mjs"), "export default async (input, ctx) => { const args = { q: input }; ctx.emit({ type: 'tool.call', name:
+    writeFileSync(join(cwd, "agent.mjs"), "export default async (input, ctx) => { const args = { q: input }; ctx.emit({ type: 'tool.call', name: 'echo', args }); const value = await ctx.tools.call('echo', args); ctx.state.set('lastTool', 'echo'); ctx.emit({ type: 'state.snapshot', state: ctx.state.get() }); return value; };", "utf8");
+    writeFileSync(join(cwd, "cases.ts"), "export default [{ id: 'echo', input: 'alpha', assertions: [{ type: 'tool.called', name: 'echo' }, { type: 'tool.args', name: 'echo', contains: { q: 'alpha' } }, { type: 'state.has', key: 'lastTool' }] }];", "utf8");
+    writeFileSync(join(cwd, "canary.config.ts"), `export default { agent: { adapter: 'function', entry: './agent.mjs' }, cases: './cases.ts', tools: { adapter: 'mock', entry: './tools.mjs', export: 'demoTools' }, coverage: { include: ['agent.mjs', 'tools.mjs'] }, web: { host: '127.0.0.1', open: false } };`, "utf8");
+    const result = await runCommandDetailed({ cwd, headless: true, noOpen: true });
+    expect(result.exitCode).toBe(0);
+    const artifact = JSON.parse(readFileSync(result.artifactPath, "utf8"));
+    expect(artifact.results[0].output).toEqual({ echoed: { q: "alpha" } });
+    expect(artifact.results[0].stateDiff.after.lastTool).toBe("echo");
+  });
+
+  it("runs MCP stdio tools through the runner tool chain", async () => {
+    const cwd = mkdtempSync(join(tmpdir(), "canary-mcp-tools-"));
+    const script = "process.stdin.setEncoding('utf8'); let b=''; process.stdin.on('data',c=>{b+=c; const i=b.indexOf('\\n'); if(i>=0){ const m=JSON.parse(b.slice(0,i)); process.stdout.write(JSON.stringify({jsonrpc:'2.0',id:m.id,result:{ok:m.params.name,args:m.params.arguments}})+'\\n'); }});";
+    writeFileSync(join(cwd, "agent.mjs"), "export default async (input, ctx) => { const args = { q: input }; ctx.emit({ type: 'tool.call', name: 'lookup', args }); return ctx.tools.call('lookup', args); };", "utf8");
+    writeFileSync(join(cwd, "cases.ts"), "export default [{ id: 'mcp', input: 'alpha', assertions: [{ type: 'tool.called', name: 'lookup' }, { type: 'output.exists' }] }];", "utf8");
+    writeFileSync(join(cwd, "canary.config.ts"), `export default { agent: { adapter: 'function', entry: './agent.mjs' }, cases: './cases.ts', tools: { adapter: 'mcp-stdio', command: ${JSON.stringify(process.execPath)}, args: ['-e', ${JSON.stringify(script)}] }, coverage: { include: ['agent.mjs'] }, web: { host: '127.0.0.1', open: false } };`, "utf8");
+    const result = await runCommandDetailed({ cwd, headless: true, noOpen: true });
+    expect(result.exitCode).toBe(0);
+    const artifact = JSON.parse(readFileSync(result.artifactPath, "utf8"));
+    expect(artifact.results[0].output).toEqual({ ok: "lookup", args: { q: "alpha" } });
+  });
+
+  it("runs MCP HTTP JSON-RPC tools (not full Streamable HTTP)", async () => {
+    const { createServer } = await import("node:http");
+    const server = createServer((_request, response) => {
+      response.writeHead(200, { "content-type": "application/json" });
+      response.end(JSON.stringify({ jsonrpc: "2.0", id: 1, result: { via: "http" } }));
+    });
+    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", () => resolve()));
+    const port = typeof server.address() === "object" && server.address() ? server.address()!.port : 0;
+    const cwd = mkdtempSync(join(tmpdir(), "canary-mcp-http-"));
+    writeFileSync(join(cwd, "agent.mjs"), "export default async (input, ctx) => { const args = { q: input }; ctx.emit({ type: 'tool.call', name: 'lookup', args }); return ctx.tools.call('lookup', args); };", "utf8");
+    writeFileSync(join(cwd, "cases.ts"), "export default [{ id: 'mcp-http', input: 'alpha', assertions: [{ type: 'tool.called', name: 'lookup' }] }];", "utf8");
+    writeFileSync(join(cwd, "canary.config.ts"), `export default { agent: { adapter: 'function', entry: './agent.mjs' }, cases: './cases.ts', tools: { adapter: 'mcp-http', url: 'http://127.0.0.1:${port}/mcp' }, coverage: { include: ['agent.mjs'] }, web: { host: '127.0.0.1', open: false } };`, "utf8");
+    try {
+      const result = await runCommandDetailed({ cwd, headless: true, noOpen: true });
+      expect(result.exitCode).toBe(0);
+      const artifact = JSON.parse(readFileSync(result.artifactPath, "utf8"));
+      expect(artifact.results[0].output).toEqual({ via: "http" });
+    } finally {
+      await new Promise<void>((resolve) => server.close(() => resolve()));
+    }
+  });
+
+  it("runs a
