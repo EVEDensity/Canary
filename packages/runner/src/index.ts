@@ -174,4 +174,26 @@ export async function runExecution(options: ExecutionOptions): Promise<EvalResul
           lastProvisionalKey = key; lastProvisionalAt = now;
           const provisional = makeCoverage(options, scripts, false, events, initScripts.length > 0);
           options.onCoverage?.({ ...provisional, status: "provisional" });
-          options.onEvent?.({ type: "coverage.updated", executionId, coverage: { ...provisional, status: "provisional"
+          options.onEvent?.({ type: "coverage.updated", executionId, coverage: { ...provisional, status: "provisional" } });
+        }
+      }
+    });
+    child.once("error", (error: Error) => { failure ??= error.stack ?? error.message; done(); });
+    child.once("close", (code: number | null) => { exitCode = code; if (code && !failure) failure = stderr.trim() ? `Execution child exited with code ${code}: ${stderr.trim()}` : `Execution child exited with code ${code}`; done(); });
+  });
+  if (killTimer) clearTimeout(killTimer);
+  clearTimeout(timeout); options.signal?.removeEventListener("abort", cancel);
+  const termination: Trajectory["termination"] = didTimeout ? "timeout" : didCancel ? "cancelled" : failure ? "error" : "completed";
+  const coverage = makeCoverage(options, scripts, coveragePartial || didTimeout || didCancel, events, initScripts.length > 0);
+  options.onCoverage?.(coverage); options.onEvent?.({ type: "coverage.updated", executionId, coverage });
+  if (failure) options.onEvent?.({ type: "execution.failed", executionId, error: failure });
+  return finishEvaluation(options, executionId, startedAt, events, output, failure, coverage, termination);
+}
+
+export interface RunOptions { config: CanaryConfig; cwd?: string; runId: string; onEvent?: (event: RunnerEvent) => void; onCoverage?: (summary: CoverageSummary) => void; manifest?: CoverageSourceConfig["manifest"]; signal?: AbortSignal; repetition?: number; repetitionTotal?: number; judge?: JudgeProvider; judgePolicy?: JudgePolicy; experiences?: LoadedExperience[] }
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+function changedKeys(before: unknown, after: unknown): string[] {
+  if (!isRecord(before) || !isRecord(after)) return before ===
