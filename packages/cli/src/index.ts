@@ -195,4 +195,67 @@ function flagValues(rest: string[], name: string): string[] {
   }
   return values;
 }
-function parseRepetitio
+function parseRepetitions(raw: string | undefined): number | undefined {
+  if (raw === undefined) return undefined;
+  const value = Number(raw);
+  if (!Number.isInteger(value) || value < 1) throw new Error(`Invalid --repetitions ${raw}`);
+  return value;
+}
+function selectCases(cases: TestCase[], options: CliOptions): TestCase[] {
+  let selected = cases;
+  if (options.caseId) selected = selected.filter((testCase) => testCase.id === options.caseId);
+  if (options.caseIds?.length) selected = selected.filter((testCase) => options.caseIds!.includes(testCase.id));
+  if (options.tags?.length) selected = selected.filter((testCase) => (testCase.tags ?? []).some((tag) => options.tags!.includes(tag)));
+  if (options.caseId && !selected.length) throw new Error(`No test case matched --case ${options.caseId}`);
+  if (options.tags?.length && !selected.length) throw new Error(`No test case matched --tag ${options.tags.join(", ")}`);
+  if (options.caseIds?.length) {
+    const missing = options.caseIds.filter((id) => !selected.some((testCase) => testCase.id === id));
+    if (missing.length) throw new Error(`Replay cases not found in current config: ${missing.join(", ")}`);
+  }
+  return selected;
+}
+
+export async function runCommandDetailed(options: CliOptions = {}): Promise<RunCommandResult> {
+  const context = resolveProjectContext(options);
+  if (!existsSync(context.configFile)) throw new Error(missingConfigMessage(context.configFile));
+  const config = await loadConfig(context.configFile);
+  const cases = await loadCases(config.cases, context.projectRoot, config.coverage.exclude);
+  const selected = selectCases(cases, options);
+  const store = new RunStore();
+  const runId = `run_${randomUUID()}`;
+  const fallbackReps = options.repetitions ?? config.runtime?.repetitions ?? 1;
+  const planned = selected.reduce((sum, testCase) => sum + (testCase.options?.repetitions ?? fallbackReps), 0);
+  store.create(planned, runId, options.replayOf);
+  const evaluationInput = {
+    store,
+    config: options.entry ? { ...config, agent: { ...config.agent, entry: options.entry } } : config,
+    context,
+    selected,
+    replayOf: options.replayOf,
+    candidateOf: options.candidateOf,
+    repetitions: options.repetitions,
+    signal: options.signal,
+    experiences: options.experiences,
+    consoleReporter: Boolean(config.reporters?.includes("console")),
+    silent: options.json,
+    runId,
+  };
+  const webEnabled = !options.headless && config.web?.enabled !== false;
+  let uiUrl = "";
+  let close = async (): Promise<void> => { /* no listener */ };
+  if (webEnabled) {
+    const { createWebServer } = await import("@canary/web");
+    const writeToken = randomUUID();
+    const web = createWebServer(store, config.web?.host ?? "127.0.0.1", options.port ?? config.web?.port ?? 0, context.artifactRoot, {
+      writeToken,
+      onReplay: async (sourceId, request) => {
+        const source = store.get(sourceId);
+        if (!source) throw new Error(`Run not found: ${sourceId}`);
+        const wanted = request.caseId ? [request.caseId] : [...new Set(source.results.map((result) => result.caseId))];
+        const replayCases = cases.filter((testCase) => wanted.includes(testCase.id));
+        if (!replayCases.length) throw new Error("No cases to replay");
+        const replayed = await runEvaluation({ ...evaluationInput, selected: replayCases, replayOf: sourceId, runId: undefined });
+        return { replayRunId: replayed.runId };
+      },
+    });
+    const listenin
