@@ -1,0 +1,6 @@
+interface:
+  display_name: "Canary Evaluation"
+  short_description: "Run bounded Canary reviews in Codex desktop"
+  default_prompt: "Use $canary-codex-evaluation to run a bounded Canary evaluation and prepare a review-only proposal."
+policy:
+  allow_implicit_invocation: true
