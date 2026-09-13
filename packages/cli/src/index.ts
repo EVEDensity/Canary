@@ -502,4 +502,29 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
     const executed = await runCommandDetailed(options);
     const candidate = readRunArtifact(executed.runId, undefined, configPath) ?? executed.store.get(executed.runId);
     if (!candidate) { console.error("Candidate run did not persist"); return 1; }
-    const holdout = holdoutCase
+    const holdout = holdoutCaseIds([...baseline.results, ...candidate.results]);
+    const comparison = compareRuns(baseline, candidate, holdout);
+    writeFileSync(resolve(artifactRoot(undefined, configPath), executed.runId, "comparison.json"), JSON.stringify(comparison, null, 2), "utf8");
+    console.log(JSON.stringify(comparison, null, 2));
+    await executed.close();
+    return exitCodeForComparison(comparison, executed.exitCode);
+  }
+  if (command === "compare") {
+    const baselineId = rest[0];
+    const candidateId = rest[1];
+    if (!baselineId || !candidateId) { console.log(USAGE); return 1; }
+    const baseline = readRunArtifact(baselineId, undefined, configPath);
+    const candidate = readRunArtifact(candidateId, undefined, configPath);
+    if (!baseline || !candidate) { console.error("Both baseline and candidate runs must exist"); return 1; }
+    const holdout = holdoutCaseIds([...baseline.results, ...candidate.results]);
+    const comparison = compareRuns(baseline, candidate, holdout);
+    writeFileSync(resolve(artifactRoot(undefined, configPath), candidateId, "comparison.json"), JSON.stringify(comparison, null, 2), "utf8");
+    console.log(JSON.stringify(comparison, null, 2));
+    return exitCodeForComparison(comparison, candidate.status === "completed" ? 0 : 1);
+  }
+  if (command === "replay") {
+    const runId = rest[0];
+    if (!runId) { console.log(USAGE); return 1; }
+    const snapshot = readRunArtifact(runId, undefined, configPath);
+    if (!snapshot) { console.error(`Run not found: ${runId}`); return 1; }
+    const options: CliOptions
