@@ -233,4 +233,33 @@ export async function runCommandDetailed(options: CliOptions = {}): Promise<RunC
     signal: options.signal,
     consoleReporter: Boolean(config.reporters?.includes("console")),
     silent: options.json,
-    r
+    runId,
+  };
+  const webEnabled = !options.headless && config.web?.enabled !== false;
+  let uiUrl = "";
+  let close = async (): Promise<void> => { /* no listener */ };
+  if (webEnabled) {
+    const { createWebServer } = await import("@canary/web");
+    const writeToken = randomUUID();
+    const web = createWebServer(store, config.web?.host ?? "127.0.0.1", options.port ?? config.web?.port ?? 0, context.artifactRoot, {
+      writeToken,
+      onReplay: async (sourceId, request) => {
+        const source = store.get(sourceId);
+        if (!source) throw new Error(`Run not found: ${sourceId}`);
+        const wanted = request.caseId ? [request.caseId] : [...new Set(source.results.map((result) => result.caseId))];
+        const replayCases = cases.filter((testCase) => wanted.includes(testCase.id));
+        if (!replayCases.length) throw new Error("No cases to replay");
+        const replayed = await runEvaluation({ ...evaluationInput, selected: replayCases, replayOf: sourceId, runId: undefined });
+        return { replayRunId: replayed.runId };
+      },
+    });
+    const listening = await web.listen();
+    uiUrl = `${listening.url}/?runId=${encodeURIComponent(runId)}&token=${encodeURIComponent(writeToken)}`;
+    if (!options.json) {
+      console.log(`runId: ${runId}`);
+      console.log(`canary UI: ${uiUrl}`);
+    }
+    if (!options.noOpen && config.web?.open !== false) openBrowser(uiUrl);
+    let webClosed = false;
+    close = async (): Promise<void> => {
+      if (webClosed || !web.server.listening) { webClosed = true; return
