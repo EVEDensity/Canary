@@ -197,6 +197,7 @@ export const runSnapshotSchema = z.object({
   coverage: coverageSummarySchema.optional(),
   events: z.array(z.unknown()).default([]),
   improvements: z.array(z.unknown()).optional(),
+  experiences: z.array(z.object({ id: z.string().min(1), key: z.string().min(1), version: z.number().int().positive(), contentHash: z.string().min(1), loadedAt: z.string().min(1) }).strict()).optional(),
   gate: z.unknown().optional(),
   replayOf: z.string().optional(),
 }).passthrough();
