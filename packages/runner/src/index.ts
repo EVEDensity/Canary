@@ -253,4 +253,39 @@ export async function runMcpExecution(options: ExecutionOptions): Promise<EvalRe
   const entry = resolve(cwd, options.entry);
   const isTypeScript = /\.[cm]?tsx?$/.test(extname(options.entry));
   const command = options.nodeExecutable ?? process.execPath;
-  const args = isTypeScript ? ["--import", tsxLoa
+  const args = isTypeScript ? ["--import", tsxLoader, entry] : [entry];
+  emit({ type: "mcp.request", timestamp: new Date().toISOString(), command, entry });
+  let output: unknown; let failure: string | undefined;
+  try { output = await runMcpAgent(command, args, options.input, options.timeoutMs ?? 10_000, options.signal); emit({ type: "mcp.response", timestamp: new Date().toISOString() }); }
+  catch (error) { failure = error instanceof Error ? error.message : String(error); options.onEvent?.({ type: "execution.failed", executionId, error: failure }); }
+  const coverage = emptyCoverage(options.runId);
+  options.onCoverage?.(coverage);
+  options.onEvent?.({ type: "coverage.updated", executionId, coverage });
+  return finishEvaluation(options, executionId, startedAt, events, output, failure, coverage, failure ? "error" : "completed");
+}
+
+export async function mapLimit<T, R>(items: readonly T[], limit: number, mapper: (item: T, index: number) => Promise<R>): Promise<R[]> {
+  if (!items.length) return [];
+  const concurrency = Math.max(1, Math.min(limit, items.length));
+  const results: R[] = new Array(items.length);
+  let next = 0;
+  await Promise.all(Array.from({ length: concurrency }, async () => {
+    while (true) {
+      const index = next;
+      next += 1;
+      if (index >= items.length) return;
+      results[index] = await mapper(items[index]!, index);
+    }
+  }));
+  return results;
+}
+
+export async function runConfiguredCase(options: RunOptions, testCase: TestCase): Promise<EvalResult> {
+  const shared: ExecutionOptions = {
+    cwd: options.cwd,
+    entry: options.config.agent.entry,
+    exportName: options.config.agent.export,
+    input: testCase.input,
+    runId: options.runId,
+    caseId: testCase.id,
+    testCa
