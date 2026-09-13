@@ -93,4 +93,14 @@ export async function runEvaluation(input: EvaluationInput): Promise<{ runId: st
   for (const testCase of input.selected) {
     const loaded = experienceStore.load({ projectRoot: input.context.projectRoot, caseId: testCase.id, tags: testCase.tags, featureIds: testCase.expectedFeatures });
     experienceByCase.set(testCase.id, loaded);
-    for (const item of loaded.loaded) experienceRefs.set(item.id, { id: item.id, key: item.key, versio
+    for (const item of loaded.loaded) experienceRefs.set(item.id, { id: item.id, key: item.key, version: item.version, contentHash: item.contentHash, loadedAt: new Date().toISOString() });
+  }
+  if (input.candidateOf) input.store.update(run.runId, { candidateOf: input.candidateOf } as Partial<RunSnapshot>);
+  input.store.update(run.runId, { experiences: [...experienceRefs.values()] });
+  const artifactDir = resolve(input.context.artifactRoot, run.runId);
+  mkdirSync(artifactDir, { recursive: true });
+  const trace = new AsyncJsonlTraceStore(resolve(artifactDir, "trace.jsonl"), { maxQueue: 256 });
+  input.store.setCoverage(run.runId, preparingCoverage(run.runId));
+  writeLiveArtifacts(artifactDir, diskSnapshot(input.store, run.runId));
+  const manifest = createCoverageManifest({ rootDir: cwd, include: input.config.coverage.include, exclude: input.config.coverage.exclude, features: input.config.features });
+  writeFileSync(resolve(artifactDir, "coverage-manifest.json"), JSON.stringify(manifest
