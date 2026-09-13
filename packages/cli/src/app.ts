@@ -164,3 +164,18 @@ export async function runEvaluation(input: EvaluationInput): Promise<{ runId: st
   const gate = mergeQualityGates(coverageGate, hardGate);
   input.store.update(run.runId, { ...(!gate.passed && final.status !== "cancelled" ? { status: "failed" as const } : {}), improvements: suggestions, gate });
   const redacted = diskSnapshot(input.store, run.runId);
+  const formats = (input.config.reporters?.length ? input.config.reporters : ["json", "markdown", "junit"]) as ReporterFormat[];
+  const junitXml = writeFinalReports(artifactDir, redacted, formats, gate, suggestions);
+  writeLiveArtifacts(artifactDir, redacted);
+  const junitFailures = countJunitFailures(junitXml);
+  const exitCode = exitCodeForRun({
+    runFailed: redacted.status !== "completed",
+    gatePassed: gate.passed && redacted.status !== "cancelled",
+    junitFailures: Number.isFinite(junitFailures) ? junitFailures : 1,
+  });
+  if (!gate.passed && !input.silent) {
+    const label = gate.reason === "hard_gate_failed" ? "hard-gate" : "coverage-gate";
+    console.log(`${label}: fail · ${gate.reason} · ${gate.failures.map((item) => item.message).join("; ")}`);
+  }
+  return { runId: run.runId, exitCode, artifactPath: resolve(artifactDir, "run.json"), snapshot: redacted };
+}
