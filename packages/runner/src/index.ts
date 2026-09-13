@@ -32,4 +32,48 @@ export function killProcessTree(pid: number, signal: NodeJS.Signals = "SIGKILL")
 
 export interface ExecutionOptions {
   cwd?: string;
-  timeoutMs?: n
+  timeoutMs?: number;
+  maxSteps?: number;
+  maxToolCalls?: number;
+  maxBudget?: number;
+  nodeExecutable?: string;
+  entry: string;
+  exportName?: string;
+  input: unknown;
+  runId: string;
+  caseId: string;
+  testCase?: TestCase;
+  features?: FeatureDefinition[];
+  coverage: CoverageSourceConfig;
+  onEvent?: (event: RunnerEvent) => void;
+  onCoverage?: (summary: CoverageSummary) => void;
+  signal?: AbortSignal;
+  repetition?: number;
+  repetitionTotal?: number;
+  tools?: CanaryToolsConfig;
+  model?: CanaryModelConfig;
+  initialState?: Record<string, unknown>;
+  experiences?: LoadedExperience[];
+  killGraceMs?: number;
+  judge?: JudgeProvider;
+  judgePolicy?: JudgePolicy;
+}
+type ChildMessage =
+  | { v: 1; type: "ready" }
+  | { v: 1; type: "event"; event: TrajectoryEvent }
+  | { v: 1; type: "result"; value: unknown }
+  | { v: 1; type: "error"; error: string }
+  | { v: 1; type: "coverage"; scripts: CoverageScript[]; partial?: boolean; provisional?: boolean; phase?: "init" | "task" | "final"; processId?: number; isolateId?: string; sequence?: number };
+
+function resolveWorkspaceModule(packageDir: string): string {
+  const runnerRoot = resolve(fileURLToPath(import.meta.url), "..", "..");
+  const src = resolve(runnerRoot, "..", packageDir, "src", "index.ts");
+  const dist = resolve(runnerRoot, "..", packageDir, "dist", "index.js");
+  if (existsSync(src)) return pathToFileURL(src).href;
+  if (existsSync(dist)) return pathToFileURL(dist).href;
+  return pathToFileURL(createRequire(import.meta.url).resolve(`@canary/${packageDir}`)).href;
+}
+
+function resolveToolPayload(cwd: string, tools?: CanaryToolsConfig): CanaryToolsConfig | undefined {
+  if (!tools) return undefined;
+  const next
