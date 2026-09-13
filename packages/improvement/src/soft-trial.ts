@@ -83,4 +83,10 @@ export function assessSoftTrial(input: {
   const candidateResults = input.candidate.results;
   if (!input.regressionCaseIds.length) reasons.push("independent regression set is empty");
   if (!input.holdoutCaseIds.length) reasons.push("independent holdout set is empty");
-  if (!input.comparison.comparable || !input.comparison.completeness.passed) reasons.push(...input.comparison.completeness.reasons, "baselin
+  if (!input.comparison.comparable || !input.comparison.completeness.passed) reasons.push(...input.comparison.completeness.reasons, "baseline and candidate results are not comparable");
+  if (input.candidate.status !== "completed" || input.candidateExitCode !== 0) reasons.push("candidate run did not complete with exit code 0");
+  if (input.comparison.verdict !== "improve") reasons.push(`candidate comparison verdict is ${input.comparison.verdict}, expected improve`);
+  if (input.comparison.regressions.length) reasons.push(`candidate regressions: ${input.comparison.regressions.join(", ")}`);
+  if (input.comparison.admission.verdict === "reject" || input.comparison.admission.verdict === "incomparable") reasons.push(...input.comparison.admission.reasons, `admission verdict is ${input.comparison.admission.verdict}`);
+  if (input.candidate.gate?.hardGate?.passed === false || input.candidate.gate?.reason === "hard_gate_failed") reasons.push("candidate hard gate failed; required Judge or policy/state evidence is missing");
+  if (candidateResults.
