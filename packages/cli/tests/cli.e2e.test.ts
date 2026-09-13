@@ -57,4 +57,61 @@ describe("canary run --headless", () => {
     expect(existsSync(join(dir, "improvement.json"))).toBe(true);
     expect(existsSync(join(dir, "trace.jsonl"))).toBe(true);
     const traceLine = readFileSync(join(dir, "trace.jsonl"), "utf8").trim().split("\n")[0];
-    expect(JSON.parse(traceLine ?? "{}").type).toB
+    expect(JSON.parse(traceLine ?? "{}").type).toBeDefined();
+    expect(result.store.get(result.runId)?.coverage?.lines.total).toBeGreaterThan(0);
+    expect(listRunArtifacts(cwd).some((run) => run.runId === result.runId)).toBe(true);
+    expect(readRunArtifact(result.runId, cwd)?.coverage?.status).toBe("final");
+    expect(result.uiUrl).toBe("");
+  });
+
+  it("writes artifacts to the --config project, not the invocation directory", async () => {
+    const invocation = mkdtempSync(join(tmpdir(), "canary-invoke-run-"));
+    const project = mkdtempSync(join(tmpdir(), "canary-target-run-"));
+    writeFileSync(join(project, "agent.mjs"), "export default async (input) => ({ value: input });", "utf8");
+    writeFileSync(join(project, "cases.ts"), "export default [{ id: 'smoke', input: 'ok' }];", "utf8");
+    writeFileSync(join(project, "canary.config.ts"), `export default { agent: { adapter: 'function', entry: './agent.mjs' }, cases: './cases.ts', coverage: { include: ['agent.mjs'], exclude: [] }, web: { host: '127.0.0.1', open: false } };`, "utf8");
+    const result = await runCommandDetailed({ cwd: invocation, configPath: join(project, "canary.config.ts"), headless: true, noOpen: true });
+    expect(result.exitCode).toBe(0);
+    expect(result.artifactPath.startsWith(join(project, ".canary", "artifacts"))).toBe(true);
+    expect(existsSync(join(invocation, ".canary"))).toBe(false);
+    expect(listRunArtifacts(invocation, join(project, "canary.config.ts")).some((run) => run.runId === result.runId)).toBe(true);
+  });
+
+  it("does not bind a UI port in headless mode", async () => {
+    const cwd = mkdtempSync(join(tmpdir(), "canary-cli-headless-"));
+    writeFileSync(join(cwd, "agent.mjs"), "export default async (input) => ({ value: input });", "utf8");
+    writeFileSync(join(cwd, "cases.ts"), "export default [{ id: 'smoke', input: 'ok' }];", "utf8");
+    writeFileSync(join(cwd, "canary.config.ts"), `export default { agent: { adapter: 'function', entry: './agent.mjs' }, cases: './cases.ts', coverage: { include: ['agent.mjs'], exclude: [] }, web: { enabled: true, host: '127.0.0.1', port: 1, open: true } };`, "utf8");
+    const logs: string[] = [];
+    const original = console.log;
+    console.log = (...args: unknown[]) => { logs.push(args.map(String).join(" ")); };
+    try {
+      const result = await runCommandDetailed({ cwd, headless: true, noOpen: true });
+      expect(result.exitCode).toBe(0);
+      expect(result.uiUrl).toBe("");
+      expect(logs.some((line) => line.startsWith("runId: "))).toBe(true);
+      expect(logs.some((line) => line.includes("canary UI:"))).toBe(false);
+    } finally {
+      console.log = original;
+    }
+  });
+
+  it("honors web.enabled: false without --headless", async () => {
+    const cwd = mkdtempSync(join(tmpdir(), "canary-cli-disabled-web-"));
+    writeFileSync(join(cwd, "agent.mjs"), "export default async (input) => ({ value: input });", "utf8");
+    writeFileSync(join(cwd, "cases.ts"), "export default [{ id: 'smoke', input: 'ok' }];", "utf8");
+    writeFileSync(join(cwd, "canary.config.ts"), `export default { agent: { adapter: 'function', entry: './agent.mjs' }, cases: './cases.ts', coverage: { include: ['agent.mjs'], exclude: [] }, web: { enabled: false, host: '127.0.0.1', port: 1, open: true } };`, "utf8");
+    const result = await runCommandDetailed({ cwd, noOpen: true });
+    expect(result.exitCode).toBe(0);
+    expect(result.uiUrl).toBe("");
+  });
+
+  it("prints the UI address before cases finish so SSE is reachable mid-run", async () => {
+    const cwd = mkdtempSync(join(tmpdir(), "canary-cli-live-ui-"));
+    writeFileSync(join(cwd, "agent.mjs"), "export default async (input) => { await new Promise((resolve) => setTimeout(resolve, 1200)); return { value: input }; };", "utf8");
+    writeFileSync(join(cwd, "cases.ts"), "export default [{ id: 'slow', input: 'ok' }];", "utf8");
+    writeFileSync(join(cwd, "canary.config.ts"), `export default { agent: { adapter: 'function', entry: './agent.mjs' }, cases: './cases.ts', coverage: { include: ['agent.mjs'], exclude: [] }, web: { host: '127.0.0.1', open: false } };`, "utf8");
+    const logs: string[] = [];
+    const original = console.log;
+    console.log = (...args: unknown[]) => { logs.push(args.map(String).join(" ")); };
+    const pending = runCommandDetailed({ cwd, noOpen: true 
