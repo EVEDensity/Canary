@@ -112,4 +112,24 @@ function spawnExecution(options: ExecutionOptions, executionId: string): ChildPr
       }),
     },
     stdio: ["ignore", "ignore", "pipe", "ipc"],
+  });
+}
+function makeCoverage(options: ExecutionOptions, scripts: CoverageScript[], partial: boolean, events: TrajectoryEvent[], initCaptured = false): CoverageSummary {
+  if (!scripts.length) return { ...emptyCoverage(options.runId), lifecycle: { initCaptured, taskWindow: "reset-after-init" } };
+  const base = summarizeCoverage(options.runId, scripts, { ...options.coverage, features: options.features });
+  const featureEvents: FeatureEvent[] = [];
+  for (const event of events) {
+    if (event.type === "feature.enter") featureEvents.push({ featureId: String(event.featureId ?? ""), status: "entered", caseId: options.caseId });
+    if (event.type === "feature.exit") featureEvents.push({ featureId: String(event.featureId ?? ""), status: event.status === "failed" ? "failed" : "completed", caseId: options.caseId });
   }
+  const enriched = assignFeatureCoverage(base, options.features ?? [], featureEvents, options.testCase?.expectedFeatures ?? [], options.caseId, options.coverage.rootDir ?? options.cwd ?? process.cwd());
+  return { ...enriched, status: partial ? "partial" : enriched.status, lifecycle: { initCaptured, taskWindow: "reset-after-init" } };
+}
+function budgetUsed(events: TrajectoryEvent[]): number {
+  return events.reduce((total, event) => total + (typeof event.cost === "number" ? event.cost : typeof event.budgetUsed === "number" ? event.budgetUsed : 0), 0);
+}
+
+export async function runExecution(options: ExecutionOptions): Promise<EvalResult> {
+  const executionId = `exec_${randomUUID()}`; const startedAt = Date.now(); const events: TrajectoryEvent[] = [];
+  if (options.signal?.aborted) {
+    options.onEvent?.({ type: "execution.started", runId: options.runId, executionId, caseId: opt
