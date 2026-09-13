@@ -355,4 +355,37 @@ async function experienceCommand(rest: string[], configPath?: string): Promise<n
   if (action === "clear") { store.clear(context.projectRoot); experienceOutput("canary.experience.clear", { projectRoot: context.projectRoot, active: store.activePointer(context.projectRoot) }); return 0; }
   if (action === "load") {
     try {
-      const loaded = store.load({ projectRoot: context.projectRoot, caseId: flagValue(rest, "--case"), tags: flagValues(rest, "--tag"), featureIds: flagV
+      const loaded = store.load({ projectRoot: context.projectRoot, caseId: flagValue(rest, "--case"), tags: flagValues(rest, "--tag"), featureIds: flagValues(rest, "--feature"), maxItems: parseBoundedInteger(flagValue(rest, "--max-items"), "--max-items"), maxChars: parseBoundedInteger(flagValue(rest, "--max-chars"), "--max-chars") });
+      experienceOutput("canary.experience.load", { projectRoot: context.projectRoot, loaded: loaded.loaded.map(({ content: _content, ...reference }) => reference), skipped: loaded.skipped, totalChars: loaded.totalChars });
+      return 0;
+    } catch (error) { experienceOutput("canary.experience.load", { valid: false, errors: [error instanceof Error ? error.message : String(error)] }); return 1; }
+  }
+  console.log(USAGE);
+  return 1;
+}
+
+async function hostCommand(rest: string[], configPath?: string): Promise<number> {
+  const action = rest[0];
+  if (action === "discover") {
+    const context = resolveProjectContext({ configPath });
+    printHost({
+      v: 1,
+      kind: "canary.host.discovery",
+      project: {
+        projectRoot: context.projectRoot,
+        configFile: context.configFile,
+        artifactRoot: context.artifactRoot,
+        source: context.source,
+        configExists: existsSync(context.configFile),
+      },
+      writableSourceRequested: false,
+    });
+    return existsSync(context.configFile) ? 0 : 1;
+  }
+  if (action === "evidence") {
+    const runId = rest[1];
+    if (!runId) { console.log(USAGE); return 1; }
+    const snapshot = readRunArtifact(runId, undefined, configPath);
+    if (!snapshot) { printHost({ v: 1, kind: "canary.host.evidence", error: `Run not found: ${runId}` }); return 1; }
+    try {
+      pr
