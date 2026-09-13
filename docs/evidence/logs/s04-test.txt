@@ -111,4 +111,134 @@ packages/cli test: [1m[46m RUN [49m[22m [36mv3.2.7 [39m[90mC:/Users/temp-
 packages/cli test:  [32m✓[39m tests/home.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 13[2mms[22m[39m
 packages/cli test: [90mstdout[2m | tests/cli.e2e.test.ts[2m > [22m[2mcanary run --headless[2m > [22m[2mwrites run.json and places coverage in the RunStore
 packages/cli test: [22m[39mrunId: run_6bf76da2-6669-4bfd-8219-d4ec681bbf63
-packages/cli test: [90mstdout[2m | tests/cli.e2e.test.ts[2m > [22m[2mca
+packages/cli test: [90mstdout[2m | tests/cli.e2e.test.ts[2m > [22m[2mcanary run --headless[2m > [22m[2mwrites run.json and places coverage in the RunStore
+packages/cli test: [22m[39mrunId: run_6bf76da2-6669-4bfd-8219-d4ec681bbf63
+packages/cli test: status: completed
+packages/cli test: cases: 1 passed / 0 failed / 1 total
+packages/cli test: coverage: final · lines 1/1 (100%) · functions 1/1 (100%) · branches 0/0 (0%) · statements 3/3 (100%)
+packages/cli test: evaluation: 1 passed / 0 failed assertions
+packages/cli test: artifact: C:\Users\TEMP-A~1\AppData\Local\Temp\canary-cli-zerugQ\.canary\artifacts\run_6bf76da2-6669-4bfd-8219-d4ec681bbf63\run.json
+packages/cli test: exit: 0
+packages/cli test: [90mstdout[2m | tests/cli.e2e.test.ts[2m > [22m[2mcanary run --headless[2m > [22m[2mwrites artifacts to the --config project, not the invocation directory
+packages/cli test: [22m[39mrunId: run_7240dc98-57f6-4a43-8016-38eff02200ec
+packages/cli test: [90mstdout[2m | tests/cli.e2e.test.ts[2m > [22m[2mcanary run --headless[2m > [22m[2mwrites artifacts to the --config project, not the invocation directory
+packages/cli test: [22m[39mrunId: run_7240dc98-57f6-4a43-8016-38eff02200ec
+packages/cli test: status: completed
+packages/cli test: cases: 1 passed / 0 failed / 1 total
+packages/cli test: coverage: final · lines 1/1 (100%) · functions 1/1 (100%) · branches 0/0 (0%) · statements 1/1 (100%)
+packages/cli test: evaluation: 1 passed / 0 failed assertions
+packages/cli test: artifact: C:\Users\TEMP-A~1\AppData\Local\Temp\canary-target-run-2hcd9r\.canary\artifacts\run_7240dc98-57f6-4a43-8016-38eff02200ec\run.json
+packages/cli test: exit: 0
+packages/cli test: [90mstdout[2m | tests/cli.e2e.test.ts[2m > [22m[2mcanary run --headless[2m > [22m[2mhonors web.enabled: false without --headless
+packages/cli test: [22m[39mrunId: run_1c98a51f-9897-48dd-bb38-5a0a71163e07
+packages/cli test: [90mstdout[2m | tests/cli.e2e.test.ts[2m > [22m[2mcanary run --headless[2m > [22m[2mhonors web.enabled: false without --headless
+packages/cli test: [22m[39mrunId: run_1c98a51f-9897-48dd-bb38-5a0a71163e07
+packages/cli test: status: completed
+packages/cli test: cases: 1 passed / 0 failed / 1 total
+packages/cli test: coverage: final · lines 1/1 (100%) · functions 1/1 (100%) · branches 0/0 (0%) · statements 1/1 (100%)
+packages/cli test: evaluation: 1 passed / 0 failed assertions
+packages/cli test: artifact: C:\Users\TEMP-A~1\AppData\Local\Temp\canary-cli-disabled-web-YGwSEK\.canary\artifacts\run_1c98a51f-9897-48dd-bb38-5a0a71163e07\run.json
+packages/cli test: exit: 0
+packages/cli test: [90mstdout[2m | tests/cli.e2e.test.ts[2m > [22m[2mcanary run --headless[2m > [22m[2mprints the UI address before cases finish so SSE is reachable mid-run
+packages/cli test: [22m[39mrunId: run_d18e11f1-29b8-4246-99fd-4c229ed36c3a
+packages/cli test: status: completed
+packages/cli test: cases: 1 passed / 0 failed / 1 total
+packages/cli test: coverage: final · lines 1/1 (100%) · functions 0/2 (0%) · branches 0/0 (0%) · statements 2/3 (66.67%)
+packages/cli test: evaluation: 1 passed / 0 failed assertions
+packages/cli test: artifact: C:\Users\TEMP-A~1\AppData\Local\Temp\canary-cli-live-ui-p9E7WU\.canary\artifacts\run_d18e11f1-29b8-4246-99fd-4c229ed36c3a\run.json
+packages/cli test: ui: http://127.0.0.1:52913/?runId=run_d18e11f1-29b8-4246-99fd-4c229ed36c3a&token=1528eeb4-48aa-4cbb-b749-982d1f68cf38
+packages/cli test: exit: 0
+packages/cli test: [90mstdout[2m | tests/cli.e2e.test.ts[2m > [22m[2mcanary run --headless[2m > [22m[2mfails the shared coverage gate when required coverage is below threshold
+packages/cli test: [22m[39mrunId: run_6119ca5f-be8b-4fb7-9fd5-1002491d12e1
+packages/cli test: [90mstdout[2m | tests/cli.e2e.test.ts[2m > [22m[2mcanary run --headless[2m > [22m[2mfails the shared coverage gate when required coverage is below threshold
+packages/cli test: [22m[39mcoverage-gate: fail · behavior_passed_coverage_insufficient · branches 0% < 100%
+packages/cli test: [90mstdout[2m | tests/cli.e2e.test.ts[2m > [22m[2mcanary run --headless[2m > [22m[2mfails the shared coverage gate when required coverage is below threshold
+packages/cli test: [22m[39mrunId: run_6119ca5f-be8b-4fb7-9fd5-1002491d12e1
+packages/cli test: status: failed
+packages/cli test: cases: 1 passed / 0 failed / 1 total
+packages/cli test: coverage: final · lines 1/2 (50%) · functions 1/2 (50%) · branches 0/2 (0%) · statements 1/4 (25%)
+packages/cli test: evaluation: 2 passed / 0 failed assertions
+packages/cli test: artifact: C:\Users\TEMP-A~1\AppData\Local\Temp\canary-gate-JBVWwA\.canary\artifacts\run_6119ca5f-be8b-4fb7-9fd5-1002491d12e1\run.json
+packages/cli test: exit: 1
+packages/cli test: [90mstdout[2m | tests/cli.e2e.test.ts[2m > [22m[2mcanary run --headless[2m > [22m[2mfails closed when judge.score is required and no provider is configured
+packages/cli test: [22m[39mrunId: run_6b1d9763-2a71-4eba-88f4-52dcce047ad6
+packages/cli test: [90mstdout[2m | tests/cli.e2e.test.ts[2m > [22m[2mcanary run --headless[2m > [22m[2mfails closed when judge.score is required and no provider is configured
+packages/cli test: [22m[39mrunId: run_6b1d9763-2a71-4eba-88f4-52dcce047ad6
+packages/cli test: status: failed
+packages/cli test: cases: 0 passed / 1 failed / 1 total
+packages/cli test: coverage: final · lines 1/1 (100%) · functions 1/1 (100%) · branches 0/0 (0%) · statements 1/1 (100%)
+packages/cli test: evaluation: 1 passed / 1 failed assertions
+packages/cli test: artifact: C:\Users\TEMP-A~1\AppData\Local\Temp\canary-judge-missing-Y3kZZi\.canary\artifacts\run_6b1d9763-2a71-4eba-88f4-52dcce047ad6\run.json
+packages/cli test: exit: 1
+packages/cli test: [90mstdout[2m | tests/cli.e2e.test.ts[2m > [22m[2mimprovement CLI loop[2m > [22m[2mexports regression drafts from a failed run and rejects a holdout regression on compare
+packages/cli test: [22m[39mrunId: run_94b4a8fe-21d2-493a-8857-e20979625129
+packages/cli test: [90mstdout[2m | tests/cli.e2e.test.ts[2m > [22m[2mimprovement CLI loop[2m > [22m[2mexports regression drafts from a failed run and rejects a holdout regression on compare
+packages/cli test: [22m[39mrunId: run_94b4a8fe-21d2-493a-8857-e20979625129
+packages/cli test: status: failed
+packages/cli test: cases: 1 passed / 1 failed / 2 total
+packages/cli test: coverage: final · lines 1/1 (100%) · functions 1/1 (100%) · branches 2/2 (100%) · statements 1/1 (100%)
+packages/cli test: evaluation: 3 passed / 1 failed assertions
+packages/cli test: artifact: C:\Users\TEMP-A~1\AppData\Local\Temp\canary-improve-MxfL9e\.canary\artifacts\run_94b4a8fe-21d2-493a-8857-e20979625129\run.json
+packages/cli test: exit: 1
+packages/cli test: [90mstdout[2m | tests/cli.e2e.test.ts[2m > [22m[2mimprovement CLI loop[2m > [22m[2mexports regression drafts from a failed run and rejects a holdout regression on compare
+packages/cli test: [22m[39m{
+packages/cli test:   "suggestions": [
+packages/cli test:     {
+packages/cli test:       "id": "suggestion_run_94b4a8fe-21d2-493a-8857-e20979625129_broken_1",
+packages/cli test:       "runId": "run_94b4a8fe-21d2-493a-8857-e20979625129",
+packages/cli test:       "caseId": "broken",
+packages/cli test:       "kind": "wrong_output",
+packages/cli test:       "category": "prompt",
+packages/cli test:       "rationale": "Agent output is missing",
+packages/cli test:       "evidence": [
+packages/cli test:         {
+packages/cli test:           "type": "assertion",
+packages/cli test:           "ref": "output.exists#1"
+packages/cli test:         },
+packages/cli test:         {
+packages/cli test:           "type": "state",
+packages/cli test:           "ref": "(value)"
+packages/cli test:         },
+packages/cli test:         {
+packages/cli test:           "type": "coverage",
+packages/cli test:           "ref": "c:\\Users\\TEMP-A~1\\AppData\\Local\\Temp\\canary-improve-MxfL9e\\agent.mjs:1"
+packages/cli test:         }
+packages/cli test:       ],
+packages/cli test:       "proposedCase": {
+packages/cli test:         "id": "broken.regression",
+packages/cli test:         "input": "x",
+packages/cli test:         "tags": [
+packages/cli test:           "regression"
+packages/cli test:         ],
+packages/cli test:         "assertions": [
+packages/cli test:           {
+packages/cli test:             "type": "output.exists"
+packages/cli test:           }
+packages/cli test:         ],
+packages/cli test:         "dataset": {
+packages/cli test:           "split": "regression"
+packages/cli test:         }
+packages/cli test:       },
+packages/cli test:       "generation": {
+packages/cli test:         "status": "ok"
+packages/cli test:       },
+packages/cli test:       "status": "proposed",
+packages/cli test:       "confidence": 0.65
+packages/cli test:     }
+packages/cli test:   ],
+packages/cli test:   "drafts": [
+packages/cli test:     "C:\\Users\\TEMP-A~1\\AppData\\Local\\Temp\\canary-improve-MxfL9e\\cases\\regression\\broken.regression.ts"
+packages/cli test:   ]
+packages/cli test: }
+packages/cli test: [90mstdout[2m | tests/cli.e2e.test.ts[2m > [22m[2mimprovement CLI loop[2m > [22m[2mexports regression drafts from a failed run and rejects a holdout regression on compare
+packages/cli test: [22m[39mrunId: run_3a8449d5-e12e-4736-bad5-f878db0b90cb
+packages/cli test: [90mstdout[2m | tests/cli.e2e.test.ts[2m > [22m[2mimprovement CLI loop[2m > [22m[2mexports regression drafts from a failed run and rejects a holdout regression on compare
+packages/cli test: [22m[39mrunId: run_3a8449d5-e12e-4736-bad5-f878db0b90cb
+packages/cli test: status: completed
+packages/cli test: cases: 2 passed / 0 failed / 2 total
+packages/cli test: coverage: final · lines 1/1 (100%) · functions 1/1 (100%) · branches 0/0 (0%) · statements 1/1 (100%)
+packages/cli test: evaluation: 4 passed / 0 failed assertions
+packages/cli test: artifact: C:\Users\TEMP-A~1\AppData\Local\Temp\canary-improve-MxfL9e\.canary\artifacts\run_3a8449d5-e12e-4736-bad5-f878db0b90cb\run.json
+packages/cli test: exit: 0
+packages/cli test: [90mstdout[2m | tests/cli.e2e.test.ts[2m > [22m[2mimprovement CLI loop[2m > [22m[2mexports regression drafts from a failed run and rejects a holdout regression on compare
+packages/cli test: [22m[39mrunId: run_3fae7ed4-5c1a-4fb7-816
