@@ -147,4 +147,29 @@ export function readRunArtifact(runId: string, cwd?: string, configPath?: string
 
 function openBrowser(url: string): void {
   if (process.platform === "win32") void import("node:child_process").then(({ spawn }) => spawn("cmd", ["/c", "start", "", url], { detached: true, stdio: "ignore" }));
-  else if (process.platform === "darwin") void import("node:child_process").then
+  else if (process.platform === "darwin") void import("node:child_process").then(({ spawn }) => spawn("open", [url], { detached: true, stdio: "ignore" }));
+  else void import("node:child_process").then(({ spawn }) => spawn("xdg-open", [url], { detached: true, stdio: "ignore" }));
+}
+
+function formatCoverage(coverage?: CoverageSummary): string {
+  if (!coverage) return "unavailable";
+  const part = (key: "lines" | "functions" | "branches" | "statements") => `${key} ${coverage[key].covered}/${coverage[key].total} (${coverage[key].pct}%)`;
+  return `${coverage.status} · ${part("lines")} · ${part("functions")} · ${part("branches")} · ${part("statements")}`;
+}
+
+export function printRunSummary(run: RunSnapshot, extras: { artifactPath: string; uiUrl?: string; exitCode: number }): void {
+  const failedCases = Math.max(0, run.completedCases - run.passedCases);
+  const assertions = run.results.flatMap((result) => result.assertions);
+  const failedAssertions = assertions.filter((item) => !item.passed).length;
+  console.log(`runId: ${run.runId}`);
+  console.log(`status: ${run.status}`);
+  console.log(`cases: ${run.passedCases} passed / ${failedCases} failed / ${run.totalCases} total`);
+  console.log(`coverage: ${formatCoverage(run.coverage)}`);
+  console.log(`evaluation: ${assertions.length - failedAssertions} passed / ${failedAssertions} failed assertions`);
+  console.log(`artifact: ${extras.artifactPath}`);
+  if (extras.uiUrl) console.log(`ui: ${extras.uiUrl}`);
+  console.log(`exit: ${extras.exitCode}`);
+}
+
+function printRunList(runs: RunSnapshot[]): void {
+  if (!runs.length) { console.log("No runs found."); retu
