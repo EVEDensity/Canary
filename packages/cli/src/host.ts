@@ -184,4 +184,39 @@ export function validateHostProposal(value: unknown, run: RunSnapshot): HostProp
   }
   const allowed = new Set(["v", "kind", "runId", "caseRefs", "summary", "observations", "suggestedActions", "limitations"]);
   for (const key of Object.keys(value)) {
-    if (!allowed.has(key)) errors.push(`Unsupported proposal field: $
+    if (!allowed.has(key)) errors.push(`Unsupported proposal field: ${key}`);
+  }
+  if (value.v !== HOST_PROTOCOL_VERSION) errors.push(`v must equal ${HOST_PROTOCOL_VERSION}`);
+  if (value.kind !== "canary.host.proposal") errors.push("kind must equal canary.host.proposal");
+  if (value.runId !== run.runId) errors.push(`runId must equal ${run.runId}`);
+  const summary = typeof value.summary === "string" ? value.summary.trim() : "";
+  if (!summary) errors.push("summary must be a non-empty string");
+  const caseRefs = stringArray(value.caseRefs, "caseRefs", errors);
+  const suggestedActions = stringArray(value.suggestedActions, "suggestedActions", errors);
+  const limitations = stringArray(value.limitations, "limitations", errors, false);
+  if (!Array.isArray(value.observations) || value.observations.length === 0) {
+    errors.push("observations must be a non-empty array");
+  } else {
+    value.observations.forEach((observation, index) => {
+      if (!isRecord(observation) || Object.keys(observation).some((key) => key !== "caseId" && key !== "claim") || typeof observation.caseId !== "string" || !observation.caseId.trim() || typeof observation.claim !== "string" || !observation.claim.trim()) {
+        errors.push(`observations[${index}] must contain only non-empty caseId and claim strings`);
+      }
+    });
+  }
+  const knownCaseIds = new Set(run.results.map((result) => result.caseId));
+  for (const caseId of caseRefs) if (!knownCaseIds.has(caseId)) errors.push(`caseRefs includes unknown case: ${caseId}`);
+  if (Array.isArray(value.observations)) {
+    for (const observation of value.observations) {
+      if (isRecord(observation) && typeof observation.caseId === "string" && !caseRefs.includes(observation.caseId)) errors.push(`observations references a case not declared in caseRefs: ${observation.caseId}`);
+    }
+  }
+  if (run.status !== "completed") errors.push(`Run ${run.runId} is ${run.status}, not completed`);
+  if (errors.length) return rejected(errors);
+
+  const proposal: HostProposal = {
+    v: HOST_PROTOCOL_VERSION,
+    kind: "canary.host.proposal",
+    runId: run.runId,
+    caseRefs,
+    summary,
+    observ
