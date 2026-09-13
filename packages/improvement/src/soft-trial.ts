@@ -64,4 +64,23 @@ function trialKey(result: Pick<ComparableResult, "caseId" | "repetition">): stri
   return result.repetition === undefined ? result.caseId : `${result.caseId}#${result.repetition}`;
 }
 
-function 
+function includesCase(keys: string[], caseId: string): boolean {
+  return keys.some((key) => key === caseId || key.startsWith(`${caseId}#`));
+}
+
+/** Objective S-04 gate. Human approval is deliberately separate from this evidence check. */
+export function assessSoftTrial(input: {
+  baseline: ComparableRun;
+  candidate: ComparableRun;
+  comparison: Comparison;
+  regressionCaseIds: string[];
+  holdoutCaseIds: string[];
+  candidateExitCode: number;
+  comparisonArtifact: string;
+  now?: string;
+}): SoftTrialValidation {
+  const reasons: string[] = [];
+  const candidateResults = input.candidate.results;
+  if (!input.regressionCaseIds.length) reasons.push("independent regression set is empty");
+  if (!input.holdoutCaseIds.length) reasons.push("independent holdout set is empty");
+  if (!input.comparison.comparable || !input.comparison.completeness.passed) reasons.push(...input.comparison.completeness.reasons, "baselin
