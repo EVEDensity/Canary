@@ -388,4 +388,36 @@ async function hostCommand(rest: string[], configPath?: string): Promise<number>
     const snapshot = readRunArtifact(runId, undefined, configPath);
     if (!snapshot) { printHost({ v: 1, kind: "canary.host.evidence", error: `Run not found: ${runId}` }); return 1; }
     try {
-      pr
+      printHost(hostEvidenceOutput(snapshot, {
+        caseId: flagValue(rest, "--case"),
+        maxCases: parseBoundedInteger(flagValue(rest, "--max-cases"), "--max-cases"),
+        maxEventsPerCase: parseBoundedInteger(flagValue(rest, "--max-events"), "--max-events"),
+      }));
+      return 0;
+    } catch (error) {
+      printHost({ v: 1, kind: "canary.host.evidence", error: error instanceof Error ? error.message : String(error) });
+      return 1;
+    }
+  }
+  if (action === "validate-proposal") {
+    const runId = rest[1];
+    const file = flagValue(rest, "--file");
+    if (!runId || !file) { console.log(USAGE); return 1; }
+    const snapshot = readRunArtifact(runId, undefined, configPath);
+    if (!snapshot) { printHost({ v: 1, kind: "canary.host.proposal-validation", valid: false, status: "rejected", errors: [`Run not found: ${runId}`] }); return 1; }
+    const context = resolveProjectContext({ configPath });
+    const proposalPath = resolve(context.invocationRoot, file);
+    const validation = validateHostProposalFile(proposalPath, snapshot, context.artifactRoot);
+    printHost(validation);
+    return validation.valid ? 0 : 1;
+  }
+  console.log(USAGE);
+  return 1;
+}
+
+export async function main(argv = process.argv.slice(2)): Promise<number> {
+  const { command, rest } = parseArgv(argv);
+  const configPath = flagValue(rest, "--config");
+  if (command === "host") return hostCommand(rest, configPath);
+  if (command === "experience") return experienceCommand(rest, configPath);
+  if (command === "help") { console.log(USAGE)
