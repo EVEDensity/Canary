@@ -84,6 +84,63 @@ export interface AuthorizationRecord {
   wired: false;
 }
 
+
+export type ExperienceStatus = "proposed" | "validated" | "active" | "expired" | "revoked";
+export type ExperienceSourceKind = "human" | "run" | "host_proposal" | "tool_output";
+
+export interface ExperienceScope {
+  projectRoot: string;
+  caseIds?: string[];
+  tags?: string[];
+  featureIds?: string[];
+}
+
+export interface ExperienceRecord {
+  v: 1;
+  id: string;
+  key: string;
+  version: number;
+  status: ExperienceStatus;
+  projectRoot: string;
+  source: { kind: ExperienceSourceKind; ref?: string };
+  summary: string;
+  content: string;
+  contentHash: string;
+  counterexamples: string[];
+  scope: ExperienceScope;
+  createdAt: string;
+  updatedAt: string;
+  expiresAt?: string;
+  expiryReason?: string;
+  validation?: { validatedAt: string; checks: string[] };
+}
+
+export interface ActiveExperiencePointer {
+  v: 1;
+  projectRoot: string;
+  entries: Array<{ id: string; key: string; version: number; contentHash: string }>;
+  updatedAt: string;
+}
+
+/** The bounded, sanitized context made available to a single Agent execution. */
+export interface LoadedExperience {
+  id: string;
+  key: string;
+  version: number;
+  contentHash: string;
+  content: string;
+  scope: ExperienceScope;
+}
+
+/** Audit-only reference stored on RunSnapshot; content is deliberately omitted. */
+export interface ExperienceLoadRecord {
+  id: string;
+  key: string;
+  version: number;
+  contentHash: string;
+  loadedAt: string;
+}
+
 export interface ActivationRecord {
   v: 1;
   id: string;
