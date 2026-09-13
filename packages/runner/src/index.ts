@@ -212,4 +212,24 @@ async function finishEvaluation(options: ExecutionOptions, executionId: string, 
   const trajectory: Trajectory = { id: `trajectory_${executionId}`, runId: options.runId, caseId: options.caseId, events, stepCount: events.filter((event) => event.type === "tool_call" || event.type === "tool.call").length, termination };
   const testCase: TestCase = options.testCase ?? { id: options.caseId, input: options.input, assertions: [] };
   const stateDiff = stateDiffFor(testCase, events, output);
-  const evaluation = await evaluateAgent({ assertions: testCase.assertions ?? [], context: { testCase, output, trajectory, executionStatus: trajectory.termination, latencyMs: Date.now() - startedAt, toolCalls: trajectory.stepCount, budgetUsed: budgetUsed(events), expectedFeatures: testCase.expectedF
+  const evaluation = await evaluateAgent({ assertions: testCase.assertions ?? [], context: { testCase, output, trajectory, executionStatus: trajectory.termination, latencyMs: Date.now() - startedAt, toolCalls: trajectory.stepCount, budgetUsed: budgetUsed(events), expectedFeatures: testCase.expectedFeatures, featureStatuses: Object.fromEntries(coverage.featureChains.map((feature) => [feature.featureId, feature.status])), coverage, state: stateDiff.after, judge: options.judge, judgePolicy: options.judgePolicy } });
+  const expectedTermination = (testCase.assertions ?? []).some((assertion) => assertion.type === "execution.termination" && "expected" in assertion && assertion.expected === trajectory.termination);
+  const runtimePassed = !failure || expectedTermination;
+  const passed = runtimePassed && evaluation.passed;
+  const result: EvalResult = {
+    runId: options.runId, executionId, caseId: options.caseId,
+    ...(options.repetition ? { repetition: options.repetition, repetitionTotal: options.repetitionTotal } : {}),
+    passed, assertions: [{ id: "agent.completed", passed: runtimePassed, message: failure ?? "Agent completed" }, ...evaluation.assertions], coverage, output, input: options.input,
+    metrics: { latencyMs: Date.now() - startedAt, steps: trajectory.stepCount, toolCalls: trajectory.stepCount, budgetUsed: budgetUsed(events) },
+    trajectoryId: trajectory.id, trajectory, stateDiff, createdAt: new Date().toISOString(),
+    sourceCase: snapshotSourceCase(testCase),
+  };
+  if (!passed) result.failureCategory = attributeFailure(result).kind;
+  options.onEvent?.({ type: "execution.finished", executionId, result });
+  return result;
+}
+
+export async function runHttpExecution(options: ExecutionOptions): Promise<EvalResult> {
+  const executionId = `exec_${randomUUID()}`; const startedAt = Date.now(); const events: TrajectoryEvent[] = [];
+  options.onEvent?.({ type: "execution.started", runId: options.runId, executionId, caseId: options.caseId });
+  const emit = (event: Trajec
