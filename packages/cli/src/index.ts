@@ -120,4 +120,31 @@ export async function loadCases(pattern: string | string[], cwd: string, exclude
   return cases;
 }
 
-export func
+export function artifactRoot(cwd?: string, configPath?: string): string {
+  return resolveProjectContext({ cwd, configPath }).artifactRoot;
+}
+export function defaultRegressionDir(cwd?: string, configPath?: string): string {
+  const root = resolveProjectContext({ cwd, configPath }).projectRoot;
+  if (existsSync(resolve(root, "cases/regression"))) return resolve(root, "cases/regression");
+  if (existsSync(resolve(root, "examples/local-agent/cases"))) return resolve(root, "examples/local-agent/cases/regression");
+  return resolve(root, "cases/regression");
+}
+export function listRunArtifacts(cwd?: string, configPath?: string): RunSnapshot[] {
+  return new FileArtifactRepository(artifactRoot(cwd, configPath)).listRuns();
+}
+export function readRunArtifact(runId: string, cwd?: string, configPath?: string): RunSnapshot | undefined {
+  const repository = new FileArtifactRepository(artifactRoot(cwd, configPath));
+  const run = repository.readRun(runId);
+  if (!run) return undefined;
+  const coverage = run.coverage ?? repository.readCoverage(runId);
+  const improvements = repository.readJson<unknown[]>(runId, "improvement.json");
+  return {
+    ...run,
+    ...(coverage ? { coverage } : {}),
+    ...(Array.isArray(improvements) ? { improvements } : {}),
+  };
+}
+
+function openBrowser(url: string): void {
+  if (process.platform === "win32") void import("node:child_process").then(({ spawn }) => spawn("cmd", ["/c", "start", "", url], { detached: true, stdio: "ignore" }));
+  else if (process.platform === "darwin") void import("node:child_process").then
