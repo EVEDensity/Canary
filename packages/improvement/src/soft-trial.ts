@@ -30,4 +30,38 @@ export interface SoftTrialRecord {
   datasetIdentity: string;
   regressionCaseIds: string[];
   holdoutCaseIds: string[];
-  budget: { maxCases: number; maxChars: number; observedCases?: number; o
+  budget: { maxCases: number; maxChars: number; observedCases?: number; observedChars?: number };
+  status: SoftTrialStatus;
+  authorization: SoftTrialAuthorization;
+  priorActive?: ActiveExperiencePointer;
+  validation?: SoftTrialValidation;
+  nextRunId?: string;
+}
+
+interface ComparableResult {
+  caseId: string;
+  repetition?: number;
+  passed: boolean;
+}
+
+interface ComparableRun {
+  runId: string;
+  status: string;
+  results: ComparableResult[];
+  gate?: CoverageGateResult;
+}
+
+interface Comparison {
+  verdict: "keep" | "improve" | "reject" | "incomparable";
+  comparable: boolean;
+  regressions: string[];
+  improvements: string[];
+  completeness: { passed: boolean; reasons: string[] };
+  admission: { verdict: "admit" | "reject" | "hold" | "incomparable"; reasons: string[] };
+}
+
+function trialKey(result: Pick<ComparableResult, "caseId" | "repetition">): string {
+  return result.repetition === undefined ? result.caseId : `${result.caseId}#${result.repetition}`;
+}
+
+function 
