@@ -87,4 +87,37 @@ export async function discoverCaseFiles(patterns: string | string[], cwd: string
   const walk = async (dir: string): Promise<void> => {
     for (const entry of await readdir(dir, { withFileTypes: true })) {
       if (entry.name === "node_modules" || entry.name === ".canary" || entry.name === "dist") continue;
-      const 
+      const full = resolve(dir, entry.name);
+      if (entry.isDirectory()) await walk(full);
+      else if (/\.(ts|mts|cts|js|mjs)$/.test(entry.name) && !entry.name.endsWith(".d.ts")) all.push(full);
+    }
+  };
+  await walk(cwd);
+  const matches = all.filter((file) => {
+    const rel = file.slice(cwd.length + 1).replaceAll("\\", "/");
+    return includes.some((p) => globToRegExp(p).test(rel) || p === rel || p === file) && !exclude.some((p) => globToRegExp(p).test(rel));
+  });
+  return [...new Set(matches)].sort((a, b) => a.localeCompare(b));
+}
+
+export async function loadCases(pattern: string | string[], cwd: string, exclude: string[] = []): Promise<TestCase[]> {
+  const files = await discoverCaseFiles(pattern, cwd, exclude);
+  if (!files.length) throw new Error(`No test case files matched: ${Array.isArray(pattern) ? pattern.join(", ") : pattern}`);
+  const cases: TestCase[] = [];
+  const ids = new Set<string>();
+  for (const file of files) {
+    const value = defaultExport(await importModule(file));
+    const values = Array.isArray(value) ? value : [value];
+    for (const candidate of values) {
+      let testCase: TestCase;
+      try { testCase = parseTestCase(candidate, `TestCase in ${file}`) as TestCase; }
+      catch (error) { throw new Error(`Invalid TestCase schema in ${file}: ${error instanceof Error ? error.message : String(error)}`); }
+      if (ids.has(testCase.id)) throw new Error(`Duplicate test case id: ${testCase.id}`);
+      ids.add(testCase.id);
+      cases.push(testCase);
+    }
+  }
+  return cases;
+}
+
+export func
