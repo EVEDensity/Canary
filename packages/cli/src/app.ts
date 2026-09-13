@@ -41,4 +41,24 @@ function writeLiveArtifacts(artifactDir: string, snapshot: RunSnapshot): void {
 }
 
 function writeFinalReports(artifactDir: string, snapshot: RunSnapshot, formats: ReporterFormat[], gate: ReturnType<typeof evaluateCoverageGates>, suggestions: unknown[]): string {
-  const reportInput = { runId: snapshot.runId, status: snapshot.status, startedAt: snapshot.startedAt, finishedAt: snapshot.finishedAt, totalCases: snapshot.totalCases, passedCases: snapshot.
+  const reportInput = { runId: snapshot.runId, status: snapshot.status, startedAt: snapshot.startedAt, finishedAt: snapshot.finishedAt, totalCases: snapshot.totalCases, passedCases: snapshot.passedCases, results: snapshot.results, coverage: snapshot.coverage, gate };
+  let junitXml = "";
+  for (const format of formats) {
+    const body = renderReport(reportInput, format);
+    if (format === "junit") junitXml = body;
+    if (format === "console") {
+      writeFileSync(resolve(artifactDir, "report.console.txt"), body, "utf8");
+      continue;
+    }
+    const extension = format === "junit" ? "xml" : format === "markdown" ? "md" : "json";
+    writeFileSync(resolve(artifactDir, `report.${extension}`), body, "utf8");
+  }
+  if (!junitXml) junitXml = renderReport(reportInput, "junit");
+  writeFileSync(resolve(artifactDir, "gate.json"), JSON.stringify(gate, null, 2), "utf8");
+  writeFileSync(resolve(artifactDir, "improvement.json"), JSON.stringify(suggestions, null, 2), "utf8");
+  return junitXml;
+}
+
+export interface EvaluationInput {
+  store: RunStore;
+  config: CanaryConfig;
