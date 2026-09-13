@@ -1,3 +1,4 @@
+import type { ExperienceLoadRecord } from "./contracts.js";
 /** Domain types shared by config, runner, storage, and UI. Mechanical split from the former barrel. */
 
 export type AgentAdapterKind = "function" | "http" | "mcp";
@@ -315,6 +316,7 @@ export interface RunSnapshot {
   coverage?: CoverageSummary;
   events: RunnerEvent[];
   improvements?: unknown[];
+  experiences?: ExperienceLoadRecord[];
   gate?: CoverageGateResult;
   replayOf?: string;
   candidateOf?: string;
