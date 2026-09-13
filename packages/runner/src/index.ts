@@ -153,4 +153,25 @@ export async function runExecution(options: ExecutionOptions): Promise<EvalResul
   child.stderr?.setEncoding("utf8"); child.stderr?.on("data", (chunk: string) => { stderr += chunk; });
   const cancel = (): void => { if (!settled) { didCancel = true; failure = "Execution cancelled"; stopChild(); } };
   options.signal?.addEventListener("abort", cancel, { once: true });
-  const timeout = setTimeout(() => { if (!settled) { didTimeout = true; failure = `Execution timed out after ${optio
+  const timeout = setTimeout(() => { if (!settled) { didTimeout = true; failure = `Execution timed out after ${options.timeoutMs ?? 60_000}ms`; stopChild(); } }, options.timeoutMs ?? 60_000);
+  await new Promise<void>((resolvePromise) => {
+    const done = (): void => { if (!settled) { settled = true; resolvePromise(); } };
+    child.on("message", (raw: unknown) => {
+      let message: ChildMessage;
+      try { message = parseChildMessage(raw) as ChildMessage; }
+      catch (error) { failure ??= error instanceof Error ? error.message : String(error); return; }
+      if (message.type === "event") { events.push(message.event); options.onEvent?.({ type: "trace.event", executionId, event: message.event }); }
+      else if (message.type === "result") output = message.value;
+      else if (message.type === "error") failure ??= message.error;
+      else if (message.type === "coverage") {
+        if (message.phase === "init") { initScripts = message.scripts; return; }
+        // takePreciseCoverage resets after init; recombine so module-load hits stay in the reported set.
+        scripts = mergeV8Scripts([initScripts, message.scripts]); coveragePartial = Boolean(message.partial);
+        if (message.provisional) {
+          const now = Date.now();
+          const key = JSON.stringify(scripts.map((script) => ({ url: script.url, functions: script.functions })));
+          if (key === lastProvisionalKey || now - lastProvisionalAt < sampleMinIntervalMs) return;
+          lastProvisionalKey = key; lastProvisionalAt = now;
+          const provisional = makeCoverage(options, scripts, false, events, initScripts.length > 0);
+          options.onCoverage?.({ ...provisional, status: "provisional" });
+          options.onEvent?.({ type: "coverage.updated", executionId, coverage: { ...provisional, status: "provisional"
