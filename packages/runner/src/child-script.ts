@@ -79,7 +79,7 @@ const send = (message) => new Promise((resolve) => {
         await send(Object.assign({ type: "coverage", scripts: init.result || [], phase: "init" }, coverageMeta()));
       } catch {}
     }
-    await send({ type: "ready" }); const value = await agent(payload.input, { executionId: payload.executionId, emit, tools, state, model }); await send({ type: "result", value });
+    await send({ type: "ready" }); const value = await agent(payload.input, { executionId: payload.executionId, emit, tools, state, model, experiences: Array.isArray(payload.experiences) ? payload.experiences : [] }); await send({ type: "result", value });
   } catch (error) { partial = true; await send({ type: "error", error: error && (error.stack || error.message) || String(error) }); }
   finally {
     if (tools) try { await tools.close(); } catch {}
