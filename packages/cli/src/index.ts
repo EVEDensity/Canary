@@ -57,4 +57,34 @@ async function importModule(filePath: string): Promise<Record<string, unknown>> 
   }
   return import(url) as Promise<Record<string, unknown>>;
 }
-function defaultExport(module: Record<string, unknown>
+function defaultExport(module: Record<string, unknown>): unknown {
+  const value = module.default;
+  return value && typeof value === "object" && "default" in value ? (value as Record<string, unknown>).default : value;
+}
+async function loadConfig(configPath: string): Promise<CanaryConfig> {
+  return parseCanaryConfig(defaultExport(await importModule(configPath))) as CanaryConfig;
+}
+
+/** Double-star globs match zero or more directories: cases/smoke.ts and cases/a/b.ts both match. */
+export function globToRegExp(pattern: string): RegExp {
+  const normalized = pattern.replaceAll("\\", "/").replace(/^\.\//, "");
+  let source = "";
+  for (let i = 0; i < normalized.length; i++) {
+    const c = normalized[i] ?? "";
+    if (c === "*" && normalized[i + 1] === "*") {
+      if (normalized[i + 2] === "/") { source += "(?:.*/)?"; i += 2; }
+      else { source += ".*"; i += 1; }
+    } else if (c === "*") source += "[^/]*";
+    else if (c === "?") source += "[^/]";
+    else source += /[\\.^$+{}()|[\]]/.test(c) ? `\\${c}` : c;
+  }
+  return new RegExp(`^${source}$`, "i");
+}
+
+export async function discoverCaseFiles(patterns: string | string[], cwd: string, exclude: string[] = []): Promise<string[]> {
+  const includes = (Array.isArray(patterns) ? patterns : [patterns]).map((p) => p.replaceAll("\\", "/").replace(/^\.\//, ""));
+  const all: string[] = [];
+  const walk = async (dir: string): Promise<void> => {
+    for (const entry of await readdir(dir, { withFileTypes: true })) {
+      if (entry.name === "node_modules" || entry.name === ".canary" || entry.name === "dist") continue;
+      const 
