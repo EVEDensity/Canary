@@ -82,4 +82,15 @@ export async function runEvaluation(input: EvaluationInput): Promise<{ runId: st
   const fallbackReps = input.repetitions ?? input.config.runtime?.repetitions ?? 1;
   const plan = input.selected.flatMap((testCase) => {
     const total = repetitionsFor(testCase, fallbackReps);
-    return Array.from({ length: total }, (_, index) => ({ testCase, r
+    return Array.from({ length: total }, (_, index) => ({ testCase, repetition: index + 1, repetitionTotal: total }));
+  });
+  const run = input.runId && input.store.get(input.runId)
+    ? input.store.get(input.runId)!
+    : input.store.create(plan.length, input.runId, input.replayOf);
+  const experienceStore = input.experiences ?? new ExperienceStore(resolve(input.context.projectRoot, ".canary", "experiences"));
+  const experienceByCase = new Map<string, ExperienceLoadResult>();
+  const experienceRefs = new Map<string, { id: string; key: string; version: number; contentHash: string; loadedAt: string }>();
+  for (const testCase of input.selected) {
+    const loaded = experienceStore.load({ projectRoot: input.context.projectRoot, caseId: testCase.id, tags: testCase.tags, featureIds: testCase.expectedFeatures });
+    experienceByCase.set(testCase.id, loaded);
+    for (const item of loaded.loaded) experienceRefs.set(item.id, { id: item.id, key: item.key, versio
