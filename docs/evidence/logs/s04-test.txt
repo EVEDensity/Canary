@@ -241,4 +241,202 @@ packages/cli test: evaluation: 4 passed / 0 failed assertions
 packages/cli test: artifact: C:\Users\TEMP-A~1\AppData\Local\Temp\canary-improve-MxfL9e\.canary\artifacts\run_3a8449d5-e12e-4736-bad5-f878db0b90cb\run.json
 packages/cli test: exit: 0
 packages/cli test: [90mstdout[2m | tests/cli.e2e.test.ts[2m > [22m[2mimprovement CLI loop[2m > [22m[2mexports regression drafts from a failed run and rejects a holdout regression on compare
-packages/cli test: [22m[39mrunId: run_3fae7ed4-5c1a-4fb7-816
+packages/cli test: [22m[39mrunId: run_3fae7ed4-5c1a-4fb7-816e-4bf1cf2c2ed8
+packages/cli test: [90mstdout[2m | tests/cli.e2e.test.ts[2m > [22m[2mimprovement CLI loop[2m > [22m[2mexports regression drafts from a failed run and rejects a holdout regression on compare
+packages/cli test: [22m[39mrunId: run_3fae7ed4-5c1a-4fb7-816e-4bf1cf2c2ed8
+packages/cli test: status: failed
+packages/cli test: cases: 1 passed / 1 failed / 2 total
+packages/cli test: coverage: final · lines 1/1 (100%) · functions 1/1 (100%) · branches 2/2 (100%) · statements 1/1 (100%)
+packages/cli test: evaluation: 3 passed / 1 failed assertions
+packages/cli test: artifact: C:\Users\TEMP-A~1\AppData\Local\Temp\canary-improve-MxfL9e\.canary\artifacts\run_3fae7ed4-5c1a-4fb7-816e-4bf1cf2c2ed8\run.json
+packages/cli test: exit: 1
+packages/cli test: [90mstdout[2m | tests/cli.e2e.test.ts[2m > [22m[2mimprovement CLI loop[2m > [22m[2mexports regression drafts from a failed run and rejects a holdout regression on compare
+packages/cli test: [22m[39m{
+packages/cli test:   "v": 1,
+packages/cli test:   "baselineRunId": "run_3a8449d5-e12e-4736-bad5-f878db0b90cb",
+packages/cli test:   "candidateRunId": "run_3fae7ed4-5c1a-4fb7-816e-4bf1cf2c2ed8",
+packages/cli test:   "verdict": "reject",
+packages/cli test:   "comparable": true,
+packages/cli test:   "completeness": {
+packages/cli test:     "passed": true,
+packages/cli test:     "missingBaselinePassing": [],
+packages/cli test:     "missingCandidate": [],
+packages/cli test:     "duplicateIds": [],
+packages/cli test:     "cancelledOrError": [],
+packages/cli test:     "datasetMismatch": false,
+packages/cli test:     "reasons": []
+packages/cli test:   },
+packages/cli test:   "regressions": [
+packages/cli test:     "holdout-planning",
+packages/cli test:     "holdout:holdout-planning"
+packages/cli test:   ],
+packages/cli test:   "improvements": [],
+packages/cli test:   "coverageDelta": {
+packages/cli test:     "comparable": false,
+packages/cli test:     "lines": 0,
+packages/cli test:     "reason": "coverage denominators differ; collectors are not ranked"
+packages/cli test:   },
+packages/cli test:   "admission": {
+packages/cli test:     "v": 1,
+packages/cli test:     "verdict": "reject",
+packages/cli test:     "reasons": [
+packages/cli test:       "regressions: holdout-planning, holdout:holdout-planning"
+packages/cli test:     ],
+packages/cli test:     "hardGatePassed": true,
+packages/cli test:     "completenessPassed": true,
+packages/cli test:     "quality": {
+packages/cli test:       "comparable": false,
+packages/cli test:       "uncertain": true,
+packages/cli test:       "metrics": [
+packages/cli test:         {
+packages/cli test:           "v": 1,
+packages/cli test:           "name": "lines",
+packages/cli test:           "value": 0,
+packages/cli test:           "status": "available",
+packages/cli test:           "precision": "exact",
+packages/cli test:           "provenance": "coverage-summary"
+packages/cli test:         },
+packages/cli test:         {
+packages/cli test:           "v": 1,
+packages/cli test:           "name": "branches",
+packages/cli test:           "status": "unavailable",
+packages/cli test:           "precision": "unknown",
+packages/cli test:           "provenance": "coverage-denominator-mismatch"
+packages/cli test:         },
+packages/cli test:         {
+packages/cli test:           "v": 1,
+packages/cli test:           "name": "functions",
+packages/cli test:           "value": 0,
+packages/cli test:           "status": "available",
+packages/cli test:           "precision": "exact",
+packages/cli test:           "provenance": "coverage-summary"
+packages/cli test:         }
+packages/cli test:       ]
+packages/cli test:     }
+packages/cli test:   }
+packages/cli test: }
+packages/cli test: [90mstdout[2m | tests/cli.e2e.test.ts[2m > [22m[2mimprovement CLI loop[2m > [22m[2maccepts and verifies a suggestion then runs a one-click candidate pipeline
+packages/cli test: [22m[39mrunId: run_696cce36-73c5-47c0-ad77-7c70f5463b81
+packages/cli test: [90mstdout[2m | tests/cli.e2e.test.ts[2m > [22m[2mimprovement CLI loop[2m > [22m[2maccepts and verifies a suggestion then runs a one-click candidate pipeline
+packages/cli test: [22m[39mrunId: run_696cce36-73c5-47c0-ad77-7c70f5463b81
+packages/cli test: status: failed
+packages/cli test: cases: 2 passed / 1 failed / 3 total
+packages/cli test: coverage: final · lines 1/2 (50%) · functions 1/2 (50%) · branches 2/2 (100%) · statements 1/2 (50%)
+packages/cli test: evaluation: 5 passed / 1 failed assertions
+packages/cli test: artifact: C:\Users\TEMP-A~1\AppData\Local\Temp\canary-candidate-YxkgPG\.canary\artifacts\run_696cce36-73c5-47c0-ad77-7c70f5463b81\run.json
+packages/cli test: exit: 1
+packages/cli test: [90mstdout[2m | tests/cli.e2e.test.ts[2m > [22m[2mimprovement CLI loop[2m > [22m[2maccepts and verifies a suggestion then runs a one-click candidate pipeline
+packages/cli test: [22m[39m{
+packages/cli test:   "suggestions": [
+packages/cli test:     {
+packages/cli test:       "id": "suggestion_run_696cce36-73c5-47c0-ad77-7c70f5463b81_broken_1",
+packages/cli test:       "runId": "run_696cce36-73c5-47c0-ad77-7c70f5463b81",
+packages/cli test:       "caseId": "broken",
+packages/cli test:       "kind": "wrong_output",
+packages/cli test:       "category": "prompt",
+packages/cli test:       "rationale": "Agent output is missing",
+packages/cli test:       "evidence": [
+packages/cli test:         {
+packages/cli test:           "type": "assertion",
+packages/cli test:           "ref": "output.exists#1"
+packages/cli test:         },
+packages/cli test:         {
+packages/cli test:           "type": "state",
+packages/cli test:           "ref": "(value)"
+packages/cli test:         },
+packages/cli test:         {
+packages/cli test:           "type": "coverage",
+packages/cli test:           "ref": "c:\\Users\\TEMP-A~1\\AppData\\Local\\Temp\\canary-candidate-YxkgPG\\broken.mjs:1"
+packages/cli test:         },
+packages/cli test:         {
+packages/cli test:           "type": "coverage",
+packages/cli test:           "ref": "c:\\Users\\TEMP-A~1\\AppData\\Local\\Temp\\canary-candidate-YxkgPG\\fixed.mjs:1"
+packages/cli test:         },
+packages/cli test:         {
+packages/cli test:           "type": "coverage",
+packages/cli test:           "ref": "c:\\Users\\TEMP-A~1\\AppData\\Local\\Temp\\canary-candidate-YxkgPG\\fixed.mjs:1"
+packages/cli test:         }
+packages/cli test:       ],
+packages/cli test:       "proposedCase": {
+packages/cli test:         "id": "broken.regression",
+packages/cli test:         "input": "broken",
+packages/cli test:         "tags": [
+packages/cli test:           "regression"
+packages/cli test:         ],
+packages/cli test:         "assertions": [
+packages/cli test:           {
+packages/cli test:             "type": "output.exists"
+packages/cli test:           }
+packages/cli test:         ],
+packages/cli test:         "dataset": {
+packages/cli test:           "split": "regression"
+packages/cli test:         }
+packages/cli test:       },
+packages/cli test:       "generation": {
+packages/cli test:         "status": "ok"
+packages/cli test:       },
+packages/cli test:       "status": "proposed",
+packages/cli test:       "confidence": 0.65
+packages/cli test:     }
+packages/cli test:   ],
+packages/cli test:   "drafts": [
+packages/cli test:     "C:\\Users\\TEMP-A~1\\AppData\\Local\\Temp\\canary-candidate-YxkgPG\\cases\\drafts\\broken.regression.ts"
+packages/cli test:   ]
+packages/cli test: }
+packages/cli test: [90mstdout[2m | tests/cli.e2e.test.ts[2m > [22m[2mimprovement CLI loop[2m > [22m[2maccepts and verifies a suggestion then runs a one-click candidate pipeline
+packages/cli test: [22m[39m{
+packages/cli test:   "suggestions": [
+packages/cli test:     {
+packages/cli test:       "id": "suggestion_run_696cce36-73c5-47c0-ad77-7c70f5463b81_broken_1",
+packages/cli test:       "runId": "run_696cce36-73c5-47c0-ad77-7c70f5463b81",
+packages/cli test:       "caseId": "broken",
+packages/cli test:       "kind": "wrong_output",
+packages/cli test:       "category": "prompt",
+packages/cli test:       "rationale": "Agent output is missing",
+packages/cli test:       "evidence": [
+packages/cli test:         {
+packages/cli test:           "type": "assertion",
+packages/cli test:           "ref": "output.exists#1"
+packages/cli test:         },
+packages/cli test:         {
+packages/cli test:           "type": "state",
+packages/cli test:           "ref": "(value)"
+packages/cli test:         },
+packages/cli test:         {
+packages/cli test:           "type": "coverage",
+packages/cli test:           "ref": "c:\\Users\\TEMP-A~1\\AppData\\Local\\Temp\\canary-candidate-YxkgPG\\broken.mjs:1"
+packages/cli test:         },
+packages/cli test:         {
+packages/cli test:           "type": "coverage",
+packages/cli test:           "ref": "c:\\Users\\TEMP-A~1\\AppData\\Local\\Temp\\canary-candidate-YxkgPG\\fixed.mjs:1"
+packages/cli test:         },
+packages/cli test:         {
+packages/cli test:           "type": "coverage",
+packages/cli test:           "ref": "c:\\Users\\TEMP-A~1\\AppData\\Local\\Temp\\canary-candidate-YxkgPG\\fixed.mjs:1"
+packages/cli test:         }
+packages/cli test:       ],
+packages/cli test:       "proposedCase": {
+packages/cli test:         "id": "broken.regression",
+packages/cli test:         "input": "broken",
+packages/cli test:         "tags": [
+packages/cli test:           "regression"
+packages/cli test:         ],
+packages/cli test:         "assertions": [
+packages/cli test:           {
+packages/cli test:             "type": "output.exists"
+packages/cli test:           }
+packages/cli test:         ],
+packages/cli test:         "dataset": {
+packages/cli test:           "split": "regression"
+packages/cli test:         }
+packages/cli test:       },
+packages/cli test:       "generation": {
+packages/cli test:         "status": "ok"
+packages/cli test:       },
+packages/cli test:       "status": "accepted",
+packages/cli test:       "confidence": 0.65
+packages/cli test:     }
+packages/cli test:   ],
+packages/cli test:   "drafts": []
+packages/cli test: }
+packages/cli test: [90mstdout[2m | tests/cli.e2e.test.ts[2m > [22m[2mimprovement CLI loop[2m > [22m
