@@ -1,0 +1,114 @@
+
+> canary@0.1.0 test C:\Users\temp-admin\Desktop\Canary
+> pnpm -r --if-present test
+
+Scope: 13 of 14 workspace projects
+packages/core test$ vitest run --passWithNoTests
+packages/core test: [1m[46m RUN [49m[22m [36mv3.2.7 [39m[90mC:/Users/temp-admin/Desktop/Canary/packages/core[39m
+packages/core test:  [32m✓[39m tests/contracts.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 3[2mms[22m[39m
+packages/core test:  [32m✓[39m tests/schema.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 27[2mms[22m[39m
+packages/core test: [2m Test Files [22m [1m[32m2 passed[39m[22m[90m (2)[39m
+packages/core test: [2m      Tests [22m [1m[32m7 passed[39m[22m[90m (7)[39m
+packages/core test: [2m   Start at [22m 18:05:50
+packages/core test: [2m   Duration [22m 1.17s[2m (transform 220ms, setup 0ms, collect 374ms, tests 30ms, environment 0ms, prepare 292ms)[22m
+packages/core test: Done
+packages/adapters test$ vitest run
+packages/coverage test$ vitest run
+packages/environment test$ vitest run
+packages/evaluators test$ vitest run --passWithNoTests
+packages/environment test: [1m[46m RUN [49m[22m [36mv3.2.7 [39m[90mC:/Users/temp-admin/Desktop/Canary/packages/environment[39m
+packages/adapters test: [1m[46m RUN [49m[22m [36mv3.2.7 [39m[90mC:/Users/temp-admin/Desktop/Canary/packages/adapters[39m
+packages/coverage test: [1m[46m RUN [49m[22m [36mv3.2.7 [39m[90mC:/Users/temp-admin/Desktop/Canary/packages/coverage[39m
+packages/evaluators test: [1m[46m RUN [49m[22m [36mv3.2.7 [39m[90mC:/Users/temp-admin/Desktop/Canary/packages/evaluators[39m
+packages/environment test:  [32m✓[39m tests/environment.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 6[2mms[22m[39m
+packages/environment test: [2m Test Files [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+packages/environment test: [2m      Tests [22m [1m[32m2 passed[39m[22m[90m (2)[39m
+packages/environment test: [2m   Start at [22m 18:05:52
+packages/environment test: [2m   Duration [22m 2.56s[2m (transform 266ms, setup 0ms, collect 275ms, tests 6ms, environment 0ms, prepare 196ms)[22m
+packages/evaluators test:  [32m✓[39m tests/evaluator.test.ts [2m([22m[2m15 tests[22m[2m)[22m[32m 156[2mms[22m[39m
+packages/environment test: Done
+packages/evaluators test: [2m Test Files [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+packages/evaluators test: [2m      Tests [22m [1m[32m15 passed[39m[22m[90m (15)[39m
+packages/evaluators test: [2m   Start at [22m 18:05:52
+packages/evaluators test: [2m   Duration [22m 2.88s[2m (transform 297ms, setup 0ms, collect 340ms, tests 156ms, environment 0ms, prepare 237ms)[22m
+packages/experience test$ vitest run
+packages/coverage test:  [32m✓[39m tests/coverage-contract.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 4[2mms[22m[39m
+packages/adapters test:  [32m✓[39m tests/adapters.test.ts [2m([22m[2m7 tests[22m[2m)[22m[33m 647[2mms[22m[39m
+packages/coverage test:  [32m✓[39m tests/coverage.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 27[2mms[22m[39m
+packages/coverage test:  [32m✓[39m tests/coverage-summary.test.ts [2m([22m[2m11 tests[22m[2m)[22m[32m 21[2mms[22m[39m
+packages/evaluators test: Done
+packages/reporters test$ vitest run
+packages/adapters test: [2m Test Files [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+packages/adapters test: [2m      Tests [22m [1m[32m7 passed[39m[22m[90m (7)[39m
+packages/adapters test: [2m   Start at [22m 18:05:52
+packages/adapters test: [2m   Duration [22m 3.37s[2m (transform 267ms, setup 0ms, collect 291ms, tests 647ms, environment 0ms, prepare 259ms)[22m
+packages/coverage test:  [32m✓[39m tests/coverage-fixtures.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 28[2mms[22m[39m
+packages/coverage test:  [32m✓[39m tests/coverage-benchmark.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 166[2mms[22m[39m
+packages/coverage test:  [32m✓[39m tests/coverage-collector.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 184[2mms[22m[39m
+packages/adapters test: Done
+packages/trace test$ vitest run
+packages/coverage test: [2m Test Files [22m [1m[32m6 passed[39m[22m[90m (6)[39m
+packages/coverage test: [2m      Tests [22m [1m[32m22 passed[39m[22m[90m (22)[39m
+packages/coverage test: [2m   Start at [22m 18:05:52
+packages/coverage test: [2m   Duration [22m 3.84s[2m (transform 1.60s, setup 0ms, collect 5.31s, tests 431ms, environment 1ms, prepare 1.37s)[22m
+packages/coverage test: Done
+packages/experience test: [1m[46m RUN [49m[22m [36mv3.2.7 [39m[90mC:/Users/temp-admin/Desktop/Canary/packages/experience[39m
+packages/reporters test: [1m[46m RUN [49m[22m [36mv3.2.7 [39m[90mC:/Users/temp-admin/Desktop/Canary/packages/reporters[39m
+packages/trace test: [1m[46m RUN [49m[22m [36mv3.2.7 [39m[90mC:/Users/temp-admin/Desktop/Canary/packages/trace[39m
+packages/experience test:  [32m✓[39m tests/experience.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 72[2mms[22m[39m
+packages/experience test: [2m Test Files [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+packages/experience test: [2m      Tests [22m [1m[32m4 passed[39m[22m[90m (4)[39m
+packages/experience test: [2m   Start at [22m 18:05:56
+packages/experience test: [2m   Duration [22m 2.03s[2m (transform 195ms, setup 0ms, collect 214ms, tests 72ms, environment 0ms, prepare 219ms)[22m
+packages/reporters test:  [32m✓[39m tests/reporters.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 7[2mms[22m[39m
+packages/reporters test: [2m Test Files [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+packages/reporters test: [2m      Tests [22m [1m[32m5 passed[39m[22m[90m (5)[39m
+packages/reporters test: [2m   Start at [22m 18:05:57
+packages/reporters test: [2m   Duration [22m 1.95s[2m (transform 178ms, setup 0ms, collect 189ms, tests 7ms, environment 0ms, prepare 208ms)[22m
+packages/experience test: Done
+packages/reporters test: Done
+packages/trace test:  [32m✓[39m tests/trace.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 13[2mms[22m[39m
+packages/trace test: [2m Test Files [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+packages/trace test: [2m      Tests [22m [1m[32m5 passed[39m[22m[90m (5)[39m
+packages/trace test: [2m   Start at [22m 18:05:57
+packages/trace test: [2m   Duration [22m 2.01s[2m (transform 235ms, setup 0ms, collect 290ms, tests 13ms, environment 0ms, prepare 223ms)[22m
+packages/trace test: Done
+packages/improvement test$ vitest run
+packages/runner test$ vitest run
+examples/local-agent test$ vitest run --passWithNoTests
+packages/improvement test: [1m[46m RUN [49m[22m [36mv3.2.7 [39m[90mC:/Users/temp-admin/Desktop/Canary/packages/improvement[39m
+packages/runner test: [1m[46m RUN [49m[22m [36mv3.2.7 [39m[90mC:/Users/temp-admin/Desktop/Canary/packages/runner[39m
+examples/local-agent test: [1m[46m RUN [49m[22m [36mv3.2.7 [39m[90mC:/Users/temp-admin/Desktop/Canary/examples/local-agent[39m
+examples/local-agent test: No test files found, exiting with code 0
+examples/local-agent test: [2minclude: [22m[33m**/*.{test,spec}.?(c|m)[jt]s?(x)[39m
+examples/local-agent test: [2mexclude:  [22m[33m**/node_modules/**[2m, [22m**/dist/**[2m, [22m**/cypress/**[2m, [22m**/.{idea,git,cache,output,temp}/**[2m, [22m**/{karma,rollup,webpack,vite,vitest,jest,ava,babel,nyc,cypress,tsup,build,eslint,prettier}.config.*[39m
+examples/local-agent test: Done
+packages/improvement test:  [32m✓[39m tests/improvement.test.ts [2m([22m[2m12 tests[22m[2m)[22m[32m 15[2mms[22m[39m
+packages/improvement test: [2m Test Files [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+packages/improvement test: [2m      Tests [22m [1m[32m12 passed[39m[22m[90m (12)[39m
+packages/improvement test: [2m   Start at [22m 18:06:00
+packages/improvement test: [2m   Duration [22m 1.95s[2m (transform 198ms, setup 0ms, collect 272ms, tests 15ms, environment 0ms, prepare 146ms)[22m
+packages/improvement test: Done
+packages/runner test:  [32m✓[39m tests/runner.test.ts [2m([22m[2m16 tests[22m[2m)[22m[33m 3662[2mms[22m[39m
+packages/runner test:    [33m[2m✓[22m[39m runner lifecycle[2m > [22mkills a detached busy-loop with killProcessTree [33m 498[2mms[22m[39m
+packages/runner test:    [33m[2m✓[22m[39m provisional coverage sampling[2m > [22memits provisional then final coverage and throttles duplicate samples [33m 376[2mms[22m[39m
+packages/runner test:    [33m[2m✓[22m[39m provisional coverage sampling[2m > [22mcollects exact istanbul coverage when the provider is opted in [33m 634[2mms[22m[39m
+packages/runner test: [2m Test Files [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+packages/runner test: [2m      Tests [22m [1m[32m16 passed[39m[22m[90m (16)[39m
+packages/runner test: [2m   Start at [22m 18:06:00
+packages/runner test: [2m   Duration [22m 5.97s[2m (transform 240ms, setup 0ms, collect 682ms, tests 3.66s, environment 0ms, prepare 152ms)[22m
+packages/runner test: Done
+apps/web test$ vitest run
+apps/web test: [1m[46m RUN [49m[22m [36mv3.2.7 [39m[90mC:/Users/temp-admin/Desktop/Canary/apps/web[39m
+apps/web test:  [32m✓[39m tests/web.test.ts [2m([22m[2m12 tests[22m[2m)[22m[32m 185[2mms[22m[39m
+apps/web test: [2m Test Files [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+apps/web test: [2m      Tests [22m [1m[32m12 passed[39m[22m[90m (12)[39m
+apps/web test: [2m   Start at [22m 18:06:06
+apps/web test: [2m   Duration [22m 1.36s[2m (transform 218ms, setup 0ms, collect 302ms, tests 185ms, environment 0ms, prepare 118ms)[22m
+apps/web test: Done
+packages/cli test$ vitest run
+packages/cli test: [1m[46m RUN [49m[22m [36mv3.2.7 [39m[90mC:/Users/temp-admin/Desktop/Canary/packages/cli[39m
+packages/cli test:  [32m✓[39m tests/home.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 13[2mms[22m[39m
+packages/cli test: [90mstdout[2m | tests/cli.e2e.test.ts[2m > [22m[2mcanary run --headless[2m > [22m[2mwrites run.json and places coverage in the RunStore
+packages/cli test: [22m[39mrunId: run_6bf76da2-6669-4bfd-8219-d4ec681bbf63
+packages/cli test: [90mstdout[2m | tests/cli.e2e.test.ts[2m > [22m[2mca
