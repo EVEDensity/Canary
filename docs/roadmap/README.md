@@ -20,7 +20,7 @@
 | S-01 | P1     | [一个宿主的 Skill 闭环](03-host-and-soft-evolution.md#s-01)        | F-01、Q-01/02/03                  | 已实施 |
 | S-02 | P1     | [可选 MCP Server 与兼容矩阵](03-host-and-soft-evolution.md#s-02)   | F-05；宿主需求已确认              | 待实施 |
 | S-03 | P1     | [版本化经验与加载器](03-host-and-soft-evolution.md#s-03)           | Q-03/04、F-04                     | 已实施 |
-| S-04 | P1     | [人工驱动的软进化试验](03-host-and-soft-evolution.md#s-04)         | S-01/03、Q-04、F-05               | 待实施 |
+| S-04 | P1     | [人工驱动的软进化试验](03-host-and-soft-evolution.md#s-04)         | S-01/03、Q-04、F-05               | 已实施 |
 | H-01 | P0*    | [策略、权限与真实隔离](04-controlled-hard-evolution.md#h-01)       | F-05 的执行端口；威胁建模可先做   | 待实施 |
 | H-02 | P0*    | [候选代码与独立验证](04-controlled-hard-evolution.md#h-02)         | H-01、Q-01/02/03/04               | 待实施 |
 | H-03 | P0*    | [精确应用、撤销与回滚](04-controlled-hard-evolution.md#h-03)       | H-02、F-04                        | 待实施 |
