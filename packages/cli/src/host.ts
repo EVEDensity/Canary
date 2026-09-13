@@ -132,4 +132,56 @@ export function hostEvidenceOutput(
       status: run.status,
       totalCases: run.totalCases,
       passedCases: run.passedCases,
-      completedCases: run.completedCa
+      completedCases: run.completedCases,
+      startedAt: run.startedAt,
+      finishedAt: run.finishedAt,
+    },
+    cases: selected.slice(0, maxCases).map((result) => ({
+      reference: {
+        runId: result.runId,
+        caseId: result.caseId,
+        executionId: result.executionId,
+        ...(result.trajectoryId ? { trajectoryId: result.trajectoryId } : {}),
+      },
+      passed: result.passed,
+      ...(result.failureCategory ? { failureCategory: result.failureCategory } : {}),
+      assertions: result.assertions.map((assertion) => ({
+        id: assertion.id,
+        passed: assertion.passed,
+        ...(assertion.message ? { message: assertion.message } : {}),
+      })),
+      ...(result.metrics ? { metrics: result.metrics } : {}),
+      traceEventTypes: (result.trajectory?.events ?? []).slice(0, maxEventsPerCase).map((event) => event.type),
+    })),
+    bounds: {
+      maxCases,
+      maxEventsPerCase,
+      rawInputIncluded: false,
+      rawOutputIncluded: false,
+      rawTraceIncluded: false,
+    },
+  };
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function stringArray(value: unknown, field: string, errors: string[], required = true): string[] {
+  if (value === undefined && !required) return [];
+  if (!Array.isArray(value) || value.some((item) => typeof item !== "string" || !item.trim())) {
+    errors.push(`${field} must be a non-empty string array`);
+    return [];
+  }
+  if (required && value.length === 0) errors.push(`${field} must not be empty`);
+  return value.map((item) => item.trim());
+}
+
+export function validateHostProposal(value: unknown, run: RunSnapshot): HostProposalValidation {
+  const errors: string[] = [];
+  if (!isRecord(value)) {
+    return rejected(["Proposal must be a JSON object"]);
+  }
+  const allowed = new Set(["v", "kind", "runId", "caseRefs", "summary", "observations", "suggestedActions", "limitations"]);
+  for (const key of Object.keys(value)) {
+    if (!allowed.has(key)) errors.push(`Unsupported proposal field: $
