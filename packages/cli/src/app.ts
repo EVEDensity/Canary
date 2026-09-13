@@ -103,4 +103,23 @@ export async function runEvaluation(input: EvaluationInput): Promise<{ runId: st
   input.store.setCoverage(run.runId, preparingCoverage(run.runId));
   writeLiveArtifacts(artifactDir, diskSnapshot(input.store, run.runId));
   const manifest = createCoverageManifest({ rootDir: cwd, include: input.config.coverage.include, exclude: input.config.coverage.exclude, features: input.config.features });
-  writeFileSync(resolve(artifactDir, "coverage-manifest.json"), JSON.stringify(manifest
+  writeFileSync(resolve(artifactDir, "coverage-manifest.json"), JSON.stringify(manifest, null, 2), "utf8");
+  writeLiveArtifacts(artifactDir, diskSnapshot(input.store, run.runId));
+  const summaries: CoverageSummary[] = [];
+  let cancelled = false;
+  const concurrency = input.config.runtime?.concurrency ?? 1;
+  let writeChain = Promise.resolve();
+  const withWriteLock = async <T>(fn: () => T | Promise<T>): Promise<T> => {
+    const next = writeChain.then(fn, fn);
+    writeChain = next.then(() => undefined, () => undefined);
+    return next;
+  };
+  try {
+    await mapLimit(plan, concurrency, async (item) => {
+      if (input.signal?.aborted) { cancelled = true; return; }
+      const result = await executor({
+        config: input.config, cwd, runId: run.runId, manifest,
+        signal: input.signal,
+        repetition: item.repetitionTotal > 1 ? item.repetition : undefined,
+        repetitionTotal: item.repetitionTotal > 1 ? item.repetitionTotal : undefined,
+        ex
