@@ -29,4 +29,16 @@ function writeLiveArtifacts(artifactDir: string, snapshot: RunSnapshot): void {
     termination: result.trajectory?.termination,
     events: result.trajectory?.events ?? [],
   })), null, 2), "utf8");
-  writeFileSync(resolve(artifactDir, "evaluator.json"), JSON.s
+  writeFileSync(resolve(artifactDir, "evaluator.json"), JSON.stringify(snapshot.results.map((result) => ({
+    caseId: result.caseId,
+    repetition: result.repetition,
+    execution: {
+      status: result.failureCategory === "timeout" ? "timeout" : result.failureCategory === "cancelled" ? "cancelled" : result.failureCategory === "runtime_error" ? "failed" : "completed",
+      durationMs: result.metrics?.latencyMs,
+    },
+    evaluation: { status: result.passed ? "passed" : "failed", failureCategory: result.failureCategory, assertions: result.assertions },
+  })), null, 2), "utf8");
+}
+
+function writeFinalReports(artifactDir: string, snapshot: RunSnapshot, formats: ReporterFormat[], gate: ReturnType<typeof evaluateCoverageGates>, suggestions: unknown[]): string {
+  const reportInput = { runId: snapshot.runId, status: snapshot.status, startedAt: snapshot.startedAt, finishedAt: snapshot.finishedAt, totalCases: snapshot.totalCases, passedCases: snapshot.
