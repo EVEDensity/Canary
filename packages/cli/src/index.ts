@@ -360,4 +360,47 @@ async function experienceCommand(rest: string[], configPath?: string): Promise<n
   if (action === "clear") { store.clear(context.projectRoot); experienceOutput("canary.experience.clear", { projectRoot: context.projectRoot, active: store.activePointer(context.projectRoot) }); return 0; }
   if (action === "load") {
     try {
-      const loaded = store.load({ projectRoot: context.projectRoot, caseId: flagValue(rest, "--case"), tags: flagValues(rest, "--tag"), featureIds: flagValues(rest, "--feature"), maxItems: parseBoundedInteger(flagValue(rest, "--max-items"), "--max-items"), maxChars: parseBoundedInteger(flagValue(rest, "--max-chars"), "--
+      const loaded = store.load({ projectRoot: context.projectRoot, caseId: flagValue(rest, "--case"), tags: flagValues(rest, "--tag"), featureIds: flagValues(rest, "--feature"), maxItems: parseBoundedInteger(flagValue(rest, "--max-items"), "--max-items"), maxChars: parseBoundedInteger(flagValue(rest, "--max-chars"), "--max-chars") });
+      experienceOutput("canary.experience.load", { projectRoot: context.projectRoot, loaded: loaded.loaded.map(({ content: _content, ...reference }) => reference), skipped: loaded.skipped, totalChars: loaded.totalChars });
+      return 0;
+    } catch (error) { experienceOutput("canary.experience.load", { valid: false, errors: [error instanceof Error ? error.message : String(error)] }); return 1; }
+  }
+  console.log(USAGE);
+  return 1;
+}
+
+
+function softTrialDir(context: ProjectContext, trialId: string): string { return resolve(context.artifactRoot, "soft-trials", trialId); }
+function softTrialFile(context: ProjectContext, trialId: string): string { return resolve(softTrialDir(context, trialId), "trial.json"); }
+function readSoftTrial(context: ProjectContext, trialId: string): SoftTrialRecord | undefined {
+  try { return JSON.parse(readFileSync(softTrialFile(context, trialId), "utf8")) as SoftTrialRecord; } catch { return undefined; }
+}
+function writeSoftTrial(context: ProjectContext, record: SoftTrialRecord): void {
+  mkdirSync(softTrialDir(context, record.id), { recursive: true });
+  writeFileSync(softTrialFile(context, record.id), JSON.stringify(record, null, 2), "utf8");
+}
+function softTrialOutput(value: unknown): void { printHost({ v: 1, kind: "canary.soft-trial", ...(isRecord(value) ? value : { value }) }); }
+function softTrialDatasetIdentity(results: RunSnapshot["results"]): string {
+  return createHash("sha256").update(JSON.stringify(results.map((result) => ({ id: result.caseId, repetition: result.repetition, dataset: result.sourceCase?.dataset ?? null })))).digest("hex");
+}
+
+async function softTrialCommand(rest: string[], configPath?: string): Promise<number> {
+  const action = rest[0];
+  const { context, store } = experienceStoreFor(configPath);
+  const trialId = rest[1];
+  if (action === "prepare") {
+    const baselineId = rest[1];
+    const experienceId = flagValue(rest, "--experience");
+    const regressionCaseIds = [...new Set(flagValues(rest, "--regression"))];
+    const holdoutIds = [...new Set(flagValues(rest, "--holdout"))];
+    if (!baselineId || !experienceId || !regressionCaseIds.length || !holdoutIds.length) { console.log(USAGE); return 1; }
+    const baseline = readRunArtifact(baselineId, undefined, configPath);
+    const experience = store.get(experienceId);
+    if (!baseline || !experience) { softTrialOutput({ valid: false, status: "rejected", errors: [!baseline ? "Run not found: " + baselineId : "Experience not found: " + experienceId] }); return 1; }
+    const selectedIds = [...new Set([...regressionCaseIds, ...holdoutIds])];
+    const known = new Set(baseline.results.map((result) => result.caseId));
+    const missing = selectedIds.filter((id) => !known.has(id));
+    const overlap = regressionCaseIds.filter((id) => holdoutIds.includes(id));
+    if (missing.length || overlap.length) { softTrialOutput({ valid: false, status: "rejected", errors: [...(missing.length ? ["Unknown baseline cases: " + missing.join(", ")] : []), ...(overlap.length ? ["Cases cannot be both regression and holdout: " + overlap.join(", ")] : [])] }); return 1; }
+    if (experience.projectRoot !== context.projectRoot || !["validated", "active"].includes(experience.status)) { softTrialOutput({ valid: false, status: "rejected", errors: ["Experience must be project-scoped and validated before trial; accepted/verified fields are not execution evidence"] }); return 1; }
+    const selectedResults = baseline.results.filter((result) => selectedIds.
