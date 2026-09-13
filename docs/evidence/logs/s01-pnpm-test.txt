@@ -1,0 +1,109 @@
+ence": [
+packages/cli test:         {
+packages/cli test:           "type": "assertion",
+packages/cli test:           "ref": "output.exists#1"
+packages/cli test:         },
+packages/cli test:         {
+packages/cli test:           "type": "state",
+packages/cli test:           "ref": "(value)"
+packages/cli test:         },
+packages/cli test:         {
+packages/cli test:           "type": "coverage",
+packages/cli test:           "ref": "c:\\Users\\TEMP-A~1\\AppData\\Local\\Temp\\canary-candidate-0GICuD\\broken.mjs:1"
+packages/cli test:         },
+packages/cli test:         {
+packages/cli test:           "type": "coverage",
+packages/cli test:           "ref": "c:\\Users\\TEMP-A~1\\AppData\\Local\\Temp\\canary-candidate-0GICuD\\fixed.mjs:1"
+packages/cli test:         },
+packages/cli test:         {
+packages/cli test:           "type": "coverage",
+packages/cli test:           "ref": "c:\\Users\\TEMP-A~1\\AppData\\Local\\Temp\\canary-candidate-0GICuD\\fixed.mjs:1"
+packages/cli test:         }
+packages/cli test:       ],
+packages/cli test:       "proposedCase": {
+packages/cli test:         "id": "broken.regression",
+packages/cli test:         "input": "broken",
+packages/cli test:         "tags": [
+packages/cli test:           "regression"
+packages/cli test:         ],
+packages/cli test:         "assertions": [
+packages/cli test:           {
+packages/cli test:             "type": "output.exists"
+packages/cli test:           }
+packages/cli test:         ],
+packages/cli test:         "dataset": {
+packages/cli test:           "split": "regression"
+packages/cli test:         }
+packages/cli test:       },
+packages/cli test:       "generation": {
+packages/cli test:         "status": "ok"
+packages/cli test:       },
+packages/cli test:       "status": "proposed",
+packages/cli test:       "confidence": 0.65
+packages/cli test:     }
+packages/cli test:   ],
+packages/cli test:   "drafts": [
+packages/cli test:     "C:\\Users\\TEMP-A~1\\AppData\\Local\\Temp\\canary-candidate-0GICuD\\cases\\drafts\\broken.regression.ts"
+packages/cli test:   ]
+packages/cli test: }
+packages/cli test: [90mstdout[2m | tests/cli.e2e.test.ts[2m > [22m[2mimprovement CLI loop[2m > [22m[2maccepts and verifies a suggestion then runs a one-click candidate pipeline
+packages/cli test: [22m[39m{
+packages/cli test:   "suggestions": [
+packages/cli test:     {
+packages/cli test:       "id": "suggestion_run_9caf3db2-7ccb-4cf6-a7f0-ccb7512ce4e7_broken_1",
+packages/cli test:       "runId": "run_9caf3db2-7ccb-4cf6-a7f0-ccb7512ce4e7",
+packages/cli test:       "caseId": "broken",
+packages/cli test:       "kind": "wrong_output",
+packages/cli test:       "category": "prompt",
+packages/cli test:       "rationale": "Agent output is missing",
+packages/cli test:       "evidence": [
+packages/cli test:         {
+packages/cli test:           "type": "assertion",
+packages/cli test:           "ref": "output.exists#1"
+packages/cli test:         },
+packages/cli test:         {
+packages/cli test:           "type": "state",
+packages/cli test:           "ref": "(value)"
+packages/cli test:         },
+packages/cli test:         {
+packages/cli test:           "type": "coverage",
+packages/cli test:           "ref": "c:\\Users\\TEMP-A~1\\AppData\\Local\\Temp\\canary-candidate-0GICuD\\broken.mjs:1"
+packages/cli test:         },
+packages/cli test:         {
+packages/cli test:           "type": "coverage",
+packages/cli test:           "ref": "c:\\Users\\TEMP-A~1\\AppData\\Local\\Temp\\canary-candidate-0GICuD\\fixed.mjs:1"
+packages/cli test:         },
+packages/cli test:         {
+packages/cli test:           "type": "coverage",
+packages/cli test:           "ref": "c:\\Users\\TEMP-A~1\\AppData\\Local\\Temp\\canary-candidate-0GICuD\\fixed.mjs:1"
+packages/cli test:         }
+packages/cli test:       ],
+packages/cli test:       "proposedCase": {
+packages/cli test:         "id": "broken.regression",
+packages/cli test:         "input": "broken",
+packages/cli test:         "tags": [
+packages/cli test:           "regression"
+packages/cli test:         ],
+packages/cli test:         "assertions": [
+packages/cli test:           {
+packages/cli test:             "type": "output.exists"
+packages/cli test:           }
+packages/cli test:         ],
+packages/cli test:         "dataset": {
+packages/cli test:           "split": "regression"
+packages/cli test:         }
+packages/cli test:       },
+packages/cli test:       "generation": {
+packages/cli test:         "status": "ok"
+packages/cli test:       },
+packages/cli test:       "status": "accepted",
+packages/cli test:       "confidence": 0.65
+packages/cli test:     }
+packages/cli test:   ],
+packages/cli test:   "drafts": []
+packages/cli test: }
+packages/cli test: [90mstdout[2m | tests/cli.e2e.test.ts[2m > [22m[2mimprovement CLI loop[2m > [22m[2maccepts and verifies a suggestion then runs a one-click candidate pipeline
+packages/cli test: [22m[39m{
+packages/cli test:   "suggestions": [
+packages/cli test:     {
+packages/cli test: 
