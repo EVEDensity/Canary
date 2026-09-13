@@ -106,4 +106,100 @@ packages/cli test: [90mstdout[2m | tests/cli.e2e.test.ts[2m > [22m[2mimprov
 packages/cli test: [22m[39m{
 packages/cli test:   "suggestions": [
 packages/cli test:     {
-packages/cli test: 
+packages/cli test:       "id": "suggestion_run_9caf3db2-7ccb-4cf6-a7f0-ccb7512ce4e7_broken_1",
+packages/cli test:       "runId": "run_9caf3db2-7ccb-4cf6-a7f0-ccb7512ce4e7",
+packages/cli test:       "caseId": "broken",
+packages/cli test:       "kind": "wrong_output",
+packages/cli test:       "category": "prompt",
+packages/cli test:       "rationale": "Agent output is missing",
+packages/cli test:       "evidence": [
+packages/cli test:         {
+packages/cli test:           "type": "assertion",
+packages/cli test:           "ref": "output.exists#1"
+packages/cli test:         },
+packages/cli test:         {
+packages/cli test:           "type": "state",
+packages/cli test:           "ref": "(value)"
+packages/cli test:         },
+packages/cli test:         {
+packages/cli test:           "type": "coverage",
+packages/cli test:           "ref": "c:\\Users\\TEMP-A~1\\AppData\\Local\\Temp\\canary-candidate-0GICuD\\broken.mjs:1"
+packages/cli test:         },
+packages/cli test:         {
+packages/cli test:           "type": "coverage",
+packages/cli test:           "ref": "c:\\Users\\TEMP-A~1\\AppData\\Local\\Temp\\canary-candidate-0GICuD\\fixed.mjs:1"
+packages/cli test:         },
+packages/cli test:         {
+packages/cli test:           "type": "coverage",
+packages/cli test:           "ref": "c:\\Users\\TEMP-A~1\\AppData\\Local\\Temp\\canary-candidate-0GICuD\\fixed.mjs:1"
+packages/cli test:         }
+packages/cli test:       ],
+packages/cli test:       "proposedCase": {
+packages/cli test:         "id": "broken.regression",
+packages/cli test:         "input": "broken",
+packages/cli test:         "tags": [
+packages/cli test:           "regression"
+packages/cli test:         ],
+packages/cli test:         "assertions": [
+packages/cli test:           {
+packages/cli test:             "type": "output.exists"
+packages/cli test:           }
+packages/cli test:         ],
+packages/cli test:         "dataset": {
+packages/cli test:           "split": "regression"
+packages/cli test:         }
+packages/cli test:       },
+packages/cli test:       "generation": {
+packages/cli test:         "status": "ok"
+packages/cli test:       },
+packages/cli test:       "status": "verified",
+packages/cli test:       "confidence": 0.65
+packages/cli test:     }
+packages/cli test:   ],
+packages/cli test:   "drafts": [
+packages/cli test:     "C:\\Users\\TEMP-A~1\\AppData\\Local\\Temp\\canary-candidate-0GICuD\\cases\\regression\\broken.regression.ts"
+packages/cli test:   ]
+packages/cli test: }
+packages/cli test: [90mstdout[2m | tests/cli.e2e.test.ts[2m > [22m[2mimprovement CLI loop[2m > [22m[2maccepts and verifies a suggestion then runs a one-click candidate pipeline
+packages/cli test: [22m[39mrunId: run_5d3d14b6-3355-49e5-a016-9875bb502f09
+packages/cli test: [90mstdout[2m | tests/cli.e2e.test.ts[2m > [22m[2mimprovement CLI loop[2m > [22m[2maccepts and verifies a suggestion then runs a one-click candidate pipeline
+packages/cli test: [22m[39mrunId: run_5d3d14b6-3355-49e5-a016-9875bb502f09
+packages/cli test: status: completed
+packages/cli test: cases: 3 passed / 0 failed / 3 total
+packages/cli test: coverage: final · lines 1/2 (50%) · functions 1/2 (50%) · branches 0/2 (0%) · statements 1/2 (50%)
+packages/cli test: evaluation: 6 passed / 0 failed assertions
+packages/cli test: artifact: C:\Users\TEMP-A~1\AppData\Local\Temp\canary-candidate-0GICuD\.canary\artifacts\run_5d3d14b6-3355-49e5-a016-9875bb502f09\run.json
+packages/cli test: exit: 0
+packages/cli test: [90mstdout[2m | tests/cli.e2e.test.ts[2m > [22m[2mimprovement CLI loop[2m > [22m[2maccepts and verifies a suggestion then runs a one-click candidate pipeline
+packages/cli test: [22m[39m{
+packages/cli test:   "v": 1,
+packages/cli test:   "baselineRunId": "run_9caf3db2-7ccb-4cf6-a7f0-ccb7512ce4e7",
+packages/cli test:   "candidateRunId": "run_5d3d14b6-3355-49e5-a016-9875bb502f09",
+packages/cli test:   "verdict": "improve",
+packages/cli test:   "comparable": true,
+packages/cli test:   "completeness": {
+packages/cli test:     "passed": true,
+packages/cli test:     "missingBaselinePassing": [],
+packages/cli test:     "missingCandidate": [],
+packages/cli test:     "duplicateIds": [],
+packages/cli test:     "cancelledOrError": [],
+packages/cli test:     "datasetMismatch": false,
+packages/cli test:     "reasons": []
+packages/cli test:   },
+packages/cli test:   "regressions": [],
+packages/cli test:   "improvements": [
+packages/cli test:     "broken"
+packages/cli test:   ],
+packages/cli test:   "coverageDelta": {
+packages/cli test:     "comparable": true,
+packages/cli test:     "lines": 0,
+packages/cli test:     "branches": -100,
+packages/cli test:     "functions": 0
+packages/cli test:   },
+packages/cli test:   "admission": {
+packages/cli test:     "v": 1,
+packages/cli test:     "verdict": "hold",
+packages/cli test:     "reasons": [
+packages/cli test:       "quality difference is uncertain; small samples and missing metrics are not an automatic admit"
+packages/cli test:     ],
+packages/cli test:     "har
