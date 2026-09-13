@@ -196,4 +196,20 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 function changedKeys(before: unknown, after: unknown): string[] {
-  if (!isRecord(before) || !isRecord(after)) return before ===
+  if (!isRecord(before) || !isRecord(after)) return before === after ? [] : ["(value)"];
+  return [...new Set([...Object.keys(before), ...Object.keys(after)])].filter((key) => JSON.stringify(before[key]) !== JSON.stringify(after[key]));
+}
+function stateDiffFor(testCase: TestCase, events: TrajectoryEvent[], output: unknown) {
+  const snapshots = events.filter((event) => event.state !== undefined || event.type === "state" || event.type === "state.changed" || event.type === "state.snapshot");
+  const first = snapshots[0];
+  const last = snapshots.at(-1);
+  const before = (first && "state" in first ? first.state : testCase.environment?.state) ?? { input: testCase.input };
+  const after = last && "state" in last ? last.state : output;
+  return { before, after, changed: changedKeys(before, after) };
+}
+
+async function finishEvaluation(options: ExecutionOptions, executionId: string, startedAt: number, events: TrajectoryEvent[], output: unknown, failure: string | undefined, coverage: CoverageSummary, termination: Trajectory["termination"]): Promise<EvalResult> {
+  const trajectory: Trajectory = { id: `trajectory_${executionId}`, runId: options.runId, caseId: options.caseId, events, stepCount: events.filter((event) => event.type === "tool_call" || event.type === "tool.call").length, termination };
+  const testCase: TestCase = options.testCase ?? { id: options.caseId, input: options.input, assertions: [] };
+  const stateDiff = stateDiffFor(testCase, events, output);
+  const evaluation = await evaluateAgent({ assertions: testCase.assertions ?? [], context: { testCase, output, trajectory, executionStatus: trajectory.termination, latencyMs: Date.now() - startedAt, toolCalls: trajectory.stepCount, budgetUsed: budgetUsed(events), expectedFeatures: testCase.expectedF
