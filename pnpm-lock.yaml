@@ -80,6 +80,9 @@ importers:
       '@canary/evaluators':
         specifier: workspace:*
         version: link:../evaluators
+      '@canary/experience':
+        specifier: workspace:*
+        version: link:../experience
       '@canary/improvement':
         specifier: workspace:*
         version: link:../improvement
@@ -129,6 +132,12 @@ importers:
         specifier: workspace:*
         version: link:../core
 
+  packages/experience:
+    dependencies:
+      '@canary/core':
+        specifier: workspace:*
+        version: link:../core
+
   packages/improvement:
     dependencies:
       '@canary/core':
@@ -161,6 +170,9 @@ importers:
       '@canary/evaluators':
         specifier: workspace:*
         version: link:../evaluators
+      '@canary/experience':
+        specifier: workspace:*
+        version: link:../experience
       tsx:
         specifier: ^4.19.0
         version: 4.23.13
