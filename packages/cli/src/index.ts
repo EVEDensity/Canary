@@ -330,4 +330,34 @@ async function experienceCommand(rest: string[], configPath?: string): Promise<n
     if (!file) { console.log(USAGE); return 1; }
     let raw: unknown;
     try { raw = JSON.parse(readFileSync(resolve(context.invocationRoot, file), "utf8")); }
-    catch (error) { experienceOutput
+    catch (error) { experienceOutput("canary.experience.proposal", { valid: false, errors: [`Experience file is not valid JSON: ${error instanceof Error ? error.message : String(error)}`] }); return 1; }
+    if (!isRecord(raw)) { experienceOutput("canary.experience.proposal", { valid: false, errors: ["Experience must be a JSON object"] }); return 1; }
+    const declaredRoot = typeof raw.projectRoot === "string" ? resolve(raw.projectRoot) : context.projectRoot;
+    if (declaredRoot !== context.projectRoot) { experienceOutput("canary.experience.proposal", { valid: false, errors: ["Experience projectRoot must match the selected project"] }); return 1; }
+    try {
+      const input: ExperienceInput = {
+        key: String(raw.key ?? ""), projectRoot: context.projectRoot,
+        source: isRecord(raw.source) && typeof raw.source.kind === "string" ? { kind: raw.source.kind as ExperienceInput["source"]["kind"], ...(typeof raw.source.ref === "string" ? { ref: raw.source.ref } : {}) } : { kind: "human" },
+        summary: String(raw.summary ?? ""), content: String(raw.content ?? ""),
+        counterexamples: Array.isArray(raw.counterexamples) ? raw.counterexamples.filter((item): item is string => typeof item === "string") : [],
+        scope: isRecord(raw.scope) ? { caseIds: Array.isArray(raw.scope.caseIds) ? raw.scope.caseIds.filter((item): item is string => typeof item === "string") : undefined, tags: Array.isArray(raw.scope.tags) ? raw.scope.tags.filter((item): item is string => typeof item === "string") : undefined, featureIds: Array.isArray(raw.scope.featureIds) ? raw.scope.featureIds.filter((item): item is string => typeof item === "string") : undefined } : undefined,
+        expiresAt: typeof raw.expiresAt === "string" ? raw.expiresAt : undefined, expiryReason: typeof raw.expiryReason === "string" ? raw.expiryReason : undefined,
+      };
+      const record = store.propose(input);
+      experienceOutput("canary.experience.proposal", { valid: true, record, approval: { status: "not_approved" } });
+      return 0;
+    } catch (error) { experienceOutput("canary.experience.proposal", { valid: false, errors: [error instanceof Error ? error.message : String(error)], approval: { status: "not_approved" } }); return 1; }
+  }
+  if (["validate", "activate", "revoke", "expire"].includes(action ?? "")) {
+    const id = rest[1];
+    if (!id) { console.log(USAGE); return 1; }
+    try {
+      const record = action === "validate" ? store.transition(id, "validated") : action === "activate" ? store.activate(id) : action === "revoke" ? store.revoke(id) : store.transition(id, "expired", "expired by operator");
+      experienceOutput(`canary.experience.${action}`, { record, approval: { status: "not_approved" } });
+      return 0;
+    } catch (error) { experienceOutput(`canary.experience.${action}`, { valid: false, errors: [error instanceof Error ? error.message : String(error)], approval: { status: "not_approved" } }); return 1; }
+  }
+  if (action === "clear") { store.clear(context.projectRoot); experienceOutput("canary.experience.clear", { projectRoot: context.projectRoot, active: store.activePointer(context.projectRoot) }); return 0; }
+  if (action === "load") {
+    try {
+      const loaded = store.load({ projectRoot: context.projectRoot, caseId: flagValue(rest, "--case"), tags: flagValues(rest, "--tag"), featureIds: flagValues(rest, "--feature"), maxItems: parseBoundedInteger(flagValue(rest, "--max-items"), "--max-items"), maxChars: parseBoundedInteger(flagValue(rest, "--max-chars"), "--
