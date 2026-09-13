@@ -269,4 +269,54 @@ packages/cli test: [90mstdout[2m | tests/cli.e2e.test.ts[2m > [22m[2mrepeti
 packages/cli test: [22m[39mrunId: run_1192ad09-0ece-4482-b301-a2afd8a36a3b
 packages/cli test: [90mstdout[2m | tests/cli.e2e.test.ts[2m > [22m[2mrepetitions, tags, cancel and streaming artifacts[2m > [22m[2mruns case × repetitions and filters --tag
 packages/cli test: [22m[39mPASS smoke#1 (205ms)
-packages/cli test: [90mstdout[2m | tests/
+packages/cli test: [90mstdout[2m | tests/cli.e2e.test.ts[2m > [22m[2mrepetitions, tags, cancel and streaming artifacts[2m > [22m[2mruns case × repetitions and filters --tag
+packages/cli test: [22m[39mPASS smoke#2 (197ms)
+packages/cli test: [90mstdout[2m | tests/cli.e2e.test.ts[2m > [22m[2mrepetitions, tags, cancel and streaming artifacts[2m > [22m[2mruns case × repetitions and filters --tag
+packages/cli test: [22m[39mrunId: run_1192ad09-0ece-4482-b301-a2afd8a36a3b
+packages/cli test: status: completed
+packages/cli test: cases: 2 passed / 0 failed / 2 total
+packages/cli test: coverage: final · lines 1/1 (100%) · functions 1/1 (100%) · branches 0/0 (0%) · statements 1/1 (100%)
+packages/cli test: evaluation: 4 passed / 0 failed assertions
+packages/cli test: artifact: C:\Users\TEMP-A~1\AppData\Local\Temp\canary-reps-k3iMWv\.canary\artifacts\run_1192ad09-0ece-4482-b301-a2afd8a36a3b\run.json
+packages/cli test: exit: 0
+packages/cli test: [90mstdout[2m | tests/cli.e2e.test.ts[2m > [22m[2mrepetitions, tags, cancel and streaming artifacts[2m > [22m[2mwrites a cancelled artifact when the run is aborted
+packages/cli test: [22m[39mrunId: run_f50ab54e-8cd8-4558-a632-8b83a58dd7e6
+packages/cli test: [90mstdout[2m | tests/cli.e2e.test.ts[2m > [22m[2mrepetitions, tags, cancel and streaming artifacts[2m > [22m[2mwrites a cancelled artifact when the run is aborted
+packages/cli test: [22m[39mrunId: run_f50ab54e-8cd8-4558-a632-8b83a58dd7e6
+packages/cli test: status: cancelled
+packages/cli test: cases: 0 passed / 0 failed / 1 total
+packages/cli test: coverage: preparing · lines 0/0 (0%) · functions 0/0 (0%) · branches 0/0 (0%) · statements 0/0 (0%)
+packages/cli test: evaluation: 0 passed / 0 failed assertions
+packages/cli test: artifact: C:\Users\TEMP-A~1\AppData\Local\Temp\canary-cancel-MHWBlg\.canary\artifacts\run_f50ab54e-8cd8-4558-a632-8b83a58dd7e6\run.json
+packages/cli test: exit: 1
+packages/cli test: [90mstdout[2m | tests/cli.e2e.test.ts[2m > [22m[2mrepetitions, tags, cancel and streaming artifacts[2m > [22m[2mcancels an in-flight case and persists the partial run
+packages/cli test: [22m[39mrunId: run_74b49016-a655-4654-a18f-8c9439d9542b
+packages/cli test: [90mstdout[2m | tests/cli.e2e.test.ts[2m > [22m[2mrepetitions, tags, cancel and streaming artifacts[2m > [22m[2mcancels an in-flight case and persists the partial run
+packages/cli test: [22m[39mrunId: run_74b49016-a655-4654-a18f-8c9439d9542b
+packages/cli test: status: cancelled
+packages/cli test: cases: 0 passed / 1 failed / 1 total
+packages/cli test: coverage: unavailable · lines 0/0 (0%) · functions 0/0 (0%) · branches 0/0 (0%) · statements 0/0 (0%)
+packages/cli test: evaluation: 0 passed / 1 failed assertions
+packages/cli test: artifact: C:\Users\TEMP-A~1\AppData\Local\Temp\canary-cancel-live-jmNuOd\.canary\artifacts\run_74b49016-a655-4654-a18f-8c9439d9542b\run.json
+packages/cli test: exit: 1
+packages/cli test: [90mstdout[2m | tests/cli.e2e.test.ts[2m > [22m[2mtool adapters, http black-box and concurrency[2m > [22m[2minjects MockToolAdapter so the agent uses ctx.tools.call
+packages/cli test: [22m[39mrunId: run_8e14341a-b3db-47bc-beca-33c6b3383e05
+packages/cli test: [90mstdout[2m | tests/cli.e2e.test.ts[2m > [22m[2mtool adapters, http black-box and concurrency[2m > [22m[2minjects MockToolAdapter so the agent uses ctx.tools.call
+packages/cli test: [22m[39mrunId: run_8e14341a-b3db-47bc-beca-33c6b3383e05
+packages/cli test: status: completed
+packages/cli test: cases: 1 passed / 0 failed / 1 total
+packages/cli test: coverage: final · lines 2/2 (100%) · functions 2/2 (100%) · branches 0/0 (0%) · statements 8/8 (100%)
+packages/cli test: evaluation: 4 passed / 0 failed assertions
+packages/cli test: artifact: C:\Users\TEMP-A~1\AppData\Local\Temp\canary-mock-tools-W9l7qA\.canary\artifacts\run_8e14341a-b3db-47bc-beca-33c6b3383e05\run.json
+packages/cli test: exit: 0
+packages/cli test: [90mstdout[2m | tests/cli.e2e.test.ts[2m > [22m[2mtool adapters, http black-box and concurrency[2m > [22m[2mruns MCP stdio tools through the runner tool chain
+packages/cli test: [22m[39mrunId: run_336cfd57-d417-4160-8cf4-ab98bd3af7eb
+packages/cli test: [90mstdout[2m | tests/cli.e2e.test.ts[2m > [22m[2mtool adapters, http black-box and concurrency[2m > [22m[2mruns MCP stdio tools through the runner tool chain
+packages/cli test: [22m[39mrunId: run_336cfd57-d417-4160-8cf4-ab98bd3af7eb
+packages/cli test: status: completed
+packages/cli test: cases: 1 passed / 0 failed / 1 total
+packages/cli test: coverage: final · lines 1/1 (100%) · functions 1/1 (100%) · branches 0/0 (0%) · statements 4/4 (100%)
+packages/cli test: evaluation: 3 passed / 0 failed assertions
+packages/cli test: artifact: C:\Users\TEMP-A~1\AppData\Local\Temp\canary-mcp-tools-DtZQWe\.canary\artifacts\run_336cfd57-d417-4160-8cf4-ab98bd3af7eb\run.json
+packages/cli test: exit: 0
+packages/cli test: [90mstdout[2m | tests/cli.e2e.test.ts[2m > [22m[2mtool adapters, http black-box and concurrency[2m > [22m[2mruns MCP HTTP JSON-RPC t
