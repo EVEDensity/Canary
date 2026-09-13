@@ -64,4 +64,39 @@ packages/cli test: exit: 0
 packages/cli test: [90mstdout[2m | tests/cli.e2e.test.ts[2m > [22m[2mtool adapters, http black-box and concurrency[2m > [22m[2mruns MCP HTTP JSON-RPC tools (not full Streamable HTTP)
 packages/cli test: [22m[39mrunId: run_94a9a39a-99d2-4ce6-bc25-098f636a6847
 packages/cli test: [90mstdout[2m | tests/cli.e2e.test.ts[2m > [22m[2mtool adapters, http black-box and concurrency[2m > [22m[2mruns MCP HTTP JSON-RPC tools (not full Streamable HTTP)
-packages/cli test: [22m[39mrunId: run_94a
+packages/cli test: [22m[39mrunId: run_94a9a39a-99d2-4ce6-bc25-098f636a6847
+packages/cli test: status: completed
+packages/cli test: cases: 1 passed / 0 failed / 1 total
+packages/cli test: coverage: final · lines 1/1 (100%) · functions 1/1 (100%) · branches 0/0 (0%) · statements 4/4 (100%)
+packages/cli test: evaluation: 2 passed / 0 failed assertions
+packages/cli test: artifact: C:\Users\TEMP-A~1\AppData\Local\Temp\canary-mcp-http-Jz62uq\.canary\artifacts\run_94a9a39a-99d2-4ce6-bc25-098f636a6847\run.json
+packages/cli test: exit: 0
+packages/cli test: [90mstdout[2m | tests/cli.e2e.test.ts[2m > [22m[2mtool adapters, http black-box and concurrency[2m > [22m[2mruns an HTTP black-box agent with unavailable coverage
+packages/cli test: [22m[39mrunId: run_10dd22ed-24f6-4a95-8dfd-fb06041237f4
+packages/cli test: [90mstdout[2m | tests/cli.e2e.test.ts[2m > [22m[2mtool adapters, http black-box and concurrency[2m > [22m[2mruns an HTTP black-box agent with unavailable coverage
+packages/cli test: [22m[39mrunId: run_10dd22ed-24f6-4a95-8dfd-fb06041237f4
+packages/cli test: status: completed
+packages/cli test: cases: 1 passed / 0 failed / 1 total
+packages/cli test: coverage: unavailable · lines 0/0 (0%) · functions 0/0 (0%) · branches 0/0 (0%) · statements 0/0 (0%)
+packages/cli test: evaluation: 3 passed / 0 failed assertions
+packages/cli test: artifact: C:\Users\TEMP-A~1\AppData\Local\Temp\canary-http-demo-CaWurB\.canary\artifacts\run_10dd22ed-24f6-4a95-8dfd-fb06041237f4\run.json
+packages/cli test: exit: 0
+packages/cli test: [90mstdout[2m | tests/cli.e2e.test.ts[2m > [22m[2mtool adapters, http black-box and concurrency[2m > [22m[2mruns cases on a concurrent process pool
+packages/cli test: [22m[39mrunId: run_f46db3bf-e82c-4626-ab56-a1b6c6a4e4b5
+packages/cli test: [90mstdout[2m | tests/cli.e2e.test.ts[2m > [22m[2mtool adapters, http black-box and concurrency[2m > [22m[2mruns cases on a concurrent process pool
+packages/cli test: [22m[39mrunId: run_f46db3bf-e82c-4626-ab56-a1b6c6a4e4b5
+packages/cli test: status: completed
+packages/cli test: cases: 2 passed / 0 failed / 2 total
+packages/cli test: coverage: final · lines 1/1 (100%) · functions 2/2 (100%) · branches 0/0 (0%) · statements 4/4 (100%)
+packages/cli test: evaluation: 4 passed / 0 failed assertions
+packages/cli test: artifact: C:\Users\TEMP-A~1\AppData\Local\Temp\canary-pool-zFm36n\.canary\artifacts\run_f46db3bf-e82c-4626-ab56-a1b6c6a4e4b5\run.json
+packages/cli test: exit: 0
+packages/cli test: [90mstdout[2m | tests/cli.e2e.test.ts[2m > [22m[2mS-03 versioned experiences[2m > [22m[2mrequires proposal validation and activation, injects only active context, and records references
+packages/cli test: [22m[39mrunId: run_af4cc9aa-93ef-4e30-8899-64dee5703791
+packages/cli test: [90mstdout[2m | tests/cli.e2e.test.ts[2m > [22m[2mS-03 versioned experiences[2m > [22m[2mrequires proposal validation and activation, injects only active context, and records references
+packages/cli test: [22m[39mrunId: run_af4cc9aa-93ef-4e30-8899-64dee5703791
+packages/cli test: status: completed
+packages/cli test: cases: 1 passed / 0 failed / 1 total
+packages/cli test: coverage: final · lines 1/1 (100%) · functions 3/3 (100%) · branches 0/0 (0%) · statements 1/1 (100%)
+packages/cli test: evaluation: 1 passed / 0 failed assertions
+packages/cli
