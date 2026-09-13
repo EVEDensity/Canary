@@ -1,0 +1,41 @@
+[
+  {
+    "command": "pnpm build",
+    "exitCode": 0,
+    "log": "docs/evidence/logs/s04-build.txt"
+  },
+  {
+    "command": "pnpm test",
+    "exitCode": 0,
+    "notes": "All workspace tests passed; CLI 30/30 tests passed, including S-04 success, negative candidate, missing Judge, approval, activation and rollback paths.",
+    "log": "docs/evidence/logs/s04-test.txt"
+  },
+  {
+    "command": "pnpm typecheck",
+    "exitCode": 0,
+    "log": "docs/evidence/logs/s04-typecheck.txt"
+  },
+  {
+    "command": "pnpm lint",
+    "exitCode": 0,
+    "log": "docs/evidence/logs/s04-lint.txt"
+  },
+  {
+    "command": "pnpm format:check",
+    "exitCode": 1,
+    "notes": "Pre-existing repository formatting issue in CONTRIBUTING.md; no S-04 file was reported.",
+    "log": "docs/evidence/logs/s04-format-check.txt"
+  },
+  {
+    "command": "pnpm demo:headless",
+    "exitCode": 0,
+    "notes": "15/15 cases and 45/45 assertions passed.",
+    "log": "docs/evidence/logs/s04-demo-headless.txt"
+  },
+  {
+    "command": "git diff --check",
+    "exitCode": 0,
+    "notes": "Passed after removing an extra blank line at the end of the S-04 e2e test.",
+    "log": "docs/evidence/logs/s04-diff-check.txt"
+  }
+]
