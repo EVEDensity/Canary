@@ -527,4 +527,38 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
     if (!runId) { console.log(USAGE); return 1; }
     const snapshot = readRunArtifact(runId, undefined, configPath);
     if (!snapshot) { console.error(`Run not found: ${runId}`); return 1; }
-    const options: CliOptions
+    const options: CliOptions = {
+      headless: rest.includes("--headless"),
+      noOpen: rest.includes("--no-open"),
+      json: rest.includes("--json"),
+      caseIds: [...new Set(snapshot.results.map((result) => result.caseId))],
+      replayOf: runId,
+    };
+    options.configPath = flagValue(rest, "--config");
+    const port = flagValue(rest, "--port");
+    if (port) options.port = Number(port);
+    return runCommand(options);
+  }
+  if (command !== "run") { console.log(USAGE); return 1; }
+  const options: CliOptions = { headless: rest.includes("--headless"), noOpen: rest.includes("--no-open"), json: rest.includes("--json") };
+  options.caseId = flagValue(rest, "--case");
+  options.tags = flagValues(rest, "--tag");
+  options.entry = flagValue(rest, "--entry");
+  try { options.repetitions = parseRepetitions(flagValue(rest, "--repetitions")); }
+  catch (error) { console.error(error instanceof Error ? error.message : String(error)); return 1; }
+  const port = flagValue(rest, "--port");
+  if (port) options.port = Number(port);
+  options.configPath = flagValue(rest, "--config");
+  const controller = new AbortController();
+  const stop = (): void => controller.abort();
+  process.once("SIGINT", stop);
+  process.once("SIGTERM", stop);
+  options.signal = options.signal ?? controller.signal;
+  try {
+    return await runCommand(options);
+  } finally {
+    process.off("SIGINT", stop);
+    process.off("SIGTERM", stop);
+  }
+}
+if (process.argv[1]?.endsWith("index.ts") || process.argv[1]?.endsWith("index.js")) process.exitCode = await main();
