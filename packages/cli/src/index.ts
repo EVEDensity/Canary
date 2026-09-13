@@ -172,4 +172,35 @@ export function printRunSummary(run: RunSnapshot, extras: { artifactPath: string
 }
 
 function printRunList(runs: RunSnapshot[]): void {
-  if (!runs.length) { console.log("No runs found."); retu
+  if (!runs.length) { console.log("No runs found."); return; }
+  for (const run of runs) {
+    console.log(`${run.runId}\t${run.status}\t${run.passedCases}/${run.totalCases}\t${run.startedAt}`);
+  }
+}
+
+export interface RunCommandResult { exitCode: number; runId: string; artifactPath: string; uiUrl: string; snapshot: RunSnapshot; store: RunStore; close: () => Promise<void> }
+
+function flagValue(rest: string[], name: string): string | undefined {
+  const index = rest.indexOf(name);
+  return index >= 0 ? rest[index + 1] : undefined;
+}
+function flagValues(rest: string[], name: string): string[] {
+  const values: string[] = [];
+  for (let index = 0; index < rest.length; index += 1) {
+    if (rest[index] === name && rest[index + 1]) values.push(rest[++index]!);
+  }
+  return values;
+}
+function parseRepetitions(raw: string | undefined): number | undefined {
+  if (raw === undefined) return undefined;
+  const value = Number(raw);
+  if (!Number.isInteger(value) || value < 1) throw new Error(`Invalid --repetitions ${raw}`);
+  return value;
+}
+function selectCases(cases: TestCase[], options: CliOptions): TestCase[] {
+  let selected = cases;
+  if (options.caseId) selected = selected.filter((testCase) => testCase.id === options.caseId);
+  if (options.caseIds?.length) selected = selected.filter((testCase) => options.caseIds!.includes(testCase.id));
+  if (options.tags?.length) selected = selected.filter((testCase) => (testCase.tags ?? []).some((tag) => options.tags!.includes(tag)));
+  if (options.caseId && !selected.length) throw new Error(`No test case matched --case ${options.caseId}`);
+  i
