@@ -203,4 +203,34 @@ function selectCases(cases: TestCase[], options: CliOptions): TestCase[] {
   if (options.caseIds?.length) selected = selected.filter((testCase) => options.caseIds!.includes(testCase.id));
   if (options.tags?.length) selected = selected.filter((testCase) => (testCase.tags ?? []).some((tag) => options.tags!.includes(tag)));
   if (options.caseId && !selected.length) throw new Error(`No test case matched --case ${options.caseId}`);
-  i
+  if (options.tags?.length && !selected.length) throw new Error(`No test case matched --tag ${options.tags.join(", ")}`);
+  if (options.caseIds?.length) {
+    const missing = options.caseIds.filter((id) => !selected.some((testCase) => testCase.id === id));
+    if (missing.length) throw new Error(`Replay cases not found in current config: ${missing.join(", ")}`);
+  }
+  return selected;
+}
+
+export async function runCommandDetailed(options: CliOptions = {}): Promise<RunCommandResult> {
+  const context = resolveProjectContext(options);
+  if (!existsSync(context.configFile)) throw new Error(missingConfigMessage(context.configFile));
+  const config = await loadConfig(context.configFile);
+  const cases = await loadCases(config.cases, context.projectRoot, config.coverage.exclude);
+  const selected = selectCases(cases, options);
+  const store = new RunStore();
+  const runId = `run_${randomUUID()}`;
+  const fallbackReps = options.repetitions ?? config.runtime?.repetitions ?? 1;
+  const planned = selected.reduce((sum, testCase) => sum + (testCase.options?.repetitions ?? fallbackReps), 0);
+  store.create(planned, runId, options.replayOf);
+  const evaluationInput = {
+    store,
+    config: options.entry ? { ...config, agent: { ...config.agent, entry: options.entry } } : config,
+    context,
+    selected,
+    replayOf: options.replayOf,
+    candidateOf: options.candidateOf,
+    repetitions: options.repetitions,
+    signal: options.signal,
+    consoleReporter: Boolean(config.reporters?.includes("console")),
+    silent: options.json,
+    r
