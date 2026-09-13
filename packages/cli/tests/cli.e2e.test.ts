@@ -392,4 +392,59 @@ describe("canary replay", () => {
     expect(replayed?.runId).not.toBe(first.runId);
     expect(replayed?.passedCases).toBe(1);
   });
-})
+});
+
+describe("repetitions, tags, cancel and streaming artifacts", () => {
+  it("runs case × repetitions and filters --tag", async () => {
+    const cwd = mkdtempSync(join(tmpdir(), "canary-reps-"));
+    writeFileSync(join(cwd, "agent.mjs"), "export default async (input) => ({ value: input });", "utf8");
+    writeFileSync(join(cwd, "cases.ts"), "export default [{ id: 'smoke', tags: ['fast'], input: 'ok', assertions: [{ type: 'output.exists' }] }, { id: 'slow', tags: ['slow'], input: 'later', assertions: [{ type: 'output.exists' }] }];", "utf8");
+    writeFileSync(join(cwd, "canary.config.ts"), `export default { agent: { adapter: 'function', entry: './agent.mjs' }, cases: './cases.ts', coverage: { include: ['agent.mjs'], exclude: [] }, reporters: ['console', 'json'], web: { host: '127.0.0.1', open: false } };`, "utf8");
+    const tagged = await runCommandDetailed({ cwd, headless: true, noOpen: true, tags: ["fast"], repetitions: 2 });
+    expect(tagged.exitCode).toBe(0);
+    const artifact = JSON.parse(readFileSync(tagged.artifactPath, "utf8"));
+    expect(artifact.totalCases).toBe(2);
+    expect(artifact.results).toHaveLength(2);
+    expect(artifact.results.every((item: { caseId: string }) => item.caseId === "smoke")).toBe(true);
+    expect(artifact.results.map((item: { repetition: number }) => item.repetition)).toEqual([1, 2]);
+    expect(existsSync(join(cwd, ".canary/artifacts", tagged.runId, "report.console.txt"))).toBe(true);
+  });
+
+  it("writes a cancelled artifact when the run is aborted", async () => {
+    const cwd = mkdtempSync(join(tmpdir(), "canary-cancel-"));
+    writeFileSync(join(cwd, "agent.mjs"), "export default async () => new Promise(() => {});", "utf8");
+    writeFileSync(join(cwd, "cases.ts"), "export default [{ id: 'stuck', input: 'ok' }];", "utf8");
+    writeFileSync(join(cwd, "canary.config.ts"), `export default { agent: { adapter: 'function', entry: './agent.mjs' }, cases: './cases.ts', coverage: { include: ['agent.mjs'], exclude: [] }, web: { host: '127.0.0.1', open: false } };`, "utf8");
+    const controller = new AbortController();
+    controller.abort();
+    const result = await runCommandDetailed({ cwd, headless: true, noOpen: true, signal: controller.signal });
+    expect(result.exitCode).toBe(1);
+    expect(existsSync(result.artifactPath)).toBe(true);
+    const artifact = JSON.parse(readFileSync(result.artifactPath, "utf8"));
+    expect(artifact.status).toBe("cancelled");
+    expect(artifact.coverage.status).toBe("preparing");
+    expect(existsSync(join(cwd, ".canary/artifacts", result.runId, "coverage.json"))).toBe(true);
+    expect(existsSync(join(cwd, ".canary/artifacts", result.runId, "coverage-manifest.json"))).toBe(true);
+  });
+
+  it("cancels an in-flight case and persists the partial run", async () => {
+    const cwd = mkdtempSync(join(tmpdir(), "canary-cancel-live-"));
+    writeFileSync(join(cwd, "agent.mjs"), "export default async () => new Promise(() => {});", "utf8");
+    writeFileSync(join(cwd, "cases.ts"), "export default [{ id: 'stuck', input: 'ok' }];", "utf8");
+    writeFileSync(join(cwd, "canary.config.ts"), `export default { agent: { adapter: 'function', entry: './agent.mjs' }, cases: './cases.ts', coverage: { include: ['agent.mjs'], exclude: [] }, runtime: { timeoutMs: 5000 }, web: { host: '127.0.0.1', open: false } };`, "utf8");
+    const controller = new AbortController();
+    const pending = runCommandDetailed({ cwd, headless: true, noOpen: true, signal: controller.signal });
+    setTimeout(() => controller.abort(), 250);
+    const result = await pending;
+    expect(result.exitCode).toBe(1);
+    const artifact = JSON.parse(readFileSync(result.artifactPath, "utf8"));
+    expect(artifact.status).toBe("cancelled");
+    expect(artifact.results[0]?.failureCategory).toBe("cancelled");
+  });
+});
+
+describe("tool adapters, http black-box and concurrency", () => {
+  it("injects MockToolAdapter so the agent uses ctx.tools.call", async () => {
+    const cwd = mkdtempSync(join(tmpdir(), "canary-mock-tools-"));
+    writeFileSync(join(cwd, "tools.mjs"), "export const demoTools = { echo: (args) => ({ echoed: args }) };", "utf8");
+    writeFileSync(join(cwd, "agent.mjs"), "export default async (input, ctx) => { const args = { q: input }; ctx.emit({ type: 'tool.call', name:
