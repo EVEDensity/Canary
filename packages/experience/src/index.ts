@@ -127,4 +127,33 @@ export class ExperienceStore {
     atomicWrite(this.recordFile(record.id), record);
     return record;
   }
-  transition(id: string, status: Ex
+  transition(id: string, status: ExperienceStatus, reason?: string): ExperienceRecord {
+    const record = this.get(id);
+    if (!record) throw new Error(`Experience not found: ${id}`);
+    const allowed: Record<ExperienceStatus, ExperienceStatus[]> = { proposed: ["validated", "revoked"], validated: ["active", "revoked", "expired"], active: ["validated", "expired", "revoked"], expired: [], revoked: [] };
+    if (!allowed[record.status].includes(status)) throw new Error(`Cannot transition experience ${id} from ${record.status} to ${status}`);
+    const updated: ExperienceRecord = { ...record, status, updatedAt: nowIso(), ...(reason ? { expiryReason: reason } : {}), ...(status === "validated" ? { validation: { validatedAt: nowIso(), checks: ["human_or_explicit_cli_review", "content_hash", "sensitive_data", "injection", "project_scope"] } } : {}) };
+    atomicWrite(this.recordFile(id), updated);
+    if (status !== "active") this.removePointer(id, record.projectRoot);
+    return updated;
+  }
+  private removePointer(id: string, projectRoot: string): void {
+    const pointer = this.activePointer(projectRoot);
+    const entries = pointer.entries.filter((entry) => entry.id !== id);
+    if (entries.length !== pointer.entries.length) atomicWrite(this.pointerFile, { ...pointer, entries, updatedAt: nowIso() } satisfies ActiveExperiencePointer);
+  }
+  activate(id: string): ExperienceRecord {
+    const record = this.transition(id, "active");
+    const pointer = this.activePointer(record.projectRoot);
+    const sameKey = pointer.entries.find((entry) => entry.key === record.key);
+    const entries = pointer.entries.filter((entry) => entry.key !== record.key && entry.id !== record.id);
+    if (sameKey) {
+      const previous = this.get(sameKey.id);
+      if (previous && previous.status === "active") atomicWrite(this.recordFile(previous.id), { ...previous, status: "expired", expiryReason: `superseded by ${record.id}`, updatedAt: nowIso() });
+    }
+    entries.push({ id: record.id, key: record.key, version: record.version, contentHash: record.contentHash });
+    atomicWrite(this.pointerFile, { v: 1, projectRoot: record.projectRoot, entries, updatedAt: nowIso() } satisfies ActiveExperiencePointer);
+    return this.get(id)!;
+  }
+  clear(projectRoot: string): void { atomicWrite(this.pointerFile, { v: 1, projectRoot: resolve(projectRoot), entries: [], updatedAt: nowIso() } satisfies ActiveExperiencePointer); }
+  revoke(id: string, reason = "revoked by operator"): ExperienceRecord { return this.tr
