@@ -283,4 +283,55 @@ describe("improvement CLI loop", () => {
       expect(activated.sourceUnchanged).toBe(true);
       expect(readFileSync(sourceFile, "utf8")).toBe(sourceBefore);
       const rollbackLogs = [];
-      console.log = (...items) => rollbackLogs.push(items.map(String).join(" "))
+      console.log = (...items) => rollbackLogs.push(items.map(String).join(" "));
+      try { expect(await main(["soft-trial", "rollback", trialId, "--config", configPath])).toBe(0); } finally { console.log = originalLog; }
+      const rolledBack = JSON.parse(rollbackLogs[0]);
+      expect(rolledBack.record.status).toBe("rolled_back");
+      expect(rolledBack.loaded).toEqual([]);
+    } finally { process.env.INIT_CWD = previousCwd; }
+  });
+
+  it("rejects a negative experience candidate and never approves it", async () => {
+    const cwd = mkdtempSync(join(tmpdir(), "canary-s04-negative-"));
+    writeFileSync(join(cwd, "agent.mjs"), "export default async (input, ctx) => ctx.experiences.length ? ({ value: input }) : (input === 'broken' ? null : { value: input });", "utf8");
+    writeFileSync(join(cwd, "cases.ts"), "export default [{ id: 'broken', input: 'broken', assertions: [{ type: 'output.exists' }] }, { id: 'holdout', input: 'holdout', assertions: [{ type: 'output.exists' }] }];", "utf8");
+    const configPath = join(cwd, "canary.config.ts");
+    writeFileSync(configPath, "export default { agent: { adapter: 'function', entry: './agent.mjs' }, cases: './cases.ts', coverage: { include: ['agent.mjs'], exclude: [] }, web: { enabled: false } };", "utf8");
+    const baseline = await runCommandDetailed({ cwd, configPath, headless: true, noOpen: true });
+    expect(baseline.exitCode).toBe(1);
+    const proposalPath = join(cwd, "experience.json");
+    writeFileSync(proposalPath, JSON.stringify({ key: "s04-negative", source: { kind: "human", ref: "s04-negative" }, summary: "Mis-scoped candidate.", content: "This experience is intentionally scoped away from the broken case.", scope: { caseIds: ["holdout"] } }), "utf8");
+    const previousCwd = process.env.INIT_CWD;
+    process.env.INIT_CWD = cwd;
+    try {
+      const originalLog = console.log;
+      const proposalLogs: string[] = [];
+      console.log = (...items) => proposalLogs.push(items.map(String).join(" "));
+      let proposal: { record: { id: string } };
+      try { expect(await main(["experience", "propose", "--file", proposalPath, "--config", configPath])).toBe(0); proposal = JSON.parse(proposalLogs.pop()!); } finally { console.log = originalLog; }
+      expect(await main(["experience", "validate", proposal.record.id, "--config", configPath])).toBe(0);
+      const prepareLogs: string[] = [];
+      console.log = (...items) => prepareLogs.push(items.map(String).join(" "));
+      let prepared: { record: { id: string } };
+      try { expect(await main(["soft-trial", "prepare", baseline.runId, "--experience", proposal.record.id, "--regression", "broken", "--holdout", "holdout", "--config", configPath])).toBe(0); prepared = JSON.parse(prepareLogs.pop()!); } finally { console.log = originalLog; }
+      const trialId = prepared.record.id;
+      const validationLogs: string[] = [];
+      console.log = (...items) => validationLogs.push(items.map(String).join(" "));
+      try { expect(await main(["soft-trial", "validate", trialId, "--config", configPath])).toBe(1); } finally { console.log = originalLog; }
+      const rejected = JSON.parse(validationLogs[0]);
+      expect(rejected.record.status).toBe("rejected");
+      expect(rejected.record.validation.valid).toBe(false);
+      expect(rejected.record.validation.reasons.join(" ")).toMatch(/improve|failed|regression/i);
+      const approvalLogs: string[] = [];
+      console.log = (...items) => approvalLogs.push(items.map(String).join(" "));
+      try { expect(await main(["soft-trial", "approve", trialId, "--actor", "reviewer", "--reason", "negative candidate rejected", "--config", configPath])).toBe(1); } finally { console.log = originalLog; }
+      expect(JSON.parse(approvalLogs[0]).record).toBeUndefined();
+    } finally { process.env.INIT_CWD = previousCwd; }
+  });
+
+  it("does not activate a soft trial when required Judge evidence is missing", async () => {
+    const cwd = mkdtempSync(join(tmpdir(), "canary-s04-judge-"));
+    writeFileSync(join(cwd, "agent.mjs"), "export default async (input) => ({ value: input });", "utf8");
+    writeFileSync(join(cwd, "cases.ts"), "export default [{ id: 'broken', input: 'broken', assertions: [{ type: 'judge.score', minScore: 0.5 }] }, { id: 'holdout', input: 'holdout', assertions: [{ type: 'judge.score', minScore: 0.5 }] }];", "utf8");
+    const configPath = join(cwd, "canary.config.ts");
+    writeFileSync(configP
