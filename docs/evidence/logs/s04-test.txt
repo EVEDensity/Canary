@@ -626,4 +626,128 @@ packages/cli test: [90mstdout[2m | tests/cli.e2e.test.ts[2m > [22m[2mimprov
 packages/cli test: [22m[39mrunId: run_8d67e4c0-3773-4f9a-94cd-bcff9d494b17
 packages/cli test: [90mstdout[2m | tests/cli.e2e.test.ts[2m > [22m[2mimprovement CLI loop[2m > [22m[2mrejects a negative experience candidate and never approves it
 packages/cli test: [22m[39mrunId: run_8d67e4c0-3773-4f9a-94cd-bcff9d494b17
-pack
+packages/cli test: status: failed
+packages/cli test: cases: 1 passed / 1 failed / 2 total
+packages/cli test: coverage: final · lines 1/1 (100%) · functions 1/1 (100%) · branches 3/4 (75%) · statements 1/1 (100%)
+packages/cli test: evaluation: 3 passed / 1 failed assertions
+packages/cli test: artifact: C:\Users\TEMP-A~1\AppData\Local\Temp\canary-s04-negative-KJCYpl\.canary\artifacts\run_8d67e4c0-3773-4f9a-94cd-bcff9d494b17\run.json
+packages/cli test: exit: 1
+packages/cli test: [90mstdout[2m | tests/cli.e2e.test.ts[2m > [22m[2mimprovement CLI loop[2m > [22m[2mrejects a negative experience candidate and never approves it
+packages/cli test: [22m[39m{
+packages/cli test:   "v": 1,
+packages/cli test:   "kind": "canary.experience.validate",
+packages/cli test:   "record": {
+packages/cli test:     "v": 1,
+packages/cli test:     "id": "experience_s04-negative_1_fd6c5133989e",
+packages/cli test:     "key": "s04-negative",
+packages/cli test:     "version": 1,
+packages/cli test:     "status": "validated",
+packages/cli test:     "projectRoot": "C:\\Users\\TEMP-A~1\\AppData\\Local\\Temp\\canary-s04-negative-KJCYpl",
+packages/cli test:     "source": {
+packages/cli test:       "kind": "human",
+packages/cli test:       "ref": "s04-negative"
+packages/cli test:     },
+packages/cli test:     "summary": "Mis-scoped candidate.",
+packages/cli test:     "content": "This experience is intentionally scoped away from the broken case.",
+packages/cli test:     "contentHash": "fd6c5133989e6a0072fbbf3fea0c59c620852e8e22be9aead6e59d8e5c6eeec8",
+packages/cli test:     "counterexamples": [],
+packages/cli test:     "scope": {
+packages/cli test:       "projectRoot": "C:\\Users\\TEMP-A~1\\AppData\\Local\\Temp\\canary-s04-negative-KJCYpl",
+packages/cli test:       "caseIds": [
+packages/cli test:         "holdout"
+packages/cli test:       ]
+packages/cli test:     },
+packages/cli test:     "createdAt": "2026-09-13T10:06:19.267Z",
+packages/cli test:     "updatedAt": "2026-09-13T10:06:19.270Z",
+packages/cli test:     "validation": {
+packages/cli test:       "validatedAt": "2026-09-13T10:06:19.270Z",
+packages/cli test:       "checks": [
+packages/cli test:         "human_or_explicit_cli_review",
+packages/cli test:         "content_hash",
+packages/cli test:         "sensitive_data",
+packages/cli test:         "injection",
+packages/cli test:         "project_scope"
+packages/cli test:       ]
+packages/cli test:     }
+packages/cli test:   },
+packages/cli test:   "approval": {
+packages/cli test:     "status": "not_approved"
+packages/cli test:   }
+packages/cli test: }
+packages/cli test: [90mstdout[2m | tests/cli.e2e.test.ts[2m > [22m[2mimprovement CLI loop[2m > [22m[2mdoes not activate a soft trial when required Judge evidence is missing
+packages/cli test: [22m[39mrunId: run_238aa365-5c43-4715-9f60-69a1577c37a5
+packages/cli test: [90mstdout[2m | tests/cli.e2e.test.ts[2m > [22m[2mimprovement CLI loop[2m > [22m[2mdoes not activate a soft trial when required Judge evidence is missing
+packages/cli test: [22m[39mrunId: run_238aa365-5c43-4715-9f60-69a1577c37a5
+packages/cli test: status: failed
+packages/cli test: cases: 0 passed / 2 failed / 2 total
+packages/cli test: coverage: final · lines 1/1 (100%) · functions 1/1 (100%) · branches 0/0 (0%) · statements 1/1 (100%)
+packages/cli test: evaluation: 2 passed / 2 failed assertions
+packages/cli test: artifact: C:\Users\TEMP-A~1\AppData\Local\Temp\canary-s04-judge-cH8boh\.canary\artifacts\run_238aa365-5c43-4715-9f60-69a1577c37a5\run.json
+packages/cli test: exit: 1
+packages/cli test: [90mstdout[2m | tests/cli.e2e.test.ts[2m > [22m[2mimprovement CLI loop[2m > [22m[2mfails the policy hard gate on unexpected violations even when output exists
+packages/cli test: [22m[39mrunId: run_22bf8d15-dc5a-4aed-badc-22660351108e
+packages/cli test: [90mstdout[2m | tests/cli.e2e.test.ts[2m > [22m[2mimprovement CLI loop[2m > [22m[2mfails the policy hard gate on unexpected violations even when output exists
+packages/cli test: [22m[39mhard-gate: fail · hard_gate_failed · Case smoke had 1 unexpected policy violation(s)
+packages/cli test: [90mstdout[2m | tests/cli.e2e.test.ts[2m > [22m[2mimprovement CLI loop[2m > [22m[2mfails the policy hard gate on unexpected violations even when output exists
+packages/cli test: [22m[39mrunId: run_22bf8d15-dc5a-4aed-badc-22660351108e
+packages/cli test: status: failed
+packages/cli test: cases: 1 passed / 0 failed / 1 total
+packages/cli test: coverage: final · lines 1/1 (100%) · functions 1/1 (100%) · branches 0/0 (0%) · statements 3/3 (100%)
+packages/cli test: evaluation: 2 passed / 0 failed assertions
+packages/cli test: artifact: C:\Users\TEMP-A~1\AppData\Local\Temp\canary-policy-WbAvRr\.canary\artifacts\run_22bf8d15-dc5a-4aed-badc-22660351108e\run.json
+packages/cli test: exit: 1
+packages/cli test: [90mstdout[2m | tests/cli.e2e.test.ts[2m > [22m[2mcanary replay[2m > [22m[2mre-executes the source run cases into a new artifact tagged replayOf
+packages/cli test: [22m[39mrunId: run_e49a59b8-8a74-46df-a46d-2d4168c0b09a
+packages/cli test: [90mstdout[2m | tests/cli.e2e.test.ts[2m > [22m[2mcanary replay[2m > [22m[2mre-executes the source run cases into a new artifact tagged replayOf
+packages/cli test: [22m[39mrunId: run_e49a59b8-8a74-46df-a46d-2d4168c0b09a
+packages/cli test: status: completed
+packages/cli test: cases: 1 passed / 0 failed / 1 total
+packages/cli test: coverage: final · lines 1/1 (100%) · functions 1/1 (100%) · branches 0/0 (0%) · statements 1/1 (100%)
+packages/cli test: evaluation: 2 passed / 0 failed assertions
+packages/cli test: artifact: C:\Users\TEMP-A~1\AppData\Local\Temp\canary-replay-08xczJ\.canary\artifacts\run_e49a59b8-8a74-46df-a46d-2d4168c0b09a\run.json
+packages/cli test: exit: 0
+packages/cli test: [90mstdout[2m | tests/cli.e2e.test.ts[2m > [22m[2mcanary replay[2m > [22m[2mre-executes the source run cases into a new artifact tagged replayOf
+packages/cli test: [22m[39mrunId: run_bc9a32b1-4de0-4306-8b4f-a24fe4f166ed
+packages/cli test: [90mstdout[2m | tests/cli.e2e.test.ts[2m > [22m[2mcanary replay[2m > [22m[2mre-executes the source run cases into a new artifact tagged replayOf
+packages/cli test: [22m[39mrunId: run_bc9a32b1-4de0-4306-8b4f-a24fe4f166ed
+packages/cli test: status: completed
+packages/cli test: cases: 1 passed / 0 failed / 1 total
+packages/cli test: coverage: final · lines 1/1 (100%) · functions 1/1 (100%) · branches 0/0 (0%) · statements 1/1 (100%)
+packages/cli test: evaluation: 2 passed / 0 failed assertions
+packages/cli test: artifact: C:\Users\TEMP-A~1\AppData\Local\Temp\canary-replay-08xczJ\.canary\artifacts\run_bc9a32b1-4de0-4306-8b4f-a24fe4f166ed\run.json
+packages/cli test: exit: 0
+packages/cli test: [90mstdout[2m | tests/cli.e2e.test.ts[2m > [22m[2mrepetitions, tags, cancel and streaming artifacts[2m > [22m[2mruns case × repetitions and filters --tag
+packages/cli test: [22m[39mrunId: run_e64772bc-7cdf-4528-a185-effd895cc313
+packages/cli test: [90mstdout[2m | tests/cli.e2e.test.ts[2m > [22m[2mrepetitions, tags, cancel and streaming artifacts[2m > [22m[2mruns case × repetitions and filters --tag
+packages/cli test: [22m[39mPASS smoke#1 (201ms)
+packages/cli test: [90mstdout[2m | tests/cli.e2e.test.ts[2m > [22m[2mrepetitions, tags, cancel and streaming artifacts[2m > [22m[2mruns case × repetitions and filters --tag
+packages/cli test: [22m[39mPASS smoke#2 (209ms)
+packages/cli test: [90mstdout[2m | tests/cli.e2e.test.ts[2m > [22m[2mrepetitions, tags, cancel and streaming artifacts[2m > [22m[2mruns case × repetitions and filters --tag
+packages/cli test: [22m[39mrunId: run_e64772bc-7cdf-4528-a185-effd895cc313
+packages/cli test: status: completed
+packages/cli test: cases: 2 passed / 0 failed / 2 total
+packages/cli test: coverage: final · lines 1/1 (100%) · functions 1/1 (100%) · branches 0/0 (0%) · statements 1/1 (100%)
+packages/cli test: evaluation: 4 passed / 0 failed assertions
+packages/cli test: artifact: C:\Users\TEMP-A~1\AppData\Local\Temp\canary-reps-LN0Jy4\.canary\artifacts\run_e64772bc-7cdf-4528-a185-effd895cc313\run.json
+packages/cli test: exit: 0
+packages/cli test: [90mstdout[2m | tests/cli.e2e.test.ts[2m > [22m[2mrepetitions, tags, cancel and streaming artifacts[2m > [22m[2mwrites a cancelled artifact when the run is aborted
+packages/cli test: [22m[39mrunId: run_035f5d65-70e7-4e93-bd57-2306c9f31c13
+packages/cli test: [90mstdout[2m | tests/cli.e2e.test.ts[2m > [22m[2mrepetitions, tags, cancel and streaming artifacts[2m > [22m[2mwrites a cancelled artifact when the run is aborted
+packages/cli test: [22m[39mrunId: run_035f5d65-70e7-4e93-bd57-2306c9f31c13
+packages/cli test: status: cancelled
+packages/cli test: cases: 0 passed / 0 failed / 1 total
+packages/cli test: coverage: preparing · lines 0/0 (0%) · functions 0/0 (0%) · branches 0/0 (0%) · statements 0/0 (0%)
+packages/cli test: evaluation: 0 passed / 0 failed assertions
+packages/cli test: artifact: C:\Users\TEMP-A~1\AppData\Local\Temp\canary-cancel-t4VqJc\.canary\artifacts\run_035f5d65-70e7-4e93-bd57-2306c9f31c13\run.json
+packages/cli test: exit: 1
+packages/cli test: [90mstdout[2m | tests/cli.e2e.test.ts[2m > [22m[2mrepetitions, tags, cancel and streaming artifacts[2m > [22m[2mcancels an in-flight case and persists the partial run
+packages/cli test: [22m[39mrunId: run_8a1faeee-e08a-4e51-afd0-a23b99fd22a8
+packages/cli test: [90mstdout[2m | tests/cli.e2e.test.ts[2m > [22m[2mrepetitions, tags, cancel and streaming artifacts[2m > [22m[2mcancels an in-flight case and persists the partial run
+packages/cli test: [22m[39mrunId: run_8a1faeee-e08a-4e51-afd0-a23b99fd22a8
+packages/cli test: status: cancelled
+packages/cli test: cases: 0 passed / 1 failed / 1 total
+packages/cli test: coverage: unavailable · lines 0/0 (0%) · functions 0/0 (0%) · branches 0/0 (0%) · statements 0/0 (0%)
+packages/cli test: evaluation: 0 passed / 1 failed assertions
+packages/cli test: artifact: C:\Users\TEMP-A~1\AppData\Local\Temp\canary-cancel-live-HBP45P\.canary\artifacts\run_8a1faeee-e08a-4e51-afd0-a23b99fd22a8\run.json
+packages/cli test: exit: 1
+packages/cli test: [90mstdout[2m | tests/cli.e2e.test.ts[2m > [22m[2m
