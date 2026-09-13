@@ -99,4 +99,30 @@ packages/cli test: status: completed
 packages/cli test: cases: 1 passed / 0 failed / 1 total
 packages/cli test: coverage: final · lines 1/1 (100%) · functions 3/3 (100%) · branches 0/0 (0%) · statements 1/1 (100%)
 packages/cli test: evaluation: 1 passed / 0 failed assertions
-packages/cli
+packages/cli test: artifact: C:\Users\TEMP-A~1\AppData\Local\Temp\canary-s03-cli-Fgxx6H\.canary\artifacts\run_af4cc9aa-93ef-4e30-8899-64dee5703791\run.json
+packages/cli test: exit: 0
+packages/cli test: [90mstdout[2m | tests/cli.e2e.test.ts[2m > [22m[2mS-03 versioned experiences[2m > [22m[2mrequires proposal validation and activation, injects only active context, and records references
+packages/cli test: [22m[39mrunId: run_6ff72933-5e9c-460a-8764-1f7a2803a44e
+packages/cli test: [90mstdout[2m | tests/cli.e2e.test.ts[2m > [22m[2mS-03 versioned experiences[2m > [22m[2mrequires proposal validation and activation, injects only active context, and records references
+packages/cli test: [22m[39mrunId: run_6ff72933-5e9c-460a-8764-1f7a2803a44e
+packages/cli test: status: completed
+packages/cli test: cases: 1 passed / 0 failed / 1 total
+packages/cli test: coverage: final · lines 1/1 (100%) · functions 1/3 (33.33%) · branches 0/0 (0%) · statements 1/1 (100%)
+packages/cli test: evaluation: 1 passed / 0 failed assertions
+packages/cli test: artifact: C:\Users\TEMP-A~1\AppData\Local\Temp\canary-s03-cli-Fgxx6H\.canary\artifacts\run_6ff72933-5e9c-460a-8764-1f7a2803a44e\run.json
+packages/cli test: exit: 0
+packages/cli test:  [32m✓[39m tests/cli.e2e.test.ts [2m([22m[2m23 tests[22m[2m)[22m[33m 8697[2mms[22m[39m
+packages/cli test:    [33m[2m✓[22m[39m canary run --headless[2m > [22mprints the UI address before cases finish so SSE is reachable mid-run [33m 1447[2mms[22m[39m
+packages/cli test:    [33m[2m✓[22m[39m improvement CLI loop[2m > [22mexports regression drafts from a failed run and rejects a holdout regression on compare [33m 1247[2mms[22m[39m
+packages/cli test:    [33m[2m✓[22m[39m improvement CLI loop[2m > [22maccepts and verifies a suggestion then runs a one-click candidate pipeline [33m 1199[2mms[22m[39m
+packages/cli test:    [33m[2m✓[22m[39m canary replay[2m > [22mre-executes the source run cases into a new artifact tagged replayOf [33m 424[2mms[22m[39m
+packages/cli test:    [33m[2m✓[22m[39m repetitions, tags, cancel and streaming artifacts[2m > [22mruns case × repetitions and filters --tag [33m 409[2mms[22m[39m
+packages/cli test:    [33m[2m✓[22m[39m tool adapters, http black-box and concurrency[2m > [22mruns MCP stdio tools through the runner tool chain [33m 301[2mms[22m[39m
+packages/cli test:    [33m[2m✓[22m[39m tool adapters, http black-box and concurrency[2m > [22mruns MCP HTTP JSON-RPC tools (not full Streamable HTTP) [33m 321[2mms[22m[39m
+packages/cli test:    [33m[2m✓[22m[39m tool adapters, http black-box and concurrency[2m > [22mruns cases on a concurrent process pool [33m 392[2mms[22m[39m
+packages/cli test:    [33m[2m✓[22m[39m S-03 versioned experiences[2m > [22mrequires proposal validation and activation, injects only active context, and records references [33m 456[2mms[22m[39m
+packages/cli test: [2m Test Files [22m [1m[32m2 passed[39m[22m[90m (2)[39m
+packages/cli test: [2m      Tests [22m [1m[32m27 passed[39m[22m[90m (27)[39m
+packages/cli test: [2m   Start at [22m 16:08:50
+packages/cli test: [2m   Duration [22m 10.03s[2m (transform 377ms, setup 0ms, collect 772ms, tests 8.71s, environment 0ms, prepare 190ms)[22m
+packages/cli test: Done
