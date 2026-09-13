@@ -11,4 +11,22 @@ import { AsyncJsonlTraceStore, redactRunSnapshot, type RunStore } from "@canary/
 
 type ReporterFormat = "json" | "markdown" | "junit" | "console";
 
-function repetitionsFor(testCase: TestCase, fa
+function repetitionsFor(testCase: TestCase, fallback: number): number {
+  return testCase.options?.repetitions ?? fallback;
+}
+
+function diskSnapshot(store: RunStore, runId: string): RunSnapshot {
+  return redactRunSnapshot(store.get(runId)!);
+}
+
+function writeLiveArtifacts(artifactDir: string, snapshot: RunSnapshot): void {
+  writeFileSync(resolve(artifactDir, "run.json"), JSON.stringify(snapshot, null, 2), "utf8");
+  if (snapshot.coverage) writeFileSync(resolve(artifactDir, "coverage.json"), JSON.stringify(snapshot.coverage, null, 2), "utf8");
+  writeFileSync(resolve(artifactDir, "trajectory.json"), JSON.stringify(snapshot.results.map((result) => ({
+    caseId: result.caseId,
+    repetition: result.repetition,
+    trajectoryId: result.trajectoryId,
+    termination: result.trajectory?.termination,
+    events: result.trajectory?.events ?? [],
+  })), null, 2), "utf8");
+  writeFileSync(resolve(artifactDir, "evaluator.json"), JSON.s
