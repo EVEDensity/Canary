@@ -334,4 +334,62 @@ describe("improvement CLI loop", () => {
     writeFileSync(join(cwd, "agent.mjs"), "export default async (input) => ({ value: input });", "utf8");
     writeFileSync(join(cwd, "cases.ts"), "export default [{ id: 'broken', input: 'broken', assertions: [{ type: 'judge.score', minScore: 0.5 }] }, { id: 'holdout', input: 'holdout', assertions: [{ type: 'judge.score', minScore: 0.5 }] }];", "utf8");
     const configPath = join(cwd, "canary.config.ts");
-    writeFileSync(configP
+    writeFileSync(configPath, "export default { agent: { adapter: 'function', entry: './agent.mjs' }, cases: './cases.ts', coverage: { include: ['agent.mjs'], exclude: [] }, web: { enabled: false } };", "utf8");
+    const baseline = await runCommandDetailed({ cwd, configPath, headless: true, noOpen: true });
+    expect(baseline.exitCode).toBe(1);
+    const previousCwd = process.env.INIT_CWD;
+    process.env.INIT_CWD = cwd;
+    try {
+      const store = new (await import("@canary/experience")).ExperienceStore(join(cwd, ".canary", "experiences"));
+      const experience = store.propose({ key: "s04-judge", projectRoot: cwd, source: { kind: "human", ref: "s04-judge" }, summary: "Judge-gated candidate.", content: "Use the bounded experience for the broken case.", scope: { caseIds: ["broken"] } });
+      store.transition(experience.id, "validated");
+      const originalLog = console.log;
+      const prepareLogs: string[] = [];
+      console.log = (...items) => prepareLogs.push(items.map(String).join(" "));
+      let prepared: { record: { id: string } };
+      try { expect(await main(["soft-trial", "prepare", baseline.runId, "--experience", experience.id, "--regression", "broken", "--holdout", "holdout", "--config", configPath])).toBe(0); prepared = JSON.parse(prepareLogs.pop()!); } finally { console.log = originalLog; }
+      const validationLogs: string[] = [];
+      console.log = (...items) => validationLogs.push(items.map(String).join(" "));
+      try { expect(await main(["soft-trial", "validate", prepared.record.id, "--config", configPath])).toBe(1); } finally { console.log = originalLog; }
+      const rejected = JSON.parse(validationLogs[0]);
+      expect(rejected.record.status).toBe("rejected");
+      expect(rejected.record.validation.reasons.join(" ")).toMatch(/Judge|failed|improve/i);
+      const pointer = store.activePointer(cwd);
+      expect(pointer.entries).toEqual([]);
+    } finally { process.env.INIT_CWD = previousCwd; }
+  });
+  it("fails the policy hard gate on unexpected violations even when output exists", async () => {
+    const cwd = mkdtempSync(join(tmpdir(), "canary-policy-"));
+    writeFileSync(join(cwd, "agent.mjs"), "export default async (input, ctx) => { ctx.emit({ type: 'policy.violation', rule: 'no-exfil' }); return { value: input }; };", "utf8");
+    writeFileSync(join(cwd, "cases.ts"), "export default [{ id: 'smoke', input: 'ok', assertions: [{ type: 'output.exists' }] }];", "utf8");
+    writeFileSync(join(cwd, "canary.config.ts"), `export default { agent: { adapter: 'function', entry: './agent.mjs' }, cases: './cases.ts', coverage: { include: ['agent.mjs'] }, web: { host: '127.0.0.1', open: false } };`, "utf8");
+    const result = await runCommandDetailed({ cwd, headless: true, noOpen: true });
+    expect(result.exitCode).toBe(1);
+    const gate = JSON.parse(readFileSync(join(cwd, ".canary/artifacts", result.runId, "gate.json"), "utf8"));
+    expect(gate.passed).toBe(false);
+    expect(gate.reason).toBe("hard_gate_failed");
+    expect(gate.hardGate.policyViolations).toBeGreaterThan(0);
+  });
+});
+
+describe("canary replay", () => {
+  it("re-executes the source run cases into a new artifact tagged replayOf", async () => {
+    const cwd = mkdtempSync(join(tmpdir(), "canary-replay-"));
+    writeFileSync(join(cwd, "agent.mjs"), "export default async (input) => ({ value: input });", "utf8");
+    writeFileSync(join(cwd, "cases.ts"), "export default [{ id: 'smoke', input: 'ok', assertions: [{ type: 'output.exists' }] }];", "utf8");
+    writeFileSync(join(cwd, "canary.config.ts"), `export default { agent: { adapter: 'function', entry: './agent.mjs' }, cases: './cases.ts', coverage: { include: ['agent.mjs'], exclude: [] }, web: { host: '127.0.0.1', open: false } };`, "utf8");
+    const first = await runCommandDetailed({ cwd, headless: true, noOpen: true });
+    expect(first.exitCode).toBe(0);
+    const previousCwd = process.env.INIT_CWD;
+    process.env.INIT_CWD = cwd;
+    try {
+      const code = await main(["replay", first.runId, "--headless", "--no-open"]);
+      expect(code).toBe(0);
+    } finally {
+      process.env.INIT_CWD = previousCwd;
+    }
+    const replayed = listRunArtifacts(cwd).find((run) => run.replayOf === first.runId);
+    expect(replayed?.runId).not.toBe(first.runId);
+    expect(replayed?.passedCases).toBe(1);
+  });
+})
