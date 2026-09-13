@@ -288,4 +288,42 @@ export async function runConfiguredCase(options: RunOptions, testCase: TestCase)
     input: testCase.input,
     runId: options.runId,
     caseId: testCase.id,
-    testCa
+    testCase,
+    features: options.config.features,
+    timeoutMs: testCase.options?.timeoutMs ?? options.config.runtime?.timeoutMs ?? 60_000,
+    maxSteps: testCase.options?.maxSteps ?? options.config.runtime?.maxSteps,
+    maxToolCalls: testCase.options?.maxToolCalls ?? options.config.runtime?.maxToolCalls,
+    maxBudget: testCase.options?.maxBudget ?? options.config.runtime?.maxBudget,
+    tools: options.config.tools,
+    model: options.config.model,
+    initialState: testCase.environment?.state,
+    experiences: options.experiences,
+    coverage: {
+      include: options.config.coverage.include,
+      exclude: options.config.coverage.exclude,
+      rootDir: options.cwd,
+      manifest: options.manifest,
+      features: options.config.features,
+      sampleIntervalMs: options.config.coverage.sampleIntervalMs ?? DEFAULT_SAMPLE_INTERVAL_MS,
+      provider: options.config.coverage.provider,
+    },
+    onEvent: options.onEvent,
+    onCoverage: options.onCoverage,
+    signal: options.signal,
+    repetition: options.repetition,
+    repetitionTotal: options.repetitionTotal,
+    judge: options.judge ?? (options.config.judge ? createJudgeProvider(options.config.judge) : undefined),
+    judgePolicy: options.judgePolicy ?? { required: options.config.judge?.required, providerKind: options.config.judge?.provider },
+  };
+  if (options.config.agent.adapter === "http") return runHttpExecution(shared);
+  if (options.config.agent.adapter === "mcp") return runMcpExecution(shared);
+  return runExecution(shared);
+}
+
+export interface RunnerPorts {
+  executeCase: typeof runConfiguredCase;
+}
+
+export function createRunnerPorts(): RunnerPorts {
+  return { executeCase: runConfiguredCase };
+}
