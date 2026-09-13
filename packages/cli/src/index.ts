@@ -292,4 +292,38 @@ export { CANARY_HOME_FILE, missingConfigMessage, readInstalledHome, resolveCanar
 function parseBoundedInteger(raw: string | undefined, name: string): number | undefined {
   if (raw === undefined) return undefined;
   const value = Number(raw);
-  if (!Number.isInteger(value) || value < 1) throw new Error(`Invalid ${
+  if (!Number.isInteger(value) || value < 1) throw new Error(`Invalid ${name} ${raw}`);
+  return value;
+}
+
+function printHost(value: unknown): void {
+  console.log(JSON.stringify(value, null, 2));
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function experienceStoreFor(configPath?: string): { context: ProjectContext; store: ExperienceStore } {
+  const context = resolveProjectContext({ configPath });
+  return { context, store: new ExperienceStore(resolve(context.projectRoot, ".canary", "experiences")) };
+}
+
+function experienceOutput(kind: string, value: unknown): void {
+  printHost({ v: 1, kind, ...isRecord(value) ? value : { value } });
+}
+
+async function experienceCommand(rest: string[], configPath?: string): Promise<number> {
+  const action = rest[0];
+  const { context, store } = experienceStoreFor(configPath);
+  if (action === "list") {
+    experienceOutput("canary.experience.list", { projectRoot: context.projectRoot, active: store.activePointer(context.projectRoot), records: store.list() });
+    return 0;
+  }
+  if (action === "propose") {
+    const file = flagValue(rest, "--file");
+    if (!file) { console.log(USAGE); return 1; }
+    let raw: unknown;
+    try { raw = JSON.parse(readFileSync(resolve(context.invocationRoot, file), "utf8")); }
+    catch (error) { experienceOutput("canary.experience.proposal", { valid: false, errors: [`Experience file is not valid JSON: ${error instanceof Error ? error.message : String(error)}`] }); return 1; }
+    if (!isRecord(raw)) { experienc
