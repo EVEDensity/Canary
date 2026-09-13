@@ -232,4 +232,25 @@ async function finishEvaluation(options: ExecutionOptions, executionId: string, 
 export async function runHttpExecution(options: ExecutionOptions): Promise<EvalResult> {
   const executionId = `exec_${randomUUID()}`; const startedAt = Date.now(); const events: TrajectoryEvent[] = [];
   options.onEvent?.({ type: "execution.started", runId: options.runId, executionId, caseId: options.caseId });
-  const emit = (event: Trajec
+  const emit = (event: TrajectoryEvent) => { events.push(event); options.onEvent?.({ type: "trace.event", executionId, event }); };
+  emit({ type: "http.request", timestamp: new Date().toISOString(), url: options.entry });
+  let output: unknown; let failure: string | undefined;
+  try { output = await runHttpAgent(options.entry, options.input, options.timeoutMs ?? 10_000, options.signal); emit({ type: "http.response", timestamp: new Date().toISOString() }); }
+  catch (error) { failure = error instanceof Error ? error.message : String(error); options.onEvent?.({ type: "execution.failed", executionId, error: failure }); }
+  const coverage = emptyCoverage(options.runId);
+  options.onCoverage?.(coverage);
+  options.onEvent?.({ type: "coverage.updated", executionId, coverage });
+  return finishEvaluation(options, executionId, startedAt, events, output, failure, coverage, failure ? "error" : "completed");
+}
+
+export async function runMcpExecution(options: ExecutionOptions): Promise<EvalResult> {
+  const executionId = `exec_${randomUUID()}`; const startedAt = Date.now(); const events: TrajectoryEvent[] = [];
+  options.onEvent?.({ type: "execution.started", runId: options.runId, executionId, caseId: options.caseId });
+  const emit = (event: TrajectoryEvent) => { events.push(event); options.onEvent?.({ type: "trace.event", executionId, event }); };
+  const cwd = options.cwd ?? process.cwd();
+  const require = createRequire(import.meta.url);
+  const tsxLoader = pathToFileURL(require.resolve("tsx")).href;
+  const entry = resolve(cwd, options.entry);
+  const isTypeScript = /\.[cm]?tsx?$/.test(extname(options.entry));
+  const command = options.nodeExecutable ?? process.execPath;
+  const args = isTypeScript ? ["--import", tsxLoa
