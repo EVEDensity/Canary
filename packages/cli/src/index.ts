@@ -436,4 +436,46 @@ async function softTrialCommand(rest: string[], configPath?: string): Promise<nu
       const comparison = compareRuns(baselineSubset, candidate, holdoutCaseIds(candidate.results));
       const comparisonPath = resolve(softTrialDir(context, record.id), "comparison.json");
       writeFileSync(comparisonPath, JSON.stringify(comparison, null, 2), "utf8");
-      const validation = assessSoftTrial({ baseline: baselineSubset, candidate, comparison, regressionCaseIds: record.regressionCaseIds, holdoutCaseIds: record.holdoutCaseIds, candidate
+      const validation = assessSoftTrial({ baseline: baselineSubset, candidate, comparison, regressionCaseIds: record.regressionCaseIds, holdoutCaseIds: record.holdoutCaseIds, candidateExitCode: executed.exitCode, comparisonArtifact: comparisonPath });
+      writeFileSync(resolve(softTrialDir(context, record.id), "validation.json"), JSON.stringify(validation, null, 2), "utf8");
+      const next: SoftTrialRecord = { ...record, status: validation.valid ? "validated" : "rejected", budget: { ...record.budget, observedCases: candidate.results.length, observedChars: experience.content.length }, validation };
+      writeSoftTrial(context, next);
+      softTrialOutput({ valid: validation.valid, action, record: next, comparison });
+      return validation.valid ? 0 : 1;
+    } finally { await executed?.close(); }
+  }
+  if (action === "approve") {
+    if (record.status !== "validated" || !record.validation?.valid) { softTrialOutput({ valid: false, status: "rejected", errors: ["Only a valid independent trial can be manually approved"] }); return 1; }
+    const actor = flagValue(rest, "--actor");
+    const reason = flagValue(rest, "--reason");
+    if (!actor || !reason) { softTrialOutput({ valid: false, status: "rejected", errors: ["Manual approval requires --actor and --reason"] }); return 1; }
+    const next: SoftTrialRecord = { ...record, status: "approved", authorization: { status: "approved", actor, reason, approvedAt: new Date().toISOString() } };
+    writeSoftTrial(context, next);
+    softTrialOutput({ valid: true, action, record: next });
+    return 0;
+  }
+  if (action === "run") {
+    if (record.status !== "approved" || record.authorization.status !== "approved") { softTrialOutput({ valid: false, status: "rejected", errors: ["Trial must have independent validation and explicit human approval before activation"] }); return 1; }
+    const prior = record.priorActive ?? store.activePointer(context.projectRoot);
+    if (experience.status === "validated") store.activate(experience.id);
+    let executed: RunCommandResult | undefined;
+    try {
+      executed = await runCommandDetailed({ configPath, headless: true, noOpen: true, json: true, suppressOutput: true, caseIds: [...new Set([...record.regressionCaseIds, ...record.holdoutCaseIds])] });
+      const next: SoftTrialRecord = { ...record, status: "activated", nextRunId: executed.runId };
+      writeSoftTrial(context, next);
+      softTrialOutput({ valid: executed.exitCode === 0, action, record: next, loadedExperienceIds: executed.snapshot.experiences?.map((item) => item.id) ?? [], sourceUnchanged: true });
+      return executed.exitCode;
+    } catch (error) { store.restorePointer(prior); throw error; }
+    finally { await executed?.close(); }
+  }
+  if (action === "rollback") {
+    if (record.status !== "activated") { softTrialOutput({ valid: false, status: "rejected", errors: ["Only an activated trial can be rolled back"] }); return 1; }
+    const current = store.get(record.experienceId);
+    if (current?.status === "active") store.transition(record.experienceId, "validated", "S-04 rollback");
+    store.restorePointer(record.priorActive ?? { v: 1, projectRoot: context.projectRoot, entries: [], updatedAt: new Date().toISOString() });
+    const next: SoftTrialRecord = { ...record, status: "rolled_back", authorization: { ...record.authorization, reason: (record.authorization.reason ?? "approved") + "; rolled back by operator" } };
+    writeSoftTrial(context, next);
+    softTrialOutput({ valid: true, action, record: next, active: store.activePointer(context.projectRoot), loaded: store.load({ projectRoot: context.projectRoot }).loaded.map((item) => item.id) });
+    return 0;
+  }
+  softTrialOutput({ valid
