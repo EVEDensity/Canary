@@ -258,4 +258,76 @@ export async function runCommandDetailed(options: CliOptions = {}): Promise<RunC
         return { replayRunId: replayed.runId };
       },
     });
-    const listenin
+    const listening = await web.listen();
+    uiUrl = `${listening.url}/?runId=${encodeURIComponent(runId)}&token=${encodeURIComponent(writeToken)}`;
+    if (!options.json && !options.suppressOutput) {
+      console.log(`runId: ${runId}`);
+      console.log(`canary UI: ${uiUrl}`);
+    }
+    if (!options.noOpen && config.web?.open !== false) openBrowser(uiUrl);
+    let webClosed = false;
+    close = async (): Promise<void> => {
+      if (webClosed || !web.server.listening) { webClosed = true; return; }
+      await new Promise<void>((resolveClose, rejectClose) => web.server.close((error) => error ? rejectClose(error) : resolveClose()));
+      webClosed = true;
+    };
+  } else if (!options.json && !options.suppressOutput) {
+    console.log(`runId: ${runId}`);
+  }
+  const executed = await runEvaluation(evaluationInput);
+  if (options.json && !options.suppressOutput) {
+    console.log(JSON.stringify(hostRunOutput(context, executed.snapshot, executed.artifactPath, executed.exitCode)));
+  } else if (!options.suppressOutput) {
+    printRunSummary(executed.snapshot, { artifactPath: executed.artifactPath, uiUrl: uiUrl || undefined, exitCode: executed.exitCode });
+  }
+  return { exitCode: executed.exitCode, runId: executed.runId, artifactPath: executed.artifactPath, uiUrl, snapshot: executed.snapshot, store, close };
+}
+export async function runCommand(options: CliOptions = {}): Promise<number> {
+  return (await runCommandDetailed(options)).exitCode;
+}
+
+function parseArgv(argv: string[]): { command: string; rest: string[] } {
+  const args = argv.filter((item) => item !== "--");
+  const command = args[0] && !args[0].startsWith("-") ? args[0] : "run";
+  return { command, rest: command === args[0] ? args.slice(1) : args };
+}
+
+export { CANARY_HOME_FILE, missingConfigMessage, readInstalledHome, resolveCanaryProjectRoot, resolveConfigFile, resolveProjectContext } from "./home.js";
+
+function parseBoundedInteger(raw: string | undefined, name: string): number | undefined {
+  if (raw === undefined) return undefined;
+  const value = Number(raw);
+  if (!Number.isInteger(value) || value < 1) throw new Error(`Invalid ${name} ${raw}`);
+  return value;
+}
+
+function printHost(value: unknown): void {
+  console.log(JSON.stringify(value, null, 2));
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function experienceStoreFor(configPath?: string): { context: ProjectContext; store: ExperienceStore } {
+  const context = resolveProjectContext({ configPath });
+  return { context, store: new ExperienceStore(resolve(context.projectRoot, ".canary", "experiences")) };
+}
+
+function experienceOutput(kind: string, value: unknown): void {
+  printHost({ v: 1, kind, ...isRecord(value) ? value : { value } });
+}
+
+async function experienceCommand(rest: string[], configPath?: string): Promise<number> {
+  const action = rest[0];
+  const { context, store } = experienceStoreFor(configPath);
+  if (action === "list") {
+    experienceOutput("canary.experience.list", { projectRoot: context.projectRoot, active: store.activePointer(context.projectRoot), records: store.list() });
+    return 0;
+  }
+  if (action === "propose") {
+    const file = flagValue(rest, "--file");
+    if (!file) { console.log(USAGE); return 1; }
+    let raw: unknown;
+    try { raw = JSON.parse(readFileSync(resolve(context.invocationRoot, file), "utf8")); }
+    catch (error) { experienceOutput
