@@ -55,4 +55,42 @@ function atomicWrite(file: string, value: unknown): void {
   const tmp = `${file}.tmp-${process.pid}`;
   writeFileSync(tmp, JSON.stringify(value, null, 2), "utf8");
   writeFileSync(file, readFileSync(tmp, "utf8"), "utf8");
-  try { unlinkSync(tmp); } catch { /* best effort; stale temp files
+  try { unlinkSync(tmp); } catch { /* best effort; stale temp files are ignored */ }
+}
+
+export function validateExperienceInput(input: ExperienceInput, now = nowIso()): ExperienceValidation {
+  const errors: string[] = [];
+  if (!SAFE_KEY.test(input.key)) errors.push("key must contain only letters, numbers, '.', '_', ':' or '-'");
+  if (!input.projectRoot || !resolve(input.projectRoot)) errors.push("projectRoot is required");
+  if (!input.summary.trim()) errors.push("summary must not be empty");
+  if (!input.content.trim()) errors.push("content must not be empty");
+  if (input.content.length > MAX_EXPERIENCE_CONTENT_CHARS) errors.push(`content exceeds ${MAX_EXPERIENCE_CONTENT_CHARS} characters`);
+  if (SECRET.test(input.content) || SECRET.test(input.summary)) errors.push("content or summary appears to contain sensitive data");
+  if (INJECTION.test(input.content) || INJECTION.test(input.summary)) errors.push("content or summary appears to contain prompt/tool injection");
+  if (input.source.kind === "tool_output") errors.push("tool output cannot become an experience rule");
+  if (input.expiresAt && Number.isNaN(Date.parse(input.expiresAt))) errors.push("expiresAt must be an ISO date");
+  if (input.expiresAt && input.expiresAt <= now) errors.push("expiresAt must be in the future");
+  const contentHash = hashContent(input.content);
+  return errors.length ? { valid: false, errors } : { valid: true, errors: [], contentHash };
+}
+
+function matchesScope(record: ExperienceRecord, context: ExperienceLoadContext): boolean {
+  if (record.projectRoot !== context.projectRoot || record.scope.projectRoot !== context.projectRoot) return false;
+  if (record.scope.caseIds?.length && (!context.caseId || !record.scope.caseIds.includes(context.caseId))) return false;
+  if (record.scope.tags?.length && !record.scope.tags.some((tag) => context.tags?.includes(tag))) return false;
+  if (record.scope.featureIds?.length && !record.scope.featureIds.some((id) => context.featureIds?.includes(id))) return false;
+  return true;
+}
+
+export class ExperienceStore {
+  readonly rootDir: string;
+  private readonly recordsDir: string;
+  private readonly pointerFile: string;
+  constructor(rootDir: string) {
+    this.rootDir = resolve(rootDir);
+    this.recordsDir = resolve(this.rootDir, "records");
+    this.pointerFile = resolve(this.rootDir, "active.json");
+    mkdirSync(this.recordsDir, { recursive: true });
+  }
+  private recordFile(id: string): string { return resolve(this.recordsDir, `${id}.json`); }
+  get(id: string): ExperienceRecor
