@@ -202,4 +202,71 @@ packages/cli test:     "verdict": "hold",
 packages/cli test:     "reasons": [
 packages/cli test:       "quality difference is uncertain; small samples and missing metrics are not an automatic admit"
 packages/cli test:     ],
-packages/cli test:     "har
+packages/cli test:     "hardGatePassed": true,
+packages/cli test:     "completenessPassed": true,
+packages/cli test:     "quality": {
+packages/cli test:       "comparable": false,
+packages/cli test:       "uncertain": true,
+packages/cli test:       "metrics": [
+packages/cli test:         {
+packages/cli test:           "v": 1,
+packages/cli test:           "name": "lines",
+packages/cli test:           "status": "unavailable",
+packages/cli test:           "precision": "unknown",
+packages/cli test:           "provenance": "coverage-precision-mismatch"
+packages/cli test:         },
+packages/cli test:         {
+packages/cli test:           "v": 1,
+packages/cli test:           "name": "branches",
+packages/cli test:           "status": "unavailable",
+packages/cli test:           "precision": "unknown",
+packages/cli test:           "provenance": "coverage-precision-mismatch"
+packages/cli test:         },
+packages/cli test:         {
+packages/cli test:           "v": 1,
+packages/cli test:           "name": "functions",
+packages/cli test:           "status": "unavailable",
+packages/cli test:           "precision": "unknown",
+packages/cli test:           "provenance": "coverage-precision-mismatch"
+packages/cli test:         }
+packages/cli test:       ]
+packages/cli test:     }
+packages/cli test:   }
+packages/cli test: }
+packages/cli test: [90mstdout[2m | tests/cli.e2e.test.ts[2m > [22m[2mimprovement CLI loop[2m > [22m[2mfails the policy hard gate on unexpected violations even when output exists
+packages/cli test: [22m[39mrunId: run_b24fa84b-9598-4526-8149-75d23fa521d2
+packages/cli test: [90mstdout[2m | tests/cli.e2e.test.ts[2m > [22m[2mimprovement CLI loop[2m > [22m[2mfails the policy hard gate on unexpected violations even when output exists
+packages/cli test: [22m[39mhard-gate: fail · hard_gate_failed · Case smoke had 1 unexpected policy violation(s)
+packages/cli test: [90mstdout[2m | tests/cli.e2e.test.ts[2m > [22m[2mimprovement CLI loop[2m > [22m[2mfails the policy hard gate on unexpected violations even when output exists
+packages/cli test: [22m[39mrunId: run_b24fa84b-9598-4526-8149-75d23fa521d2
+packages/cli test: status: failed
+packages/cli test: cases: 1 passed / 0 failed / 1 total
+packages/cli test: coverage: final · lines 1/1 (100%) · functions 1/1 (100%) · branches 0/0 (0%) · statements 3/3 (100%)
+packages/cli test: evaluation: 2 passed / 0 failed assertions
+packages/cli test: artifact: C:\Users\TEMP-A~1\AppData\Local\Temp\canary-policy-f9wl1s\.canary\artifacts\run_b24fa84b-9598-4526-8149-75d23fa521d2\run.json
+packages/cli test: exit: 1
+packages/cli test: [90mstdout[2m | tests/cli.e2e.test.ts[2m > [22m[2mcanary replay[2m > [22m[2mre-executes the source run cases into a new artifact tagged replayOf
+packages/cli test: [22m[39mrunId: run_0c8e392b-e660-4f95-8533-a30b4fa19590
+packages/cli test: [90mstdout[2m | tests/cli.e2e.test.ts[2m > [22m[2mcanary replay[2m > [22m[2mre-executes the source run cases into a new artifact tagged replayOf
+packages/cli test: [22m[39mrunId: run_0c8e392b-e660-4f95-8533-a30b4fa19590
+packages/cli test: status: completed
+packages/cli test: cases: 1 passed / 0 failed / 1 total
+packages/cli test: coverage: final · lines 1/1 (100%) · functions 1/1 (100%) · branches 0/0 (0%) · statements 1/1 (100%)
+packages/cli test: evaluation: 2 passed / 0 failed assertions
+packages/cli test: artifact: C:\Users\TEMP-A~1\AppData\Local\Temp\canary-replay-9MDjvJ\.canary\artifacts\run_0c8e392b-e660-4f95-8533-a30b4fa19590\run.json
+packages/cli test: exit: 0
+packages/cli test: [90mstdout[2m | tests/cli.e2e.test.ts[2m > [22m[2mcanary replay[2m > [22m[2mre-executes the source run cases into a new artifact tagged replayOf
+packages/cli test: [22m[39mrunId: run_837a39f7-d898-4ece-9754-2b92cd264a5e
+packages/cli test: [90mstdout[2m | tests/cli.e2e.test.ts[2m > [22m[2mcanary replay[2m > [22m[2mre-executes the source run cases into a new artifact tagged replayOf
+packages/cli test: [22m[39mrunId: run_837a39f7-d898-4ece-9754-2b92cd264a5e
+packages/cli test: status: completed
+packages/cli test: cases: 1 passed / 0 failed / 1 total
+packages/cli test: coverage: final · lines 1/1 (100%) · functions 1/1 (100%) · branches 0/0 (0%) · statements 1/1 (100%)
+packages/cli test: evaluation: 2 passed / 0 failed assertions
+packages/cli test: artifact: C:\Users\TEMP-A~1\AppData\Local\Temp\canary-replay-9MDjvJ\.canary\artifacts\run_837a39f7-d898-4ece-9754-2b92cd264a5e\run.json
+packages/cli test: exit: 0
+packages/cli test: [90mstdout[2m | tests/cli.e2e.test.ts[2m > [22m[2mrepetitions, tags, cancel and streaming artifacts[2m > [22m[2mruns case × repetitions and filters --tag
+packages/cli test: [22m[39mrunId: run_1192ad09-0ece-4482-b301-a2afd8a36a3b
+packages/cli test: [90mstdout[2m | tests/cli.e2e.test.ts[2m > [22m[2mrepetitions, tags, cancel and streaming artifacts[2m > [22m[2mruns case × repetitions and filters --tag
+packages/cli test: [22m[39mPASS smoke#1 (205ms)
+packages/cli test: [90mstdout[2m | tests/
