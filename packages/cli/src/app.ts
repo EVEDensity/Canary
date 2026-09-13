@@ -122,4 +122,18 @@ export async function runEvaluation(input: EvaluationInput): Promise<{ runId: st
         signal: input.signal,
         repetition: item.repetitionTotal > 1 ? item.repetition : undefined,
         repetitionTotal: item.repetitionTotal > 1 ? item.repetitionTotal : undefined,
-        ex
+        experiences: experienceByCase.get(item.testCase.id)?.loaded,
+        onEvent: (event) => {
+          input.store.appendEvent(run.runId, event);
+          void trace.append({ at: new Date().toISOString(), runId: run.runId, trialId: `${item.testCase.id}#${item.repetition}`, ...event });
+        },
+        onCoverage: (coverage) => {
+          input.store.setCoverage(run.runId, coverage);
+          if (coverage.status !== "provisional" && coverage.status !== "preparing") summaries.push(coverage);
+        },
+      }, item.testCase);
+      await withWriteLock(() => {
+        if (summaries.length) input.store.setCoverage(run.runId, mergeCoverageSummaries(run.runId, summaries, input.config.features, cwd));
+        if (!result.passed) input.store.update(run.runId, { status: result.failureCategory === "cancelled" ? "cancelled" : "failed" });
+        if (input.consoleReporter && !input.silent) {
+   
