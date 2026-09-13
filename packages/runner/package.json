@@ -17,7 +17,8 @@
     "tsx": "^4.19.0",
     "@canary/evaluators": "workspace:*",
     "@canary/adapters": "workspace:*",
-    "@canary/environment": "workspace:*"
+    "@canary/environment": "workspace:*",
+    "@canary/experience": "workspace:*"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
