@@ -61,4 +61,25 @@ function writeFinalReports(artifactDir: string, snapshot: RunSnapshot, formats: 
 
 export interface EvaluationInput {
   store: RunStore;
-  config: CanaryConfig;
+  config: CanaryConfig;
+  context: ProjectContext;
+  selected: TestCase[];
+  replayOf?: string;
+  candidateOf?: string;
+  repetitions?: number;
+  signal?: AbortSignal;
+  consoleReporter?: boolean;
+  silent?: boolean;
+  runId?: string;
+  ports?: RunnerPorts;
+  experiences?: ExperienceStore;
+}
+
+/** Shared run use-case used by CLI (and Web replay hooks). Does not start HTTP. */
+export async function runEvaluation(input: EvaluationInput): Promise<{ runId: string; exitCode: number; artifactPath: string; snapshot: RunSnapshot }> {
+  const cwd = input.context.projectRoot;
+  const executor = input.ports?.executeCase ?? createRunnerPorts().executeCase;
+  const fallbackReps = input.repetitions ?? input.config.runtime?.repetitions ?? 1;
+  const plan = input.selected.flatMap((testCase) => {
+    const total = repetitionsFor(testCase, fallbackReps);
+    return Array.from({ length: total }, (_, index) => ({ testCase, r
