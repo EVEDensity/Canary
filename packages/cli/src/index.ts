@@ -473,4 +473,33 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
       if (rejectId) suggestions = applySuggestionDecision(suggestions, rejectId, "rejected");
       if (verifyId) suggestions = applySuggestionDecision(suggestions, verifyId, "verified");
     } catch (error) {
-      console.error(error instanceof Error
+      console.error(error instanceof Error ? error.message : String(error));
+      return 1;
+    }
+    writeFileSync(resolve(artifactRoot(undefined, configPath), runId, "improvement.json"), JSON.stringify(suggestions, null, 2), "utf8");
+    const outIndex = rest.indexOf("--out");
+    const outDir = resolve(outIndex >= 0 && rest[outIndex + 1] ? rest[outIndex + 1]! : defaultRegressionDir(undefined, configPath));
+    const drafts = verifyId ? verifiedRegressionDrafts(suggestions, outDir) : [];
+    console.log(JSON.stringify({ suggestions, drafts }, null, 2));
+    return 0;
+  }
+  if (command === "candidate") {
+    const baselineId = rest[0];
+    if (!baselineId) { console.log(USAGE); return 1; }
+    const baseline = readRunArtifact(baselineId, undefined, configPath);
+    if (!baseline) { console.error(`Run not found: ${baselineId}`); return 1; }
+    const options: CliOptions = {
+      headless: rest.includes("--headless"),
+      noOpen: rest.includes("--no-open"),
+      json: rest.includes("--json"),
+      caseIds: [...new Set(baseline.results.map((result) => result.caseId))],
+      candidateOf: baselineId,
+      entry: flagValue(rest, "--entry"),
+      configPath: flagValue(rest, "--config"),
+    };
+    const port = flagValue(rest, "--port");
+    if (port) options.port = Number(port);
+    const executed = await runCommandDetailed(options);
+    const candidate = readRunArtifact(executed.runId, undefined, configPath) ?? executed.store.get(executed.runId);
+    if (!candidate) { console.error("Candidate run did not persist"); return 1; }
+    const holdout = holdoutCase
