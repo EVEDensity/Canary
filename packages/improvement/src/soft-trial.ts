@@ -89,4 +89,20 @@ export function assessSoftTrial(input: {
   if (input.comparison.regressions.length) reasons.push(`candidate regressions: ${input.comparison.regressions.join(", ")}`);
   if (input.comparison.admission.verdict === "reject" || input.comparison.admission.verdict === "incomparable") reasons.push(...input.comparison.admission.reasons, `admission verdict is ${input.comparison.admission.verdict}`);
   if (input.candidate.gate?.hardGate?.passed === false || input.candidate.gate?.reason === "hard_gate_failed") reasons.push("candidate hard gate failed; required Judge or policy/state evidence is missing");
-  if (candidateResults.
+  if (candidateResults.some((result) => !result.passed)) reasons.push("candidate contains failed or missing-quality trials");
+  const improvedRegression = input.comparison.improvements.some((key) => input.regressionCaseIds.some((caseId) => includesCase([key], caseId)));
+  if (!improvedRegression) reasons.push("candidate did not improve an independent regression case");
+  const candidateKeys = new Set(candidateResults.map(trialKey));
+  for (const caseId of input.holdoutCaseIds) {
+    if (![...candidateKeys].some((key) => includesCase([key], caseId))) reasons.push(`holdout result missing: ${caseId}`);
+  }
+  return {
+    valid: reasons.length === 0,
+    reasons: [...new Set(reasons)],
+    candidateRunId: input.candidate.runId,
+    comparisonArtifact: input.comparisonArtifact,
+    regressionCaseIds: input.regressionCaseIds,
+    holdoutCaseIds: input.holdoutCaseIds,
+    validatedAt: input.now ?? new Date().toISOString(),
+  };
+}
