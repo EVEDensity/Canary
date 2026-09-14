@@ -292,4 +292,90 @@ export async function runCommandDetailed(options: CliOptions = {}): Promise<RunC
   const selected = selectCases(cases, options);
   const store = new RunStore();
   const runId = `run_${randomUUID()}`;
-  const fallb
+  const fallbackReps = options.repetitions ?? config.runtime?.repetitions ?? 1;
+  const planned = selected.reduce((sum, testCase) => sum + (testCase.options?.repetitions ?? fallbackReps), 0);
+  store.create(planned, runId, options.replayOf);
+  const evaluationInput = {
+    store,
+    config: options.entry ? { ...config, agent: { ...config.agent, entry: options.entry } } : config,
+    context,
+    selected,
+    replayOf: options.replayOf,
+    candidateOf: options.candidateOf,
+    repetitions: options.repetitions,
+    signal: options.signal,
+    experiences: options.experiences,
+    consoleReporter: Boolean(config.reporters?.includes("console")),
+    silent: options.json,
+    runId,
+  };
+  const webEnabled = !options.headless && config.web?.enabled !== false;
+  let uiUrl = "";
+  let close = async (): Promise<void> => {
+    /* no listener */
+  };
+  if (webEnabled) {
+    const { createWebServer } = await import("@canary/web");
+    const writeToken = randomUUID();
+    const web = createWebServer(
+      store,
+      config.web?.host ?? "127.0.0.1",
+      options.port ?? config.web?.port ?? 0,
+      context.artifactRoot,
+      {
+        writeToken,
+        onReplay: async (sourceId, request) => {
+          const source = store.get(sourceId);
+          if (!source) throw new Error(`Run not found: ${sourceId}`);
+          const wanted = request.caseId
+            ? [request.caseId]
+            : [...new Set(source.results.map((result) => result.caseId))];
+          const replayCases = cases.filter((testCase) => wanted.includes(testCase.id));
+          if (!replayCases.length) throw new Error("No cases to replay");
+          const replayed = await runEvaluation({
+            ...evaluationInput,
+            selected: replayCases,
+            replayOf: sourceId,
+            runId: undefined,
+          });
+          return { replayRunId: replayed.runId };
+        },
+      },
+    );
+    const listening = await web.listen();
+    uiUrl = `${listening.url}/?runId=${encodeURIComponent(runId)}&token=${encodeURIComponent(writeToken)}`;
+    if (!options.json && !options.suppressOutput) {
+      console.log(`runId: ${runId}`);
+      console.log(`canary UI: ${uiUrl}`);
+    }
+    if (!options.noOpen && config.web?.open !== false) openBrowser(uiUrl);
+    let webClosed = false;
+    close = async (): Promise<void> => {
+      if (webClosed || !web.server.listening) {
+        webClosed = true;
+        return;
+      }
+      await new Promise<void>((resolveClose, rejectClose) =>
+        web.server.close((error) => (error ? rejectClose(error) : resolveClose())),
+      );
+      webClosed = true;
+    };
+  } else if (!options.json && !options.suppressOutput) {
+    console.log(`runId: ${runId}`);
+  }
+  const executed = await runEvaluation(evaluationInput);
+  if (options.json && !options.suppressOutput) {
+    console.log(JSON.stringify(hostRunOutput(context, executed.snapshot, executed.artifactPath, executed.exitCode)));
+  } else if (!options.suppressOutput) {
+    printRunSummary(executed.snapshot, {
+      artifactPath: executed.artifactPath,
+      uiUrl: uiUrl || undefined,
+      exitCode: executed.exitCode,
+    });
+  }
+  return {
+    exitCode: executed.exitCode,
+    runId: executed.runId,
+    artifactPath: executed.artifactPath,
+    uiUrl,
+    snaps
