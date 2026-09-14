@@ -7,4 +7,19 @@ import { ControlPlane } from "@canary/control-plane";
 import { controlCommand } from "../src/control.js";
 describe("L02 CLI parity", () => {
   it("uses the same version-bound service for status, revision, act and audit", async () => {
-    const root = mkdtempSync(join(tmpdir(), "canary-cli
+    const root = mkdtempSync(join(tmpdir(), "canary-cli-control-")),
+      config = join(root, "canary.config.ts");
+    writeFileSync(config, "export default {};");
+    const a = createAuthorization({
+      id: "auth",
+      subject: "owner",
+      projectRoot: root,
+      projectIdentity: { kind: "owned", evidence: "fixture" },
+      mode: "soft",
+      activation: "manual",
+      allow: { paths: [], actions: ["loop"] },
+      protect: { paths: [] },
+      network: { allowHosts: [] },
+      tools: { allow: [] },
+      envAllowlist: [],
+      budget: { maxRounds: 1, maxCost: 1, maxMs: 
