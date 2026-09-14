@@ -800,4 +800,103 @@ async function softTrialCommand(rest: string[], configPath?: string): Promise<nu
       });
       return 1;
     }
-    const prior = record.priorActive ?? store.activePointer(cont
+    const prior = record.priorActive ?? store.activePointer(context.projectRoot);
+    if (experience.status === "validated") store.activate(experience.id);
+    let executed: RunCommandResult | undefined;
+    try {
+      executed = await runCommandDetailed({
+        configPath,
+        headless: true,
+        noOpen: true,
+        json: true,
+        suppressOutput: true,
+        caseIds: [...new Set([...record.regressionCaseIds, ...record.holdoutCaseIds])],
+      });
+      const next: SoftTrialRecord = { ...record, status: "activated", nextRunId: executed.runId };
+      writeSoftTrial(context, next);
+      softTrialOutput({
+        valid: executed.exitCode === 0,
+        action,
+        record: next,
+        loadedExperienceIds: executed.snapshot.experiences?.map((item) => item.id) ?? [],
+        sourceUnchanged: true,
+      });
+      return executed.exitCode;
+    } catch (error) {
+      store.restorePointer(prior);
+      throw error;
+    } finally {
+      await executed?.close();
+    }
+  }
+  if (action === "rollback") {
+    if (record.status !== "activated") {
+      softTrialOutput({ valid: false, status: "rejected", errors: ["Only an activated trial can be rolled back"] });
+      return 1;
+    }
+    const current = store.get(record.experienceId);
+    if (current?.status === "active") store.transition(record.experienceId, "validated", "S-04 rollback");
+    store.restorePointer(
+      record.priorActive ?? {
+        v: 1,
+        projectRoot: context.projectRoot,
+        entries: [],
+        updatedAt: new Date().toISOString(),
+      },
+    );
+    const next: SoftTrialRecord = {
+      ...record,
+      status: "rolled_back",
+      authorization: {
+        ...record.authorization,
+        reason: (record.authorization.reason ?? "approved") + "; rolled back by operator",
+      },
+    };
+    writeSoftTrial(context, next);
+    softTrialOutput({
+      valid: true,
+      action,
+      record: next,
+      active: store.activePointer(context.projectRoot),
+      loaded: store.load({ projectRoot: context.projectRoot }).loaded.map((item) => item.id),
+    });
+    return 0;
+  }
+  softTrialOutput({ valid: false, status: "rejected", errors: ["Unknown soft-trial action: " + (action ?? "")] });
+  return 1;
+}
+
+async function hostCommand(rest: string[], configPath?: string): Promise<number> {
+  const action = rest[0];
+  if (action === "discover") {
+    const context = resolveProjectContext({ configPath });
+    printHost({
+      v: 1,
+      kind: "canary.host.discovery",
+      project: {
+        projectRoot: context.projectRoot,
+        configFile: context.configFile,
+        artifactRoot: context.artifactRoot,
+        source: context.source,
+        configExists: existsSync(context.configFile),
+      },
+      writableSourceRequested: false,
+    });
+    return existsSync(context.configFile) ? 0 : 1;
+  }
+  if (action === "evidence") {
+    const runId = rest[1];
+    if (!runId) {
+      console.log(USAGE);
+      return 1;
+    }
+    const snapshot = readRunArtifact(runId, undefined, configPath);
+    if (!snapshot) {
+      printHost({ v: 1, kind: "canary.host.evidence", error: `Run not found: ${runId}` });
+      return 1;
+    }
+    try {
+      printHost(
+        hostEvidenceOutput(snapshot, {
+          caseId: flagValue(rest, "--case"),
+          maxCases: parseBoundedInteger(flagValue(res
