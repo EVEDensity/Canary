@@ -32,6 +32,21 @@
                        },
                        {
                            "path":  "../evaluators"
+                       },
+                       {
+                           "path":  "../experience"
+                       },
+                       {
+                           "path":  "../policy"
+                       },
+                       {
+                           "path":  "../isolation"
+                       },
+                       {
+                           "path":  "../hard-evolution"
+                       },
+                       {
+                           "path":  "../loop"
                        }
                    ]
 }
