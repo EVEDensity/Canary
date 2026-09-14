@@ -153,4 +153,73 @@ async function handleRequest(store: RunStore, request: IncomingMessage, response
         const rawId = request.headers["last-event-id"];
         const lastEventId = rawId === undefined || rawId === "" ? undefined : Number.parseInt(String(rawId), 10);
         const unsubscribe = store.subscribe(runId, response, lastEventId);
-       
+        request.on("close", unsubscribe);
+        request.on("error", unsubscribe);
+        return;
+      }
+      if (parts[3] === "replay") {
+        if (request.method !== "POST") { response.writeHead(405); response.end("Method Not Allowed"); return; }
+        if (!allowWrite(request, url, hooks)) { writeJson(response, 403, { error: "Write API requires x-canary-write-token" }); return; }
+        const parsed = parseReplayRequest(await readJsonBody(request));
+        store.replay(runId);
+        const executed = hooks?.onReplay ? await hooks.onReplay(runId, parsed) : undefined;
+        writeJson(response, 200, parseReplayResponse({
+          sourceRunId: runId,
+          command: replayCommand(runId),
+          mode: executed?.replayRunId ? "execution" : "command",
+          replayRunId: executed?.replayRunId,
+          events: store.eventLog(runId).length,
+        }));
+        return;
+      }
+      if (parts[3] === "improvements") {
+        if (request.method === "POST" && parts[4]) {
+          if (!allowWrite(request, url, hooks)) { writeJson(response, 403, { error: "Write API requires x-canary-write-token" }); return; }
+          const decision = parseSuggestionDecision(await readJsonBody(request));
+          const list = [...((run.improvements ?? []) as ImprovementSuggestion[])];
+          const index = list.findIndex((item) => item.id === parts[4]);
+          if (index < 0) { writeJson(response, 404, { error: "Suggestion not found" }); return; }
+          list[index] = decideSuggestion(list[index]!, decision.status);
+          store.update(runId, { improvements: list });
+          artifacts?.writeJson(runId, "improvement.json", list);
+          if (decision.status === "verified" && artifacts) {
+            writeRegressionDrafts(
+              list.filter((item) => item.status === "verified"),
+              resolveRegressionDir(resolveProjectRootFromArtifacts(artifacts.rootDir)),
+            );
+          }
+          writeJson(response, 200, list[index]);
+          return;
+        }
+        writeJson(response, 200, run.improvements ?? []);
+        return;
+      }
+      if (parts[3] === "coverage") {
+        writeJson(response, 200, run.coverage ? parseCoverageSummary(run.coverage, "GET coverage") : null);
+        return;
+      }
+      if (parts[3] === "cases") { writeJson(response, 200, redactValue(run.results)); return; }
+      if (parts[3] === "trajectory") {
+        const trajectoryId = parts[4];
+        const payload = trajectoryId ? run.results.find((result) => result.trajectoryId === trajectoryId || result.trajectory?.id === trajectoryId)?.trajectory : run.results.map((result) => result.trajectory);
+        if (!payload) { writeJson(response, 404, { error: "Not found" }); return; }
+        writeJson(response, 200, redactValue(payload));
+        return;
+      }
+      if (parts[3] === "report") {
+        const format = parseReportFormat(parts[4] ?? "markdown");
+        const body = renderReport({ runId: run.runId, status: run.status, startedAt: run.startedAt, finishedAt: run.finishedAt, totalCases: run.totalCases, passedCases: run.passedCases, results: run.results, coverage: run.coverage, gate: run.gate }, format);
+        response.writeHead(200, { "content-type": format === "junit" ? "application/xml; charset=utf-8" : format === "json" ? "application/json" : "text/markdown; charset=utf-8" });
+        response.end(body);
+        return;
+      }
+      writeJson(response, 200, redactRunSnapshot(parseRunSnapshot(run, "GET /api/runs/:runId") as typeof run));
+      return;
+    }
+    response.writeHead(404); response.end("Not found");
+  } catch (error) {
+    writeError(response, error);
+  }
+}
+
+export { createControlServer, generateControlToken } from "./control-server.js";
