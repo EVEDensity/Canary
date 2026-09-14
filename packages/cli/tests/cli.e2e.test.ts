@@ -695,3 +695,24 @@ describe("S-03 versioned experiences", () => {
     expect(cleared.loaded).toEqual([]);
   });
 });
+
+describe("H-01 CLI isolation probe", () => {
+  it("prints process boundaries and does not claim Node workers are an OS sandbox", async () => {
+    const cwd = mkdtempSync(join(tmpdir(), "canary-iso-cli-"));
+    writeFileSync(join(cwd, "agent.mjs"), "export default async (input) => ({ value: input });", "utf8");
+    writeFileSync(join(cwd, "cases.ts"), "export default [{ id: 'smoke', input: 'ok' }];", "utf8");
+    writeFileSync(join(cwd, "canary.config.ts"), `export default { agent: { adapter: 'function', entry: './agent.mjs' }, cases: './cases.ts', coverage: { include: ['agent.mjs'] } };`, "utf8");
+    const logs: string[] = [];
+    const original = console.log;
+    console.log = (...args: unknown[]) => { logs.push(args.map(String).join(" ")); };
+    try {
+      expect(await main(["isolation", "probe", "--config", join(cwd, "canary.config.ts")])).toBe(0);
+    } finally {
+      console.log = original;
+    }
+    const payload = JSON.parse(logs[0] ?? "{}") as { kind: string; boundary: { notASandbox: string[] }; capability: { userspace: boolean } };
+    expect(payload.kind).toBe("canary.isolation.probe");
+    expect(payload.capability.userspace).toBe(true);
+    expect(payload.boundary.notASandbox.join(" ")).toMatch(/worktree|child_process/);
+  });
+});
