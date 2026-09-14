@@ -23,6 +23,12 @@
                        },
                        {
                            "path":  "../environment"
+                       },
+                       {
+                           "path":  "../policy"
+                       },
+                       {
+                           "path":  "../isolation"
                        }
                    ]
 }
