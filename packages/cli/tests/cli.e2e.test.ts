@@ -423,4 +423,143 @@ describe("repetitions, tags, cancel and streaming artifacts", () => {
     const artifact = JSON.parse(readFileSync(result.artifactPath, "utf8"));
     expect(artifact.status).toBe("cancelled");
     expect(artifact.coverage.status).toBe("preparing");
-    expect(existsSync(join(cw
+    expect(existsSync(join(cwd, ".canary/artifacts", result.runId, "coverage.json"))).toBe(true);
+    expect(existsSync(join(cwd, ".canary/artifacts", result.runId, "coverage-manifest.json"))).toBe(true);
+  });
+
+  it("cancels an in-flight case and persists the partial run", async () => {
+    const cwd = mkdtempSync(join(tmpdir(), "canary-cancel-live-"));
+    writeFileSync(join(cwd, "agent.mjs"), "export default async () => new Promise(() => {});", "utf8");
+    writeFileSync(join(cwd, "cases.ts"), "export default [{ id: 'stuck', input: 'ok' }];", "utf8");
+    writeFileSync(join(cwd, "canary.config.ts"), `export default { agent: { adapter: 'function', entry: './agent.mjs' }, cases: './cases.ts', coverage: { include: ['agent.mjs'], exclude: [] }, runtime: { timeoutMs: 5000 }, web: { host: '127.0.0.1', open: false } };`, "utf8");
+    const controller = new AbortController();
+    const pending = runCommandDetailed({ cwd, headless: true, noOpen: true, signal: controller.signal });
+    setTimeout(() => controller.abort(), 250);
+    const result = await pending;
+    expect(result.exitCode).toBe(1);
+    const artifact = JSON.parse(readFileSync(result.artifactPath, "utf8"));
+    expect(artifact.status).toBe("cancelled");
+    expect(artifact.results[0]?.failureCategory).toBe("cancelled");
+  });
+});
+
+describe("tool adapters, http black-box and concurrency", () => {
+  it("injects MockToolAdapter so the agent uses ctx.tools.call", async () => {
+    const cwd = mkdtempSync(join(tmpdir(), "canary-mock-tools-"));
+    writeFileSync(join(cwd, "tools.mjs"), "export const demoTools = { echo: (args) => ({ echoed: args }) };", "utf8");
+    writeFileSync(join(cwd, "agent.mjs"), "export default async (input, ctx) => { const args = { q: input }; ctx.emit({ type: 'tool.call', name: 'echo', args }); const value = await ctx.tools.call('echo', args); ctx.state.set('lastTool', 'echo'); ctx.emit({ type: 'state.snapshot', state: ctx.state.get() }); return value; };", "utf8");
+    writeFileSync(join(cwd, "cases.ts"), "export default [{ id: 'echo', input: 'alpha', assertions: [{ type: 'tool.called', name: 'echo' }, { type: 'tool.args', name: 'echo', contains: { q: 'alpha' } }, { type: 'state.has', key: 'lastTool' }] }];", "utf8");
+    writeFileSync(join(cwd, "canary.config.ts"), `export default { agent: { adapter: 'function', entry: './agent.mjs' }, cases: './cases.ts', tools: { adapter: 'mock', entry: './tools.mjs', export: 'demoTools' }, coverage: { include: ['agent.mjs', 'tools.mjs'] }, web: { host: '127.0.0.1', open: false } };`, "utf8");
+    const result = await runCommandDetailed({ cwd, headless: true, noOpen: true });
+    expect(result.exitCode).toBe(0);
+    const artifact = JSON.parse(readFileSync(result.artifactPath, "utf8"));
+    expect(artifact.results[0].output).toEqual({ echoed: { q: "alpha" } });
+    expect(artifact.results[0].stateDiff.after.lastTool).toBe("echo");
+  });
+
+  it("runs MCP stdio tools through the runner tool chain", async () => {
+    const cwd = mkdtempSync(join(tmpdir(), "canary-mcp-tools-"));
+    const script = "process.stdin.setEncoding('utf8'); let b=''; process.stdin.on('data',c=>{b+=c; const i=b.indexOf('\\n'); if(i>=0){ const m=JSON.parse(b.slice(0,i)); process.stdout.write(JSON.stringify({jsonrpc:'2.0',id:m.id,result:{ok:m.params.name,args:m.params.arguments}})+'\\n'); }});";
+    writeFileSync(join(cwd, "agent.mjs"), "export default async (input, ctx) => { const args = { q: input }; ctx.emit({ type: 'tool.call', name: 'lookup', args }); return ctx.tools.call('lookup', args); };", "utf8");
+    writeFileSync(join(cwd, "cases.ts"), "export default [{ id: 'mcp', input: 'alpha', assertions: [{ type: 'tool.called', name: 'lookup' }, { type: 'output.exists' }] }];", "utf8");
+    writeFileSync(join(cwd, "canary.config.ts"), `export default { agent: { adapter: 'function', entry: './agent.mjs' }, cases: './cases.ts', tools: { adapter: 'mcp-stdio', command: ${JSON.stringify(process.execPath)}, args: ['-e', ${JSON.stringify(script)}] }, coverage: { include: ['agent.mjs'] }, web: { host: '127.0.0.1', open: false } };`, "utf8");
+    const result = await runCommandDetailed({ cwd, headless: true, noOpen: true });
+    expect(result.exitCode).toBe(0);
+    const artifact = JSON.parse(readFileSync(result.artifactPath, "utf8"));
+    expect(artifact.results[0].output).toEqual({ ok: "lookup", args: { q: "alpha" } });
+  });
+
+  it("runs MCP HTTP JSON-RPC tools (not full Streamable HTTP)", async () => {
+    const { createServer } = await import("node:http");
+    const server = createServer((_request, response) => {
+      response.writeHead(200, { "content-type": "application/json" });
+      response.end(JSON.stringify({ jsonrpc: "2.0", id: 1, result: { via: "http" } }));
+    });
+    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", () => resolve()));
+    const port = typeof server.address() === "object" && server.address() ? server.address()!.port : 0;
+    const cwd = mkdtempSync(join(tmpdir(), "canary-mcp-http-"));
+    writeFileSync(join(cwd, "agent.mjs"), "export default async (input, ctx) => { const args = { q: input }; ctx.emit({ type: 'tool.call', name: 'lookup', args }); return ctx.tools.call('lookup', args); };", "utf8");
+    writeFileSync(join(cwd, "cases.ts"), "export default [{ id: 'mcp-http', input: 'alpha', assertions: [{ type: 'tool.called', name: 'lookup' }] }];", "utf8");
+    writeFileSync(join(cwd, "canary.config.ts"), `export default { agent: { adapter: 'function', entry: './agent.mjs' }, cases: './cases.ts', tools: { adapter: 'mcp-http', url: 'http://127.0.0.1:${port}/mcp' }, coverage: { include: ['agent.mjs'] }, web: { host: '127.0.0.1', open: false } };`, "utf8");
+    try {
+      const result = await runCommandDetailed({ cwd, headless: true, noOpen: true });
+      expect(result.exitCode).toBe(0);
+      const artifact = JSON.parse(readFileSync(result.artifactPath, "utf8"));
+      expect(artifact.results[0].output).toEqual({ via: "http" });
+    } finally {
+      await new Promise<void>((resolve) => server.close(() => resolve()));
+    }
+  });
+
+  it("runs an HTTP black-box agent with unavailable coverage", async () => {
+    const { createServer } = await import("node:http");
+    const server = createServer((request, response) => {
+      let body = "";
+      request.on("data", (chunk) => { body += chunk; });
+      request.on("end", () => {
+        response.writeHead(200, { "content-type": "application/json" });
+        response.end(JSON.stringify({ output: JSON.parse(body || "{}").input, remote: true }));
+      });
+    });
+    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", () => resolve()));
+    const port = typeof server.address() === "object" && server.address() ? server.address()!.port : 0;
+    const cwd = mkdtempSync(join(tmpdir(), "canary-http-demo-"));
+    writeFileSync(join(cwd, "cases.ts"), "export default [{ id: 'http-echo', input: { goal: 'remote-task' }, assertions: [{ type: 'output.exists' }, { type: 'trajectory.required_event', event: 'http.request' }] }];", "utf8");
+    writeFileSync(join(cwd, "canary.config.ts"), `export default { agent: { adapter: 'http', entry: 'http://127.0.0.1:${port}/agent' }, cases: './cases.ts', coverage: { include: ['cases.ts'] }, web: { host: '127.0.0.1', open: false } };`, "utf8");
+    try {
+      const result = await runCommandDetailed({ cwd, headless: true, noOpen: true });
+      expect(result.exitCode).toBe(0);
+      const artifact = JSON.parse(readFileSync(result.artifactPath, "utf8"));
+      expect(artifact.results[0].coverage.status).toBe("unavailable");
+      expect(artifact.coverage.status).toBe("unavailable");
+      expect(artifact.results[0].output.remote).toBe(true);
+    } finally {
+      await new Promise<void>((resolve) => server.close(() => resolve()));
+    }
+  });
+
+  it("runs cases on a concurrent process pool", async () => {
+    const cwd = mkdtempSync(join(tmpdir(), "canary-pool-"));
+    writeFileSync(join(cwd, "agent.mjs"), "export default async (input) => { const t = Date.now(); await new Promise((resolve) => setTimeout(resolve, 120)); return { value: input, t, done: Date.now() }; };", "utf8");
+    writeFileSync(join(cwd, "cases.ts"), "export default [{ id: 'a', input: 'one', assertions: [{ type: 'output.exists' }] }, { id: 'b', input: 'two', assertions: [{ type: 'output.exists' }] }];", "utf8");
+    writeFileSync(join(cwd, "canary.config.ts"), `export default { agent: { adapter: 'function', entry: './agent.mjs' }, cases: './cases.ts', coverage: { include: ['agent.mjs'] }, runtime: { concurrency: 2 }, web: { host: '127.0.0.1', open: false } };`, "utf8");
+    const result = await runCommandDetailed({ cwd, headless: true, noOpen: true });
+    expect(result.exitCode).toBe(0);
+    const artifact = JSON.parse(readFileSync(result.artifactPath, "utf8"));
+    expect(artifact.results).toHaveLength(2);
+    expect(artifact.passedCases).toBe(2);
+  });
+
+  it("emits bounded structured host output and records only an unapproved proposal", async () => {
+    const cwd = mkdtempSync(join(tmpdir(), "canary-host-protocol-"));
+    const configPath = join(cwd, "canary.config.ts");
+    writeFileSync(join(cwd, "agent.mjs"), "export default async (input, ctx) => { ctx.emit({ type: 'tool_call', name: 'echo', secret: 'trace-secret' }); return { value: input, secret: 'output-secret' }; };", "utf8");
+    writeFileSync(join(cwd, "cases.ts"), "export default [{ id: 'visible-case', input: 'input-secret', assertions: [{ type: 'output.exists' }] }];", "utf8");
+    writeFileSync(configPath, "export default { agent: { adapter: 'function', entry: './agent.mjs' }, cases: './cases.ts', coverage: { include: ['agent.mjs'], exclude: [] }, web: { enabled: false } };", "utf8");
+
+    const logs: string[] = [];
+    const originalLog = console.log;
+    console.log = (...args: unknown[]) => { logs.push(args.map(String).join(" ")); };
+    try {
+      const exitCode = await main(["run", "--headless", "--no-open", "--json", "--config", configPath]);
+      expect(exitCode).toBe(0);
+    } finally {
+      console.log = originalLog;
+    }
+    expect(logs).toHaveLength(1);
+    const runOutput = JSON.parse(logs[0]!) as { kind: string; run: { runId: string; artifactPath: string }; references: { runId: string } };
+    expect(runOutput.kind).toBe("canary.host.run");
+    expect(runOutput.run.runId).toMatch(/^run_/);
+    expect(runOutput.references.runId).toBe(runOutput.run.runId);
+    expect(existsSync(runOutput.run.artifactPath)).toBe(true);
+
+    logs.length = 0;
+    console.log = (...args: unknown[]) => { logs.push(args.map(String).join(" ")); };
+    try {
+      expect(await main(["host", "evidence", runOutput.run.runId, "--max-cases", "1", "--max-events", "1", "--config", configPath])).toBe(0);
+    } finally {
+      console.log = originalLog;
+    }
+    expect(logs).toHaveLength(1);
+    const evidenceText = logs[0]!;
+    const evidence = JSON.parse(evidenceText) as { kind
