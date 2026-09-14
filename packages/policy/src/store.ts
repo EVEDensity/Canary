@@ -20,6 +20,7 @@ export interface EvolutionPolicyDocument {
 
 export const DEFAULT_PROTECT = [
   ".canary/policy",
+  ".canary/control-plane",
   ".canary/loop",
   ".canary/apply",
   "canary.config.ts",
