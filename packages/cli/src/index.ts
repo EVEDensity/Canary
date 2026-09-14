@@ -454,4 +454,151 @@ async function softTrialCommand(rest: string[], configPath?: string): Promise<nu
     if (record.status !== "validated" || !record.validation?.valid) { softTrialOutput({ valid: false, status: "rejected", errors: ["Only a valid independent trial can be manually approved"] }); return 1; }
     const actor = flagValue(rest, "--actor");
     const reason = flagValue(rest, "--reason");
-    if (!actor || !reason) { softTrialOutput({ valid: false, status: "rejected", errors: ["Manual approval 
+    if (!actor || !reason) { softTrialOutput({ valid: false, status: "rejected", errors: ["Manual approval requires --actor and --reason"] }); return 1; }
+    const next: SoftTrialRecord = { ...record, status: "approved", authorization: { status: "approved", actor, reason, approvedAt: new Date().toISOString() } };
+    writeSoftTrial(context, next);
+    softTrialOutput({ valid: true, action, record: next });
+    return 0;
+  }
+  if (action === "run") {
+    if (record.status !== "approved" || record.authorization.status !== "approved") { softTrialOutput({ valid: false, status: "rejected", errors: ["Trial must have independent validation and explicit human approval before activation"] }); return 1; }
+    const prior = record.priorActive ?? store.activePointer(context.projectRoot);
+    if (experience.status === "validated") store.activate(experience.id);
+    let executed: RunCommandResult | undefined;
+    try {
+      executed = await runCommandDetailed({ configPath, headless: true, noOpen: true, json: true, suppressOutput: true, caseIds: [...new Set([...record.regressionCaseIds, ...record.holdoutCaseIds])] });
+      const next: SoftTrialRecord = { ...record, status: "activated", nextRunId: executed.runId };
+      writeSoftTrial(context, next);
+      softTrialOutput({ valid: executed.exitCode === 0, action, record: next, loadedExperienceIds: executed.snapshot.experiences?.map((item) => item.id) ?? [], sourceUnchanged: true });
+      return executed.exitCode;
+    } catch (error) { store.restorePointer(prior); throw error; }
+    finally { await executed?.close(); }
+  }
+  if (action === "rollback") {
+    if (record.status !== "activated") { softTrialOutput({ valid: false, status: "rejected", errors: ["Only an activated trial can be rolled back"] }); return 1; }
+    const current = store.get(record.experienceId);
+    if (current?.status === "active") store.transition(record.experienceId, "validated", "S-04 rollback");
+    store.restorePointer(record.priorActive ?? { v: 1, projectRoot: context.projectRoot, entries: [], updatedAt: new Date().toISOString() });
+    const next: SoftTrialRecord = { ...record, status: "rolled_back", authorization: { ...record.authorization, reason: (record.authorization.reason ?? "approved") + "; rolled back by operator" } };
+    writeSoftTrial(context, next);
+    softTrialOutput({ valid: true, action, record: next, active: store.activePointer(context.projectRoot), loaded: store.load({ projectRoot: context.projectRoot }).loaded.map((item) => item.id) });
+    return 0;
+  }
+  softTrialOutput({ valid: false, status: "rejected", errors: ["Unknown soft-trial action: " + (action ?? "")] });
+  return 1;
+}
+
+async function hostCommand(rest: string[], configPath?: string): Promise<number> {
+  const action = rest[0];
+  if (action === "discover") {
+    const context = resolveProjectContext({ configPath });
+    printHost({
+      v: 1,
+      kind: "canary.host.discovery",
+      project: {
+        projectRoot: context.projectRoot,
+        configFile: context.configFile,
+        artifactRoot: context.artifactRoot,
+        source: context.source,
+        configExists: existsSync(context.configFile),
+      },
+      writableSourceRequested: false,
+    });
+    return existsSync(context.configFile) ? 0 : 1;
+  }
+  if (action === "evidence") {
+    const runId = rest[1];
+    if (!runId) { console.log(USAGE); return 1; }
+    const snapshot = readRunArtifact(runId, undefined, configPath);
+    if (!snapshot) { printHost({ v: 1, kind: "canary.host.evidence", error: `Run not found: ${runId}` }); return 1; }
+    try {
+      printHost(hostEvidenceOutput(snapshot, {
+        caseId: flagValue(rest, "--case"),
+        maxCases: parseBoundedInteger(flagValue(rest, "--max-cases"), "--max-cases"),
+        maxEventsPerCase: parseBoundedInteger(flagValue(rest, "--max-events"), "--max-events"),
+      }));
+      return 0;
+    } catch (error) {
+      printHost({ v: 1, kind: "canary.host.evidence", error: error instanceof Error ? error.message : String(error) });
+      return 1;
+    }
+  }
+  if (action === "validate-proposal") {
+    const runId = rest[1];
+    const file = flagValue(rest, "--file");
+    if (!runId || !file) { console.log(USAGE); return 1; }
+    const snapshot = readRunArtifact(runId, undefined, configPath);
+    if (!snapshot) { printHost({ v: 1, kind: "canary.host.proposal-validation", valid: false, status: "rejected", errors: [`Run not found: ${runId}`] }); return 1; }
+    const context = resolveProjectContext({ configPath });
+    const proposalPath = resolve(context.invocationRoot, file);
+    const validation = validateHostProposalFile(proposalPath, snapshot, context.artifactRoot);
+    printHost(validation);
+    return validation.valid ? 0 : 1;
+  }
+  console.log(USAGE);
+  return 1;
+}
+
+function isolationCommand(rest: string[], configPath?: string): number {
+  const action = rest[0] ?? "probe";
+  const context = resolveProjectContext({ configPath });
+  if (action !== "probe") { console.log(USAGE); return 1; }
+  printHost({
+    v: 1,
+    kind: "canary.isolation.probe",
+    capability: probeIsolation(),
+    boundary: PROCESS_BOUNDARY,
+    projectRoot: context.projectRoot,
+  });
+  return 0;
+}
+
+function policyCommand(rest: string[], configPath?: string): number {
+  const action = rest[0] ?? "show";
+  const context = resolveProjectContext({ configPath });
+  if (action !== "show") { console.log(USAGE); return 1; }
+  const store = new PolicyStore(context.projectRoot);
+  printHost({ v: 1, kind: "canary.policy", policy: store.loadOrCreate(context.projectRoot) });
+  return 0;
+}
+
+function loopCommand(rest: string[], configPath?: string): number {
+  const action = rest[0] ?? "status";
+  const context = resolveProjectContext({ configPath });
+  const controller = new LoopController(context.projectRoot, createIdlePorts());
+  if (action === "status") {
+    printHost({ v: 1, kind: "canary.loop", snapshot: controller.getState() });
+    return 0;
+  }
+  if (action === "stop") {
+    printHost({ v: 1, kind: "canary.loop", snapshot: controller.stop(flagValue(rest, "--reason") ?? "cli stop") });
+    return 0;
+  }
+  if (action === "takeover") {
+    printHost({ v: 1, kind: "canary.loop", snapshot: controller.takeover(flagValue(rest, "--reason") ?? "human takeover") });
+    return 0;
+  }
+  console.log(USAGE);
+  return 1;
+}
+
+export async function main(argv = process.argv.slice(2)): Promise<number> {
+  const { command, rest } = parseArgv(argv);
+  const configPath = flagValue(rest, "--config");
+  if (command === "host") return hostCommand(rest, configPath);
+  if (command === "soft-trial") return softTrialCommand(rest, configPath);
+  if (command === "experience") return experienceCommand(rest, configPath);
+  if (command === "isolation") return isolationCommand(rest, configPath);
+  if (command === "policy") return policyCommand(rest, configPath);
+  if (command === "loop") return loopCommand(rest, configPath);
+  if (command === "help") { console.log(USAGE); return 0; }
+  if (command === "runs") {
+    printRunList(listRunArtifacts(undefined, configPath));
+    return 0;
+  }
+  if (command === "show") {
+    const runId = rest[0];
+    if (!runId) { console.log(USAGE); return 1; }
+    const snapshot = readRunArtifact(runId, undefined, configPath);
+    if (!snapshot) { console.error(`Run not found: ${runId}`); return 1; }
+    printRunSummary(snapshot, { artifactPath: resolve(artifactRoot(unde
