@@ -44,4 +44,31 @@ export function createControlServer(plane: ControlPlane, options: { port?: numbe
         return;
       }
       if (req.method === "GET" && url.pathname === "/api/control") {
-        json(res, 200, { mode
+        json(res, 200, { mode: options.writeToken ? "operator_available" : "read_only", snapshot: plane.snapshot() });
+        return;
+      }
+      if (req.method === "POST" && ["/api/control/actions", "/api/control/session"].includes(url.pathname)) {
+        const supplied = req.headers["x-canary-control-token"];
+        if (
+          !options.writeToken ||
+          typeof supplied !== "string" ||
+          Buffer.byteLength(supplied) !== Buffer.byteLength(options.writeToken) ||
+          !timingSafeEqual(Buffer.from(supplied), Buffer.from(options.writeToken))
+        )
+          throw new ControlError(403, "Operator credential required; this server may be read-only");
+        if (url.pathname === "/api/control/session") {
+          json(res, 200, { role: "operator" });
+          return;
+        }
+        if (req.headers["content-type"]?.split(";")[0]?.trim() !== "application/json")
+          throw new ControlError(415, "application/json required");
+        const chunks: Buffer[] = [];
+        let size = 0;
+        for await (const chunk of req) {
+          const b = Buffer.from(chunk);
+          size += b.length;
+          if (size > 16_384) throw new ControlError(413, "Request exceeds 16 KiB");
+          chunks.push(b);
+        }
+        let body: Command;
+ 
