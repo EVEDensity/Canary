@@ -20,7 +20,8 @@
     "@canary/core": "workspace:*",
     "@canary/trace": "workspace:*",
     "@canary/reporters": "workspace:*",
-    "@canary/improvement": "workspace:*"
+    "@canary/improvement": "workspace:*",
+    "@canary/control-plane": "workspace:*"
   },
   "license": "Apache-2.0",
   "repository": {
