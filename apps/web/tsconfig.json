@@ -1,25 +1,28 @@
 {
-    "extends":  "../../tsconfig.base.json",
-    "compilerOptions":  {
-                            "rootDir":  "src",
-                            "outDir":  "dist",
-                            "tsBuildInfoFile":  "dist/.tsbuildinfo"
-                        },
-    "include":  [
-                    "src/**/*.ts"
-                ],
-                "references":  [
-                       {
-                           "path":  "../../packages/core"
-                       },
-                       {
-                           "path":  "../../packages/trace"
-                       },
-                       {
-                           "path":  "../../packages/reporters"
-                       },
-                       {
-                           "path":  "../../packages/improvement"
-                       }
-                   ]
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": "src",
+    "outDir": "dist",
+    "tsBuildInfoFile": "dist/.tsbuildinfo"
+  },
+  "include": [
+    "src/**/*.ts"
+  ],
+  "references": [
+    {
+      "path": "../../packages/core"
+    },
+    {
+      "path": "../../packages/trace"
+    },
+    {
+      "path": "../../packages/reporters"
+    },
+    {
+      "path": "../../packages/improvement"
+    },
+    {
+      "path": "../../packages/control-plane"
+    }
+  ]
 }
