@@ -174,4 +174,53 @@ export class BoundedExporter {
     while (events.length < this.options.maxBatch && this.queue.length) {
       const candidate = this.queue[0]!;
       const size = Buffer.byteLength(JSON.stringify(candidate));
-      if (events.length && Buffe
+      if (events.length && Buffer.byteLength(JSON.stringify(events)) + size > this.options.maxBytes) break;
+      this.queue.shift();
+      events.push(candidate);
+    }
+    const batch: ExportBatch = { v: 1, resource: { serviceName: "canary", schema: "canary.export.v1" }, events };
+    let lastError: unknown;
+    for (let attempt = 0; attempt <= this.options.retries; attempt++) {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), this.options.timeoutMs);
+      try {
+        await this.transport.send(batch, controller.signal);
+        clearTimeout(timer);
+        this.lastSent = Date.now();
+        this.healthState.sent += events.length;
+        return;
+      } catch (error) {
+        clearTimeout(timer);
+        lastError = error;
+        if (attempt < this.options.retries)
+          await new Promise((r) => setTimeout(r, this.options.backoffMs * 2 ** attempt));
+      }
+    }
+    this.healthState.failed += events.length;
+    this.healthState.state = "degraded";
+    this.healthState.lastError = lastError instanceof Error ? lastError.message : String(lastError);
+  }
+}
+export class OtlpHttpTransport implements ExportTransport {
+  constructor(
+    private readonly endpoint: string,
+    private readonly headers: Record<string, string> = {},
+  ) {
+    if (!/^https:\/\//i.test(endpoint)) throw new Error("Exporter endpoint must use HTTPS");
+  }
+  async send(batch: ExportBatch, signal: AbortSignal): Promise<void> {
+    const response = await fetch(this.endpoint, {
+      method: "POST",
+      headers: { "content-type": "application/json", ...this.headers },
+      body: JSON.stringify(batch),
+      signal,
+    });
+    if (!response.ok) throw new Error(`Exporter HTTP ${response.status}`);
+  }
+}
+export function profileEndpoint(profile: ExportProfile, endpoint: string): string {
+  if (!/^https:\/\//i.test(endpoint)) throw new Error("Exporter endpoint must use HTTPS");
+  return profile === "otlp"
+    ? endpoint
+    : endpoint.replace(/\/$/, "") + (profile === "phoenix" ? "/v1/traces" : "/api/public/ingestion");
+}
