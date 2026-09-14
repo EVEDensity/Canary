@@ -30,7 +30,8 @@
     "@canary/hard-evolution": "workspace:*",
     "@canary/loop": "workspace:*",
     "@canary/mcp-server": "workspace:*",
-    "@canary/control-plane": "workspace:*"
+    "@canary/control-plane": "workspace:*",
+    "@canary/exporter-core": "workspace:*"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
