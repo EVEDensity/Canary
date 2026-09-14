@@ -23,4 +23,30 @@ describe("L02 HTTP security", () => {
   it("defaults read-only and refuses mutations", async () => {
     const url = await start();
     expect((await (await fetch(url + "/api/control")).json()).mode).toBe("read_only");
-    expect((await fetch(url + "/api/control/actio
+    expect((await fetch(url + "/api/control/actions", { method: "POST" })).status).toBe(403);
+  });
+  it("validates credential separately, denies cross-origin, Host spoofing and query tokens", async () => {
+    const url = await start(token);
+    expect(
+      (await fetch(url + "/api/control/session", { method: "POST", headers: { "x-canary-control-token": token } }))
+        .status,
+    ).toBe(200);
+    expect(
+      (await fetch(url + "/api/control/session", { method: "POST", headers: { "x-canary-control-token": "invalid" } }))
+        .status,
+    ).toBe(403);
+    expect((await fetch(url + "/api/control", { headers: { origin: "https://evil.example" } })).status).toBe(403);
+    expect(
+      await new Promise<number>((done) => {
+        const req = request(url + "/api/control", { headers: { host: "evil.example" } }, (res) => {
+          res.resume();
+          done(res.statusCode!);
+        });
+        req.end();
+      }),
+    ).toBe(403);
+    expect((await fetch(url + "/?token=bad")).status).toBe(400);
+  });
+  it("requires JSON, bounds bodies and rejects unknown actions", async () => {
+    const url = await start(token),
+      hea
