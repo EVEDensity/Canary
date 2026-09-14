@@ -83,4 +83,74 @@ function allowWrite(request: IncomingMessage, url: URL, hooks?: WebServerHooks):
 
 export function createWebServer(store: RunStore, host = "127.0.0.1", port = 0, artifactRoot?: string, hooks?: WebServerHooks) {
   if (artifactRoot) store.hydrate(new FileArtifactRepository(resolve(artifactRoot)));
-  const artifacts = artifactRoot ? new FileArtifactRepository(resolve(artifactR
+  const artifacts = artifactRoot ? new FileArtifactRepository(resolve(artifactRoot)) : undefined;
+  const server = createServer((request: IncomingMessage, response: ServerResponse<IncomingMessage>) => {
+    void handleRequest(store, request, response, hooks, artifacts);
+  });
+  return {
+    server,
+    listen: () => new Promise<{ url: string; port: number }>((resolveListen, rejectListen) => {
+      const onError = (error: NodeJS.ErrnoException): void => {
+        if (error.code === "EADDRINUSE") rejectListen(new Error(`Port ${port} is already in use`));
+        else rejectListen(error);
+      };
+      server.once("error", onError);
+      server.listen(port, host, () => {
+        server.off("error", onError);
+        const address = server.address();
+        const actualPort = typeof address === "object" && address ? address.port : port;
+        resolveListen({ url: `http://${host}:${actualPort}`, port: actualPort });
+      });
+    }),
+  };
+}
+
+async function handleRequest(store: RunStore, request: IncomingMessage, response: ServerResponse<IncomingMessage>, hooks?: WebServerHooks, artifacts?: FileArtifactRepository): Promise<void> {
+  try {
+    const url = new URL(request.url ?? "/", "http://127.0.0.1");
+    const parts = url.pathname.split("/").filter(Boolean);
+    response.setHeader("Access-Control-Allow-Origin", "http://127.0.0.1");
+    if (url.pathname === "/logo.png" || url.pathname === "/favicon.ico") {
+      const logoPath = resolve(dirname(fileURLToPath(import.meta.url)), "../../../docs/images/logo.png");
+      if (existsSync(logoPath)) {
+        const buf = readFileSync(logoPath);
+        response.writeHead(200, { "content-type": "image/png", "cache-control": "public, max-age=86400" });
+        response.end(buf);
+        return;
+      }
+      response.writeHead(404); response.end("Not found");
+      return;
+    }
+    if (url.pathname === "/" || url.pathname === "/index.html") {
+      const runId = url.searchParams.get("runId");
+      const run = runId ? store.get(runId) : undefined;
+      response.writeHead(200, { "content-type": "text/html; charset=utf-8" });
+      response.end(renderPage(run, { writeToken: hooks?.writeToken }));
+      return;
+    }
+    if (parts[0] === "api" && parts[1] === "compare") {
+      const baselineId = url.searchParams.get("baseline");
+      const candidateId = url.searchParams.get("candidate");
+      if (!baselineId || !candidateId) { writeJson(response, 400, { error: "baseline and candidate query parameters are required" }); return; }
+      const baseline = store.get(baselineId);
+      const candidate = store.get(candidateId);
+      if (!baseline || !candidate) { writeJson(response, 404, { error: "Both baseline and candidate runs must exist" }); return; }
+      const holdout = holdoutCaseIds([...baseline.results, ...candidate.results]);
+      writeJson(response, 200, compareRuns(baseline, candidate, holdout));
+      return;
+    }
+    if (parts[0] === "api" && parts[1] === "runs" && parts.length === 2) {
+      writeJson(response, 200, store.list().map((run) => redactRunSnapshot(parseRunSnapshot(run, "GET /api/runs") as typeof run)));
+      return;
+    }
+    if (parts[0] === "api" && parts[1] === "runs" && parts[2]) {
+      const runId = parts[2];
+      const run = store.get(runId);
+      if (!run) { response.writeHead(404); response.end("Not found"); return; }
+      if (parts[3] === "events") {
+        response.writeHead(200, { "content-type": "text/event-stream", "cache-control": "no-cache", connection: "keep-alive" });
+        response.write("retry: 2000\n\n");
+        const rawId = request.headers["last-event-id"];
+        const lastEventId = rawId === undefined || rawId === "" ? undefined : Number.parseInt(String(rawId), 10);
+        const unsubscribe = store.subscribe(runId, response, lastEventId);
+       
