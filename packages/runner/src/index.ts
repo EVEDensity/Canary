@@ -222,4 +222,46 @@ async function finishEvaluation(options: ExecutionOptions, executionId: string, 
   const trajectory: Trajectory = { id: `trajectory_${executionId}`, runId: options.runId, caseId: options.caseId, events, stepCount: events.filter((event) => event.type === "tool_call" || event.type === "tool.call").length, termination };
   const testCase: TestCase = options.testCase ?? { id: options.caseId, input: options.input, assertions: [] };
   const stateDiff = stateDiffFor(testCase, events, output);
-  const evaluation = await evaluateAgent({ assertions: testCase.assertions ?? [], context: { testCase, output, trajectory, executionStatus: trajectory.termination, latencyMs: Date.now() - startedAt, toolCalls: trajectory.stepCount, budgetUsed: budgetUsed(events), expectedFeatures: testCase.expectedFeatures, fe
+  const evaluation = await evaluateAgent({ assertions: testCase.assertions ?? [], context: { testCase, output, trajectory, executionStatus: trajectory.termination, latencyMs: Date.now() - startedAt, toolCalls: trajectory.stepCount, budgetUsed: budgetUsed(events), expectedFeatures: testCase.expectedFeatures, featureStatuses: Object.fromEntries(coverage.featureChains.map((feature) => [feature.featureId, feature.status])), coverage, state: stateDiff.after, judge: options.judge, judgePolicy: options.judgePolicy } });
+  const expectedTermination = (testCase.assertions ?? []).some((assertion) => assertion.type === "execution.termination" && "expected" in assertion && assertion.expected === trajectory.termination);
+  const runtimePassed = !failure || expectedTermination;
+  const passed = runtimePassed && evaluation.passed;
+  const result: EvalResult = {
+    runId: options.runId, executionId, caseId: options.caseId,
+    ...(options.repetition ? { repetition: options.repetition, repetitionTotal: options.repetitionTotal } : {}),
+    passed, assertions: [{ id: "agent.completed", passed: runtimePassed, message: failure ?? "Agent completed" }, ...evaluation.assertions], coverage, output, input: options.input,
+    metrics: { latencyMs: Date.now() - startedAt, steps: trajectory.stepCount, toolCalls: trajectory.stepCount, budgetUsed: budgetUsed(events) },
+    trajectoryId: trajectory.id, trajectory, stateDiff, createdAt: new Date().toISOString(),
+    sourceCase: snapshotSourceCase(testCase),
+  };
+  if (!passed) result.failureCategory = attributeFailure(result).kind;
+  options.onEvent?.({ type: "execution.finished", executionId, result });
+  return result;
+}
+
+export async function runHttpExecution(options: ExecutionOptions): Promise<EvalResult> {
+  const executionId = `exec_${randomUUID()}`; const startedAt = Date.now(); const events: TrajectoryEvent[] = [];
+  options.onEvent?.({ type: "execution.started", runId: options.runId, executionId, caseId: options.caseId });
+  const emit = (event: TrajectoryEvent) => { events.push(event); options.onEvent?.({ type: "trace.event", executionId, event }); };
+  emit({ type: "http.request", timestamp: new Date().toISOString(), url: options.entry });
+  if (options.isolation) assertIsolatedNetwork(options.entry, { allowHosts: options.isolation.policy.networkAllowHosts });
+  let output: unknown; let failure: string | undefined;
+  try { output = await runHttpAgent(options.entry, options.input, options.timeoutMs ?? 10_000, options.signal); emit({ type: "http.response", timestamp: new Date().toISOString() }); }
+  catch (error) { failure = error instanceof Error ? error.message : String(error); options.onEvent?.({ type: "execution.failed", executionId, error: failure }); }
+  const coverage = emptyCoverage(options.runId);
+  options.onCoverage?.(coverage);
+  options.onEvent?.({ type: "coverage.updated", executionId, coverage });
+  return finishEvaluation(options, executionId, startedAt, events, output, failure, coverage, failure ? "error" : "completed");
+}
+
+export async function runMcpExecution(options: ExecutionOptions): Promise<EvalResult> {
+  const executionId = `exec_${randomUUID()}`; const startedAt = Date.now(); const events: TrajectoryEvent[] = [];
+  options.onEvent?.({ type: "execution.started", runId: options.runId, executionId, caseId: options.caseId });
+  const emit = (event: TrajectoryEvent) => { events.push(event); options.onEvent?.({ type: "trace.event", executionId, event }); };
+  const cwd = options.cwd ?? process.cwd();
+  const require = createRequire(import.meta.url);
+  const tsxLoader = pathToFileURL(require.resolve("tsx")).href;
+  const entry = resolve(cwd, options.entry);
+  const isTypeScript = /\.[cm]?tsx?$/.test(extname(options.entry));
+  const command = options.nodeExecutable ?? process.execPath;
+  const args = isTypeScript ? [
