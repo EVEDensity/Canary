@@ -22,4 +22,22 @@ describe("L02 CLI parity", () => {
       network: { allowHosts: [] },
       tools: { allow: [] },
       envAllowlist: [],
-      budget: { maxRounds: 1, maxCost: 1, maxMs: 
+      budget: { maxRounds: 1, maxCost: 1, maxMs: 60000, maxToolCalls: 1 },
+    });
+    new AuthorizationStore(root).save(a);
+    const p = new ControlPlane(root),
+      file = join(root, "command.json");
+    writeFileSync(
+      file,
+      JSON.stringify({
+        action: "authorization.revoke",
+        target: "auth",
+        expectedRevision: p.revision("authorization.revoke", "auth"),
+        requestId: "cli-test",
+        actor: "owner",
+        reason: "cli acceptance",
+      }),
+    );
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    try {
+      e
