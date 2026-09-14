@@ -37,3 +37,17 @@ function bindPorts(context: ProjectContext, bindings: McpCliBindings): CanaryMcp
   return {
     projectRoot: context.projectRoot,
     async run(input, signal) {
+      return bindings.runHeadless({ context, caseId: input.caseId, signal });
+    },
+    evidence(input) {
+      const snapshot = bindings.readRun(input.runId, context);
+      if (!snapshot) throw new Error(`Run not found in bound project: ${input.runId}`);
+      return hostEvidenceOutput(snapshot, {
+        caseId: input.caseId,
+        maxCases: input.maxCases,
+        maxEventsPerCase: input.maxEvents,
+      });
+    },
+    submitProposal(input) {
+      const proposal = input.proposal;
+      const runId = pro
