@@ -218,4 +218,78 @@ export function printRunSummary(
   run: RunSnapshot,
   extras: { artifactPath: string; uiUrl?: string; exitCode: number },
 ): void {
-  const failedCases = Math.max(0, run.completedCases - run.passedCase
+  const failedCases = Math.max(0, run.completedCases - run.passedCases);
+  const assertions = run.results.flatMap((result) => result.assertions);
+  const failedAssertions = assertions.filter((item) => !item.passed).length;
+  console.log(`runId: ${run.runId}`);
+  console.log(`status: ${run.status}`);
+  console.log(`cases: ${run.passedCases} passed / ${failedCases} failed / ${run.totalCases} total`);
+  console.log(`coverage: ${formatCoverage(run.coverage)}`);
+  console.log(`evaluation: ${assertions.length - failedAssertions} passed / ${failedAssertions} failed assertions`);
+  console.log(`artifact: ${extras.artifactPath}`);
+  if (extras.uiUrl) console.log(`ui: ${extras.uiUrl}`);
+  console.log(`exit: ${extras.exitCode}`);
+}
+
+function printRunList(runs: RunSnapshot[]): void {
+  if (!runs.length) {
+    console.log("No runs found.");
+    return;
+  }
+  for (const run of runs) {
+    console.log(`${run.runId}\t${run.status}\t${run.passedCases}/${run.totalCases}\t${run.startedAt}`);
+  }
+}
+
+export interface RunCommandResult {
+  exitCode: number;
+  runId: string;
+  artifactPath: string;
+  uiUrl: string;
+  snapshot: RunSnapshot;
+  store: RunStore;
+  close: () => Promise<void>;
+}
+
+function flagValue(rest: string[], name: string): string | undefined {
+  const index = rest.indexOf(name);
+  return index >= 0 ? rest[index + 1] : undefined;
+}
+function flagValues(rest: string[], name: string): string[] {
+  const values: string[] = [];
+  for (let index = 0; index < rest.length; index += 1) {
+    if (rest[index] === name && rest[index + 1]) values.push(rest[++index]!);
+  }
+  return values;
+}
+function parseRepetitions(raw: string | undefined): number | undefined {
+  if (raw === undefined) return undefined;
+  const value = Number(raw);
+  if (!Number.isInteger(value) || value < 1) throw new Error(`Invalid --repetitions ${raw}`);
+  return value;
+}
+function selectCases(cases: TestCase[], options: CliOptions): TestCase[] {
+  let selected = cases;
+  if (options.caseId) selected = selected.filter((testCase) => testCase.id === options.caseId);
+  if (options.caseIds?.length) selected = selected.filter((testCase) => options.caseIds!.includes(testCase.id));
+  if (options.tags?.length)
+    selected = selected.filter((testCase) => (testCase.tags ?? []).some((tag) => options.tags!.includes(tag)));
+  if (options.caseId && !selected.length) throw new Error(`No test case matched --case ${options.caseId}`);
+  if (options.tags?.length && !selected.length)
+    throw new Error(`No test case matched --tag ${options.tags.join(", ")}`);
+  if (options.caseIds?.length) {
+    const missing = options.caseIds.filter((id) => !selected.some((testCase) => testCase.id === id));
+    if (missing.length) throw new Error(`Replay cases not found in current config: ${missing.join(", ")}`);
+  }
+  return selected;
+}
+
+export async function runCommandDetailed(options: CliOptions = {}): Promise<RunCommandResult> {
+  const context = resolveProjectContext(options);
+  if (!existsSync(context.configFile)) throw new Error(missingConfigMessage(context.configFile));
+  const config = await loadConfig(context.configFile);
+  const cases = await loadCases(config.cases, context.projectRoot, config.coverage.exclude);
+  const selected = selectCases(cases, options);
+  const store = new RunStore();
+  const runId = `run_${randomUUID()}`;
+  const fallb
