@@ -41,4 +41,23 @@ export function buildExport(
   let runs = repository.listRuns();
   if (options.runIds) {
     if (options.runIds.length > maxRuns || options.runIds.some((id) => !safeRunId(id)))
-      throw new Error("Inva
+      throw new Error("Invalid export run ID");
+    runs = options.runIds.map((id) => repository.readRun(id)).filter((run): run is RunSnapshot => Boolean(run));
+  }
+  runs = runs.slice(0, maxRuns).map((run) => {
+    const redacted = redactRunSnapshot(run, { maxStringLength });
+    return {
+      ...redacted,
+      results: redacted.results.map(({ input: _input, output: _output, trajectory: _trajectory, sourceCase: _sourceCase, ...result }) => result),
+      events: redacted.events.map((event) => {
+        if (!event || typeof event !== "object") return event;
+        const { input: _input, output: _output, prompt: _prompt, trajectory: _trajectory, holdout: _holdout, source: _source, diff: _diff, path: _path, ...safe } = event as Record<string, unknown>;
+        return safe;
+      }),
+    } as RunSnapshot;
+  });
+  const manifest: ExportManifest = {
+    v: 1,
+    kind: "canary.export",
+    createdAt: new Date().toISOString(),
+    projectRo
