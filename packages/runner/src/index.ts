@@ -264,4 +264,79 @@ export async function runMcpExecution(options: ExecutionOptions): Promise<EvalRe
   const entry = resolve(cwd, options.entry);
   const isTypeScript = /\.[cm]?tsx?$/.test(extname(options.entry));
   const command = options.nodeExecutable ?? process.execPath;
-  const args = isTypeScript ? [
+  const args = isTypeScript ? ["--import", tsxLoader, entry] : [entry];
+  emit({ type: "mcp.request", timestamp: new Date().toISOString(), command, entry });
+  if (options.isolation) denyUncontrolledMcp();
+  let output: unknown; let failure: string | undefined;
+  try { output = await runMcpAgent(command, args, options.input, options.timeoutMs ?? 10_000, options.signal); emit({ type: "mcp.response", timestamp: new Date().toISOString() }); }
+  catch (error) { failure = error instanceof Error ? error.message : String(error); options.onEvent?.({ type: "execution.failed", executionId, error: failure }); }
+  const coverage = emptyCoverage(options.runId);
+  options.onCoverage?.(coverage);
+  options.onEvent?.({ type: "coverage.updated", executionId, coverage });
+  return finishEvaluation(options, executionId, startedAt, events, output, failure, coverage, failure ? "error" : "completed");
+}
+
+export async function mapLimit<T, R>(items: readonly T[], limit: number, mapper: (item: T, index: number) => Promise<R>): Promise<R[]> {
+  if (!items.length) return [];
+  const concurrency = Math.max(1, Math.min(limit, items.length));
+  const results: R[] = new Array(items.length);
+  let next = 0;
+  await Promise.all(Array.from({ length: concurrency }, async () => {
+    while (true) {
+      const index = next;
+      next += 1;
+      if (index >= items.length) return;
+      results[index] = await mapper(items[index]!, index);
+    }
+  }));
+  return results;
+}
+
+export async function runConfiguredCase(options: RunOptions, testCase: TestCase): Promise<EvalResult> {
+  const shared: ExecutionOptions = {
+    cwd: options.cwd,
+    entry: options.config.agent.entry,
+    exportName: options.config.agent.export,
+    input: testCase.input,
+    runId: options.runId,
+    caseId: testCase.id,
+    testCase,
+    features: options.config.features,
+    timeoutMs: testCase.options?.timeoutMs ?? options.config.runtime?.timeoutMs ?? 60_000,
+    maxSteps: testCase.options?.maxSteps ?? options.config.runtime?.maxSteps,
+    maxToolCalls: testCase.options?.maxToolCalls ?? options.config.runtime?.maxToolCalls,
+    maxBudget: testCase.options?.maxBudget ?? options.config.runtime?.maxBudget,
+    tools: options.config.tools,
+    model: options.config.model,
+    initialState: testCase.environment?.state,
+    experiences: options.experiences,
+    coverage: {
+      include: options.config.coverage.include,
+      exclude: options.config.coverage.exclude,
+      rootDir: options.cwd,
+      manifest: options.manifest,
+      features: options.config.features,
+      sampleIntervalMs: options.config.coverage.sampleIntervalMs ?? DEFAULT_SAMPLE_INTERVAL_MS,
+      provider: options.config.coverage.provider,
+    },
+    onEvent: options.onEvent,
+    onCoverage: options.onCoverage,
+    signal: options.signal,
+    repetition: options.repetition,
+    repetitionTotal: options.repetitionTotal,
+    judge: options.judge ?? (options.config.judge ? createJudgeProvider(options.config.judge) : undefined),
+    judgePolicy: options.judgePolicy ?? { required: options.config.judge?.required, providerKind: options.config.judge?.provider },
+    isolation: options.isolation,
+  };
+  if (options.config.agent.adapter === "http") return runHttpExecution(shared);
+  if (options.config.agent.adapter === "mcp") return runMcpExecution(shared);
+  return runExecution(shared);
+}
+
+export interface RunnerPorts {
+  executeCase: typeof runConfiguredCase;
+}
+
+export function createRunnerPorts(): RunnerPorts {
+  return { executeCase: runConfiguredCase };
+}
