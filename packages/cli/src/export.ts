@@ -60,4 +60,27 @@ export function buildExport(
     v: 1,
     kind: "canary.export",
     createdAt: new Date().toISOString(),
-    projectRo
+    projectRootHash: hashText(resolve(context.projectRoot)),
+    artifactRootHash: hashText(resolve(context.artifactRoot)),
+    format,
+    runCount: runs.length,
+    runIds: runs.map((run) => run.runId),
+    redaction: { rawInputs: false, rawOutputs: false, rawTrajectory: false, maxStringLength },
+  };
+  return { manifest, runs };
+}
+
+export function serializeExport(value: ReturnType<typeof buildExport>): string {
+  if (value.manifest.format === "ndjson")
+    return (
+      [
+        JSON.stringify({ type: "manifest", ...value.manifest }),
+        ...value.runs.map((run) => JSON.stringify({ type: "run", run })),
+      ].join("\n") + "\n"
+    );
+  return JSON.stringify(value, null, 2) + "\n";
+}
+
+export function writeExport(context: ProjectContext, output: string, options: ExportOptions = {}): ExportManifest {
+  if (!output || output.includes("\0")) throw new Error("Invalid export output");
+  const destination = resolve(c
