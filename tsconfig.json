@@ -54,6 +54,9 @@
     },
     {
       "path": "examples/local-agent"
+    },
+    {
+      "path": "packages/control-plane"
     }
   ]
 }
