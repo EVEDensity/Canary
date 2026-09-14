@@ -83,4 +83,33 @@ export function serializeExport(value: ReturnType<typeof buildExport>): string {
 
 export function writeExport(context: ProjectContext, output: string, options: ExportOptions = {}): ExportManifest {
   if (!output || output.includes("\0")) throw new Error("Invalid export output");
-  const destination = resolve(c
+  const destination = resolve(context.invocationRoot, output);
+  const { manifest, runs } = buildExport(context, options);
+  mkdirSync(resolve(destination, ".."), { recursive: true });
+  writeFileSync(destination, serializeExport({ manifest, runs }), { encoding: "utf8", flag: "wx" });
+  return manifest;
+}
+
+export function readExport(path: string): unknown {
+  return JSON.parse(readFileSync(path, "utf8"));
+}
+
+export function createExportTransport(
+  profile: ExportProfile,
+  endpoint: string,
+  headers: Record<string, string> = {},
+): ExportTransport {
+  const url = profileEndpoint(profile, endpoint);
+  return {
+    async send(batch, signal) {
+      const response = await fetch(url, {
+        method: "POST",
+        headers: { "content-type": "application/json", ...headers },
+        body: JSON.stringify(batch),
+        signal,
+      });
+      if (!response.ok) throw new Error(`Exporter HTTP ${response.status}`);
+    },
+  };
+}
+
