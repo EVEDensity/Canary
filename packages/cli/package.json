@@ -24,7 +24,11 @@
     "@canary/improvement": "workspace:*",
     "@canary/trace": "workspace:*",
     "@canary/evaluators": "workspace:*",
-    "@canary/experience": "workspace:*"
+    "@canary/experience": "workspace:*",
+    "@canary/policy": "workspace:*",
+    "@canary/isolation": "workspace:*",
+    "@canary/hard-evolution": "workspace:*",
+    "@canary/loop": "workspace:*"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
