@@ -1,38 +1,74 @@
-﻿{
-  "compilerOptions": {
-    "target": "ES2022",
-    "module": "NodeNext",
-    "moduleResolution": "NodeNext",
-    "strict": true,
-    "types": ["node"],
-    "baseUrl": ".",
-    "paths": {
-      "@canary/core": ["packages/core/src/index.ts"],
-      "@canary/coverage": ["packages/coverage/src/index.ts"],
-      "@canary/adapters": ["packages/adapters/src/index.ts"],
-      "@canary/environment": ["packages/environment/src/index.ts"],
-      "@canary/evaluators": ["packages/evaluators/src/index.ts"],
-      "@canary/improvement": ["packages/improvement/src/index.ts"],
-      "@canary/reporters": ["packages/reporters/src/index.ts"],
-      "@canary/runner": ["packages/runner/src/index.ts"],
-      "@canary/trace": ["packages/trace/src/index.ts"],
-      "@canary/experience": ["packages/experience/src/index.ts"],
-      "@canary/policy": ["packages/policy/src/index.ts"],
-      "@canary/isolation": ["packages/isolation/src/index.ts"],
-      "@canary/hard-evolution": ["packages/hard-evolution/src/index.ts"],
-      "@canary/loop": ["packages/loop/src/index.ts"],
-      "@canary/mcp-server": ["packages/mcp-server/src/index.ts"],
-      "@canary/web": ["apps/web/src/index.ts"]
-    },
-    "declaration": true,
-    "declarationMap": true,
-    "sourceMap": true,
-    "esModuleInterop": true,
-    "skipLibCheck": true,
-    "noUncheckedIndexedAccess": true,
-    "forceConsistentCasingInFileNames": true,
-    "composite": true,
-    "incremental": true
-  }
+{
+    "compilerOptions":  {
+                            "target":  "ES2022",
+                            "module":  "NodeNext",
+                            "moduleResolution":  "NodeNext",
+                            "strict":  true,
+                            "types":  [
+                                          "node"
+                                      ],
+                            "baseUrl":  ".",
+                            "paths":  {
+                                          "@canary/core":  [
+                                                               "packages/core/src/index.ts"
+                                                           ],
+                                          "@canary/coverage":  [
+                                                                   "packages/coverage/src/index.ts"
+                                                               ],
+                                          "@canary/adapters":  [
+                                                                   "packages/adapters/src/index.ts"
+                                                               ],
+                                          "@canary/environment":  [
+                                                                      "packages/environment/src/index.ts"
+                                                                  ],
+                                          "@canary/evaluators":  [
+                                                                     "packages/evaluators/src/index.ts"
+                                                                 ],
+                                          "@canary/improvement":  [
+                                                                      "packages/improvement/src/index.ts"
+                                                                  ],
+                                          "@canary/reporters":  [
+                                                                    "packages/reporters/src/index.ts"
+                                                                ],
+                                          "@canary/runner":  [
+                                                                 "packages/runner/src/index.ts"
+                                                             ],
+                                          "@canary/trace":  [
+                                                                "packages/trace/src/index.ts"
+                                                            ],
+                                          "@canary/experience":  [
+                                                                     "packages/experience/src/index.ts"
+                                                                 ],
+                                          "@canary/policy":  [
+                                                                 "packages/policy/src/index.ts"
+                                                             ],
+                                          "@canary/isolation":  [
+                                                                    "packages/isolation/src/index.ts"
+                                                                ],
+                                          "@canary/hard-evolution":  [
+                                                                         "packages/hard-evolution/src/index.ts"
+                                                                     ],
+                                          "@canary/loop":  [
+                                                               "packages/loop/src/index.ts"
+                                                           ],
+                                          "@canary/mcp-server":  [
+                                                                     "packages/mcp-server/src/index.ts"
+                                                                 ],
+                                          "@canary/web":  [
+                                                              "apps/web/src/index.ts"
+                                                          ],
+                                          "@canary/control-plane":  [
+                                                                        "packages/control-plane/src/index.ts"
+                                                                    ]
+                                      },
+                            "declaration":  true,
+                            "declarationMap":  true,
+                            "sourceMap":  true,
+                            "esModuleInterop":  true,
+                            "skipLibCheck":  true,
+                            "noUncheckedIndexedAccess":  true,
+                            "forceConsistentCasingInFileNames":  true,
+                            "composite":  true,
+                            "incremental":  true
+                        }
 }
-
