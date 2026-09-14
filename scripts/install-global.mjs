@@ -12,119 +12,27 @@ const binDir = isWin
   : join(homedir(), ".local", "bin");
 const metaDir = join(homedir(), ".canary");
 const homeFile = join(metaDir, "home.json");
-const runnerPath = join(binDir, "canary-run.mjs");
+const expectedNodeMajor = 22;
+const expectedPnpm = "10.15.0";
 
-function run(command, args) {
-  const result = spawnSync(command, args, {
-    cwd: repoRoot,
-    stdio: "inherit",
-    shell: isWin,
-  });
-  if (result.status !== 0) process.exit(result.status ?? 1);
-}
-
-function ensurePnpm() {
-  const probe = spawnSync("pnpm", ["--version"], { stdio: "pipe", shell: isWin });
-  if (probe.status === 0) return;
-  console.log("Enabling Corepack and preparing pnpm…");
-  run("corepack", ["enable"]);
-  run("corepack", ["prepare", "pnpm@10.15.0", "--activate"]);
-}
-
-function addToPath() {
-  if (isWin) {
-    const escaped = binDir.replace(/'/g, "''");
-    const script = `
-$bin = '${escaped}'
-$path = [Environment]::GetEnvironmentVariable('Path', 'User')
-if ($null -eq $path) { $path = '' }
-if ($path.Split(';') -notcontains $bin) {
-  [Environment]::SetEnvironmentVariable('Path', ($path.TrimEnd(';') + ';' + $bin).Trim(';'), 'User')
-}
-`;
-    const result = spawnSync("powershell", ["-NoProfile", "-Command", script], { stdio: "inherit" });
-    if (result.status !== 0) {
-      console.warn(`Could not update PATH automatically. Add this folder manually:\n  ${binDir}`);
-    }
-    return;
-  }
-  const rc = join(homedir(), ".profile");
-  const line = `export PATH="${binDir}:$PATH"`;
-  if (existsSync(rc)) {
-    const current = readFileIfExists(rc);
-    if (!current.includes(binDir)) writeFileSync(rc, `${current.trimEnd()}\n${line}\n`, "utf8");
-  } else {
-    writeFileSync(rc, `${line}\n`, "utf8");
-  }
-}
-
-function readFileIfExists(path) {
-  try {
-    return readFileSync(path, "utf8");
-  } catch {
-    return "";
-  }
-}
-
-function writeLauncher() {
-  mkdirSync(binDir, { recursive: true });
-  const repoLiteral = JSON.stringify(repoRoot);
-  const runner = `import { spawnSync } from "node:child_process";
-import { existsSync } from "node:fs";
-import { join } from "node:path";
-
-const repoRoot = ${repoLiteral};
-const cli = join(repoRoot, "packages/cli/src/index.ts");
-if (!existsSync(cli)) {
-  console.error("canary install is broken: missing CLI at " + cli);
+function fail(message) {
+  console.error(`Canary installation failed: ${message}`);
   process.exit(1);
 }
-const result = spawnSync(process.execPath, ["--import", "tsx", cli, ...process.argv.slice(2)], {
-  cwd: process.cwd(),
-  stdio: "inherit",
-  env: { ...process.env, CANARY_HOME: repoRoot },
-});
-process.exit(result.status ?? 1);
-`;
-  writeFileSync(runnerPath, runner, "utf8");
-
-  if (isWin) {
-    const cmdPath = join(binDir, "canary.cmd");
-    writeFileSync(
-      cmdPath,
-      `@echo off\r\n"${process.execPath}" "${runnerPath}" %*\r\nexit /b %ERRORLEVEL%\r\n`,
-      "utf8",
-    );
-  } else {
-    const shPath = join(binDir, "canary");
-    writeFileSync(
-      shPath,
-      `#!/usr/bin/env bash\nexec "${process.execPath}" "${runnerPath}" "$@"\n`,
-      "utf8",
-    );
-    chmodSync(shPath, 0o755);
-  }
+function run(command, args) {
+  const result = spawnSync(command, args, { cwd: repoRoot, stdio: "inherit", shell: isWin });
+  if (result.status !== 0) fail(`${command} ${args.join(" ")} exited with ${result.status ?? 1}`);
 }
-
-console.log(`Installing canary from ${repoRoot}`);
-ensurePnpm();
-run("pnpm", ["install", "--frozen-lockfile"]);
-run("pnpm", ["build"]);
-
-mkdirSync(metaDir, { recursive: true });
-writeFileSync(
-  homeFile,
-  JSON.stringify({ root: repoRoot, installedAt: new Date().toISOString(), version: "0.1.0" }, null, 2),
-  "utf8",
-);
-writeLauncher();
-addToPath();
-
-console.log("");
-console.log("canary is installed globally.");
-console.log(`  project: ${repoRoot}`);
-console.log(`  command: ${join(binDir, isWin ? "canary.cmd" : "canary")}`);
-console.log(`  registry: ${homeFile}`);
-console.log("");
-console.log("Open a new terminal, then run:");
-console.log("  canary run");
+function probe(command, args) {
+  return spawnSync(command, args, { cwd: repoRoot, stdio: "pipe", shell: isWin, encoding: "utf8" });
+}
+function ensureRuntime() {
+  if (Number(process.versions.node.split(".")[0]) < expectedNodeMajor) {
+    fail(`Node.js ${expectedNodeMajor}+ is required; found ${process.versions.node}.`);
+  }
+  const git = probe("git", ["--version"]);
+  if (git.status !== 0) fail("Git is required but was not found on PATH.");
+  const pnpm = probe("pnpm", ["--version"]);
+  if (pnpm.status !== 0) {
+    console.log("pnpm was not found; enabling Corepack…");
+    run("c
