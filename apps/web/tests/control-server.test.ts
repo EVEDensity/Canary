@@ -49,4 +49,30 @@ describe("L02 HTTP security", () => {
   });
   it("requires JSON, bounds bodies and rejects unknown actions", async () => {
     const url = await start(token),
-      hea
+      headers = { "x-canary-control-token": token, "content-type": "application/json" };
+    expect(
+      (
+        await fetch(url + "/api/control/actions", {
+          method: "POST",
+          headers: { "x-canary-control-token": token },
+          body: "{}",
+        })
+      ).status,
+    ).toBe(415);
+    expect(
+      (await fetch(url + "/api/control/actions", { method: "POST", headers, body: "x".repeat(17000) })).status,
+    ).toBe(413);
+    expect((await fetch(url + "/api/control/actions", { method: "POST", headers, body: "{}" })).status).toBe(400);
+  });
+  it("serves functional UI with CSP, external script and no embedded token", async () => {
+    const url = await start(token),
+      res = await fetch(url),
+      html = await res.text();
+    expect(res.headers.get("content-security-policy")).toContain("frame-ancestors 'none'");
+    expect(html).toContain('id="actionForm"');
+    expect(html).not.toContain(token);
+    const js = await (await fetch(url + "/control.js")).text();
+    expect(() => new Function(js)).not.toThrow();
+    expect(js).toContain("/api/control/actions");
+  });
+});
