@@ -215,4 +215,98 @@ export class LoopController {
       this.note(this.snapshot.state, message);
       if (error instanceof PolicyDenied) return this.stop(message);
       this.persist();
-      
+      return this.getState();
+    }
+  }
+
+  recover(): LoopSnapshot {
+    const current = this.load();
+    if (!current) return this.getState();
+    this.snapshot = current;
+    if (this.snapshot.state === "applying") {
+      this.note("applying", "recovered applying; will not re-apply without a new idempotent apply()");
+      this.snapshot.state = "monitoring";
+    }
+    if (this.snapshot.state === "observing" || this.snapshot.state === "trialing" || this.snapshot.state === "waiting_approval") {
+      this.note(this.snapshot.state, "recovered mid-cycle; waiting for a new trigger");
+    }
+    this.persist();
+    return this.getState();
+  }
+
+  /** Durable operator stop is checked at asynchronous boundaries, not only in a new CLI instance. */
+  private checkControlRequest(): boolean {
+    const file = resolve(this.dir, "control.json");
+    if (this.authorization) {
+      const authFile = resolve(this.dir, "../policy/authorizations", this.authorization.id + ".json");
+      try {
+        const current = existsSync(authFile) ? JSON.parse(readFileSync(authFile, "utf8")) as AuthorizationRecord : this.authorization;
+        const live = isAuthorizationLive(current);
+        if (!live.ok) { this.stop(live.reason); return true; }
+      } catch { this.stop("authorization evidence corrupt; fail closed"); return true; }
+    }
+    if (!existsSync(file)) return false;
+    let command: { state: string; reason: string };
+    try { command = JSON.parse(readFileSync(file, "utf8")) as typeof command; }
+    catch { this.stop("control request is corrupt; fail closed"); return true; }
+    if (command.state === "human_takeover") { this.releaseLease(); this.takeover(command.reason); }
+    else this.stop(command.reason || "operator stop");
+    return true;
+  }
+
+  private maybeStopNoGain(): void {
+    if (this.snapshot.noGainStreak >= this.limits.noGainStop) this.stop("no-gain threshold reached");
+    try { this.ledger.assertTime(); }
+    catch (error) { this.stop(error instanceof Error ? error.message : String(error)); }
+  }
+
+  private finishTrigger(triggerKey: string): void {
+    this.snapshot.lastTriggerKey = triggerKey;
+    this.snapshot.lastTriggerAt = new Date().toISOString();
+    this.snapshot.cooldownUntil = Date.now() + this.limits.cooldownMs;
+    this.releaseLease();
+    if (this.snapshot.state !== "stopped" && this.snapshot.state !== "human_takeover" && this.snapshot.state !== "waiting_approval" && this.snapshot.state !== "waiting_executor") {
+      if (this.snapshot.state !== "monitoring") this.snapshot.state = "idle";
+    }
+    this.persist();
+  }
+
+  private acquireLease(): boolean {
+    const now = Date.now();
+    try {
+      const current = existsSync(this.leaseFile()) ? JSON.parse(readFileSync(this.leaseFile(), "utf8")) as { owner: string; until: number } : undefined;
+      if (current && current.until > now && current.owner !== String(process.pid)) return false;
+    } catch { /* missing */ }
+    const lease = { owner: String(process.pid), until: now + this.limits.leaseMs };
+    writeFileSync(this.leaseFile(), JSON.stringify(lease), "utf8");
+    this.snapshot.lease = lease;
+    return true;
+  }
+
+  private releaseLease(): void {
+    try { unlinkSync(this.leaseFile()); } catch { /* ignore */ }
+    this.snapshot.lease = undefined;
+  }
+
+  private note(state: LoopState, note: string): void {
+    this.snapshot.history.push({ round: this.snapshot.round, state, note, at: new Date().toISOString() });
+  }
+
+  private persist(): void {
+    writeFileSync(this.stateFile(), JSON.stringify(this.snapshot, null, 2), "utf8");
+  }
+
+  private load(): LoopSnapshot | undefined {
+    try { return JSON.parse(readFileSync(this.stateFile(), "utf8")) as LoopSnapshot; } catch { return undefined; }
+  }
+}
+
+export function createIdlePorts(): LoopPorts {
+  return {
+    executorAvailable: () => false,
+    observe: async () => ({ runId: "none" }),
+    propose: async () => undefined,
+    trial: async () => ({ valid: false, gain: false }),
+    apply: async () => ({ applied: false, idempotencyKey: "none" }),
+  };
+}
