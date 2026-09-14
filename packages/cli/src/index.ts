@@ -899,4 +899,103 @@ async function hostCommand(rest: string[], configPath?: string): Promise<number>
       printHost(
         hostEvidenceOutput(snapshot, {
           caseId: flagValue(rest, "--case"),
-          maxCases: parseBoundedInteger(flagValue(res
+          maxCases: parseBoundedInteger(flagValue(rest, "--max-cases"), "--max-cases"),
+          maxEventsPerCase: parseBoundedInteger(flagValue(rest, "--max-events"), "--max-events"),
+        }),
+      );
+      return 0;
+    } catch (error) {
+      printHost({ v: 1, kind: "canary.host.evidence", error: error instanceof Error ? error.message : String(error) });
+      return 1;
+    }
+  }
+  if (action === "validate-proposal") {
+    const runId = rest[1];
+    const file = flagValue(rest, "--file");
+    if (!runId || !file) {
+      console.log(USAGE);
+      return 1;
+    }
+    const snapshot = readRunArtifact(runId, undefined, configPath);
+    if (!snapshot) {
+      printHost({
+        v: 1,
+        kind: "canary.host.proposal-validation",
+        valid: false,
+        status: "rejected",
+        errors: [`Run not found: ${runId}`],
+      });
+      return 1;
+    }
+    const context = resolveProjectContext({ configPath });
+    const proposalPath = resolve(context.invocationRoot, file);
+    const validation = validateHostProposalFile(proposalPath, snapshot, context.artifactRoot);
+    printHost(validation);
+    return validation.valid ? 0 : 1;
+  }
+  console.log(USAGE);
+  return 1;
+}
+
+function isolationCommand(rest: string[], configPath?: string): number {
+  const action = rest[0] ?? "probe";
+  const context = resolveProjectContext({ configPath });
+  if (action !== "probe") {
+    console.log(USAGE);
+    return 1;
+  }
+  printHost({
+    v: 1,
+    kind: "canary.isolation.probe",
+    capability: probeIsolation(),
+    boundary: PROCESS_BOUNDARY,
+    projectRoot: context.projectRoot,
+  });
+  return 0;
+}
+
+function policyCommand(rest: string[], configPath?: string): number {
+  const action = rest[0] ?? "show";
+  const context = resolveProjectContext({ configPath });
+  if (action !== "show") {
+    console.log(USAGE);
+    return 1;
+  }
+  const store = new PolicyStore(context.projectRoot);
+  printHost({ v: 1, kind: "canary.policy", policy: store.loadOrCreate(context.projectRoot) });
+  return 0;
+}
+
+function loopCommand(rest: string[], configPath?: string): number {
+  const action = rest[0] ?? "status";
+  const context = resolveProjectContext({ configPath });
+  const controller = new LoopController(context.projectRoot, createIdlePorts());
+  if (action === "status") {
+    printHost({ v: 1, kind: "canary.loop", snapshot: controller.getState() });
+    return 0;
+  }
+  if (action === "stop") {
+    printHost({ v: 1, kind: "canary.loop", snapshot: controller.stop(flagValue(rest, "--reason") ?? "cli stop") });
+    return 0;
+  }
+  if (action === "takeover") {
+    printHost({
+      v: 1,
+      kind: "canary.loop",
+      snapshot: controller.takeover(flagValue(rest, "--reason") ?? "human takeover"),
+    });
+    return 0;
+  }
+  console.log(USAGE);
+  return 1;
+}
+
+export async function main(argv = process.argv.slice(2)): Promise<number> {
+  const { command, rest } = parseArgv(argv);
+  const configPath = flagValue(rest, "--config");
+  if (command === "host") return hostCommand(rest, configPath);
+  if (command === "soft-trial") return softTrialCommand(rest, configPath);
+  if (command === "experience") return experienceCommand(rest, configPath);
+  if (command === "isolation") return isolationCommand(rest, configPath);
+  if (command === "policy") return policyCommand(rest, configPath);
+  if
