@@ -21,6 +21,7 @@
       "@canary/isolation": ["packages/isolation/src/index.ts"],
       "@canary/hard-evolution": ["packages/hard-evolution/src/index.ts"],
       "@canary/loop": ["packages/loop/src/index.ts"],
+      "@canary/mcp-server": ["packages/mcp-server/src/index.ts"],
       "@canary/web": ["apps/web/src/index.ts"]
     },
     "declaration": true,
