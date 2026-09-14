@@ -184,4 +184,42 @@ export async function runExecution(options: ExecutionOptions): Promise<EvalResul
           lastProvisionalKey = key; lastProvisionalAt = now;
           const provisional = makeCoverage(options, scripts, false, events, initScripts.length > 0);
           options.onCoverage?.({ ...provisional, status: "provisional" });
-          options.onEvent?.({ type: "coverage.updated", executio
+          options.onEvent?.({ type: "coverage.updated", executionId, coverage: { ...provisional, status: "provisional" } });
+        }
+      }
+    });
+    child.once("error", (error: Error) => { failure ??= error.stack ?? error.message; done(); });
+    child.once("close", (code: number | null) => { exitCode = code; if (code && !failure) failure = stderr.trim() ? `Execution child exited with code ${code}: ${stderr.trim()}` : `Execution child exited with code ${code}`; done(); });
+  });
+  if (killTimer) clearTimeout(killTimer);
+  clearTimeout(timeout); options.signal?.removeEventListener("abort", cancel);
+  const termination: Trajectory["termination"] = didTimeout ? "timeout" : didCancel ? "cancelled" : failure ? "error" : "completed";
+  const coverage = makeCoverage(options, scripts, coveragePartial || didTimeout || didCancel, events, initScripts.length > 0);
+  options.onCoverage?.(coverage); options.onEvent?.({ type: "coverage.updated", executionId, coverage });
+  if (failure) options.onEvent?.({ type: "execution.failed", executionId, error: failure });
+  return finishEvaluation(options, executionId, startedAt, events, output, failure, coverage, termination);
+}
+
+export interface RunOptions { config: CanaryConfig; cwd?: string; runId: string; onEvent?: (event: RunnerEvent) => void; onCoverage?: (summary: CoverageSummary) => void; manifest?: CoverageSourceConfig["manifest"]; signal?: AbortSignal; repetition?: number; repetitionTotal?: number; judge?: JudgeProvider; judgePolicy?: JudgePolicy; experiences?: LoadedExperience[]; isolation?: IsolationRequest }
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+function changedKeys(before: unknown, after: unknown): string[] {
+  if (!isRecord(before) || !isRecord(after)) return before === after ? [] : ["(value)"];
+  return [...new Set([...Object.keys(before), ...Object.keys(after)])].filter((key) => JSON.stringify(before[key]) !== JSON.stringify(after[key]));
+}
+function stateDiffFor(testCase: TestCase, events: TrajectoryEvent[], output: unknown) {
+  const snapshots = events.filter((event) => event.state !== undefined || event.type === "state" || event.type === "state.changed" || event.type === "state.snapshot");
+  const first = snapshots[0];
+  const last = snapshots.at(-1);
+  const before = (first && "state" in first ? first.state : testCase.environment?.state) ?? { input: testCase.input };
+  const after = last && "state" in last ? last.state : output;
+  return { before, after, changed: changedKeys(before, after) };
+}
+
+async function finishEvaluation(options: ExecutionOptions, executionId: string, startedAt: number, events: TrajectoryEvent[], output: unknown, failure: string | undefined, coverage: CoverageSummary, termination: Trajectory["termination"]): Promise<EvalResult> {
+  const trajectory: Trajectory = { id: `trajectory_${executionId}`, runId: options.runId, caseId: options.caseId, events, stepCount: events.filter((event) => event.type === "tool_call" || event.type === "tool.call").length, termination };
+  const testCase: TestCase = options.testCase ?? { id: options.caseId, input: options.input, assertions: [] };
+  const stateDiff = stateDiffFor(testCase, events, output);
+  const evaluation = await evaluateAgent({ assertions: testCase.assertions ?? [], context: { testCase, output, trajectory, executionStatus: trajectory.termination, latencyMs: Date.now() - startedAt, toolCalls: trajectory.stepCount, budgetUsed: budgetUsed(events), expectedFeatures: testCase.expectedFeatures, fe
