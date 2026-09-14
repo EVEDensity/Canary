@@ -1,0 +1,28 @@
+{
+  "name": "@canary/control-plane",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "default": "./dist/index.js",
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "dependencies": {
+    "@canary/core": "workspace:*",
+    "@canary/trace": "workspace:*",
+    "@canary/improvement": "workspace:*",
+    "@canary/experience": "workspace:*",
+    "@canary/policy": "workspace:*",
+    "@canary/hard-evolution": "workspace:*",
+    "@canary/loop": "workspace:*"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --pretty false",
+    "test": "vitest run"
+  }
+}
