@@ -76,4 +76,68 @@ function resolveWorkspaceModule(packageDir: string): string {
   return pathToFileURL(createRequire(import.meta.url).resolve(`@canary/${packageDir}`)).href;
 }
 
-function resolveToolPayload(cwd: string, tools?: CanaryToolsConfig): CanaryToolsConfig
+function resolveToolPayload(cwd: string, tools?: CanaryToolsConfig): CanaryToolsConfig | undefined {
+  if (!tools) return undefined;
+  const next: CanaryToolsConfig = { ...tools, args: tools.args ? [...tools.args] : undefined };
+  if (next.command === "node") next.command = process.execPath;
+  if (next.entry) next.entry = pathToFileURL(resolve(cwd, next.entry)).href;
+  return next;
+}
+
+function spawnExecution(options: ExecutionOptions, executionId: string): ChildProcess {
+  const cwd = options.cwd ?? process.cwd();
+  const require = createRequire(import.meta.url);
+  const tsxLoader = pathToFileURL(require.resolve("tsx")).href;
+  const entry = pathToFileURL(resolve(cwd, options.entry)).href;
+  const workerData = JSON.stringify({
+    entry,
+    exportName: options.exportName,
+    input: options.input,
+    executionId,
+    sampleIntervalMs: options.coverage.sampleIntervalMs ?? DEFAULT_SAMPLE_INTERVAL_MS,
+    sampleMinIntervalMs: options.coverage.sampleMinIntervalMs ?? 200,
+    ipcMaxBytes: IPC_MAX_BYTES,
+    ipcVersion: IPC_PROTOCOL_VERSION,
+    coverageProvider: options.coverage.provider ?? "v8",
+    coverageUrl: resolveWorkspaceModule("coverage"),
+    adaptersUrl: resolveWorkspaceModule("adapters"),
+    environmentUrl: resolveWorkspaceModule("environment"),
+    tools: resolveToolPayload(cwd, options.tools),
+    model: options.model,
+    initialState: options.initialState ?? options.testCase?.environment?.state ?? {},
+    experiences: options.experiences ?? [],
+  });
+  const args = ["--enable-source-maps", "--import", tsxLoader, "-e", createChildScript()];
+  if (options.isolation) {
+    return spawnIsolatedNode(
+      { ...options.isolation, extraEnv: { ...options.isolation.extraEnv, CANARY_WORKER_DATA: workerData } },
+      args,
+    );
+  }
+  return spawn(options.nodeExecutable ?? process.execPath, args, {
+    cwd,
+    detached: process.platform !== "win32",
+    env: {
+      ...process.env,
+      CANARY_WORKER_DATA: workerData,
+    },
+    stdio: ["ignore", "ignore", "pipe", "ipc"],
+  });
+}
+function makeCoverage(options: ExecutionOptions, scripts: CoverageScript[], partial: boolean, events: TrajectoryEvent[], initCaptured = false): CoverageSummary {
+  if (!scripts.length) return { ...emptyCoverage(options.runId), lifecycle: { initCaptured, taskWindow: "reset-after-init" } };
+  const base = summarizeCoverage(options.runId, scripts, { ...options.coverage, features: options.features });
+  const featureEvents: FeatureEvent[] = [];
+  for (const event of events) {
+    if (event.type === "feature.enter") featureEvents.push({ featureId: String(event.featureId ?? ""), status: "entered", caseId: options.caseId });
+    if (event.type === "feature.exit") featureEvents.push({ featureId: String(event.featureId ?? ""), status: event.status === "failed" ? "failed" : "completed", caseId: options.caseId });
+  }
+  const enriched = assignFeatureCoverage(base, options.features ?? [], featureEvents, options.testCase?.expectedFeatures ?? [], options.caseId, options.coverage.rootDir ?? options.cwd ?? process.cwd());
+  return { ...enriched, status: partial ? "partial" : enriched.status, lifecycle: { initCaptured, taskWindow: "reset-after-init" } };
+}
+function budgetUsed(events: TrajectoryEvent[]): number {
+  return events.reduce((total, event) => total + (typeof event.cost === "number" ? event.cost : typeof event.budgetUsed === "number" ? event.budgetUsed : 0), 0);
+}
+
+export async function runExecution(options: ExecutionOptions): Promise<EvalResult> {
+  const executionId = `exec_${randomUUID()}`; const startedAt = Date.now(); const events: Traject
