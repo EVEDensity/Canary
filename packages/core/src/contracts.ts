@@ -8,8 +8,8 @@ export const CORE_CONTRACTS = {
   trial: { v: 1, wired: false as const },
   metric: { v: 1, wired: true as const },
   proposal: { v: 1, wired: false as const },
-  authorization: { v: 1, wired: false as const },
-  activation: { v: 1, wired: false as const },
+  authorization: { v: 1, wired: true as const },
+  activation: { v: 1, wired: true as const },
 } as const;
 
 export type ProjectContextSource = "config" | "walk" | "install" | "cwd";
@@ -72,16 +72,37 @@ export interface ProposalRecord {
   wired: false;
 }
 
+export type EvolutionMode = "soft" | "hard";
+export type EvolutionActivation = "manual" | "auto_within_policy";
+export type AuthorizationAction = "read" | "write" | "apply" | "network" | "tool" | "push" | "loop";
+export type ProjectIdentityKind = "owned" | "fork" | "authorized_copy";
+
+/** Wired by H-01. Default `canary run` still does not require an authorization record. */
 export interface AuthorizationRecord {
   v: 1;
   id: string;
   subject: string;
   projectRoot: string;
-  mode: "soft" | "hard";
-  activation: "manual" | "auto_within_policy";
+  projectIdentity: { kind: ProjectIdentityKind; evidence: string };
+  mode: EvolutionMode;
+  activation: EvolutionActivation;
+  baseline?: { ref: string; hash: string };
+  allow: {
+    paths: string[];
+    actions: AuthorizationAction[];
+  };
+  protect: { paths: string[] };
+  network: { allowHosts: string[] };
+  tools: { allow: string[] };
+  envAllowlist: string[];
+  budget: { maxCost: number; maxRounds: number; maxMs: number; maxToolCalls: number };
   expiresAt?: string;
   revoked?: boolean;
-  wired: false;
+  revokeId?: string;
+  approvedBy?: string;
+  approvedAt?: string;
+  policyVersion?: string;
+  wired: true;
 }
 
 
@@ -149,5 +170,5 @@ export interface ActivationRecord {
   approvedHash: string;
   appliedAt?: string;
   rolledBackAt?: string;
-  wired: false;
+  wired: true;
 }
