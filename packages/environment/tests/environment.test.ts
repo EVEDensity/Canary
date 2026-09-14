@@ -14,6 +14,7 @@ describe("memory state store and snapshots", () => {
     store.reset({ token: "alpha" });
     expect(store.get()).toEqual({ token: "alpha" });
     expect(() => store.restore("missing")).toThrow(/Unknown snapshot/);
+    expect(store.externalRollback).toBe("unsupported");
   });
 
   it("wraps tools in an execution environment that resets and closes", async () => {
