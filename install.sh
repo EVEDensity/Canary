@@ -40,4 +40,21 @@ clone_or_update() {
     git clone "$REPO_URL" "$REPO_DIR" || { printf 'Offline clone failure: no installation was registered.\n' >&2; exit 1; }
   else
     mkdir -p "$(dirname "$REPO_DIR")"
-    printf '→ Cloning %s →
+    printf '→ Cloning %s → %s\n' "$REPO_URL" "$REPO_DIR"
+    git clone "$REPO_URL" "$REPO_DIR" || { printf 'Offline clone failure: no installation was registered.\n' >&2; exit 1; }
+  fi
+  if [[ -n "$CANARY_REF" ]]; then
+    git -C "$REPO_DIR" fetch --tags --prune origin || { printf 'Unable to fetch CANARY_REF=%s; installation was not rebuilt.\n' "$CANARY_REF" >&2; exit 1; }
+    git -C "$REPO_DIR" checkout --detach "$CANARY_REF"
+  fi
+}
+install_canary() {
+  [[ -f "$REPO_DIR/scripts/install-global.mjs" ]] || { printf 'Missing installer script at %s/scripts/install-global.mjs\n' "$REPO_DIR" >&2; exit 1; }
+  command -v node >/dev/null 2>&1 || { printf 'node is required but was not found on PATH.\n' >&2; exit 1; }
+  node "$REPO_DIR/scripts/install-global.mjs"
+}
+case "${1:-}" in
+  -h|--help) usage ;;
+  ""|--update) clone_or_update; install_canary ;;
+  *) printf 'Unknown option: %s\n' "$1" >&2; usage >&2; exit 2 ;;
+esac
