@@ -18,4 +18,22 @@ export async function mcpCommand(rest: string[], configPath: string | undefined,
     console.error("Usage: canary mcp matrix | canary mcp serve --token <token> [--config <path>]");
     return 1;
   }
-  const token = flag(rest, "--token") ?? process.env.CANARY_MCP_TO
+  const token = flag(rest, "--token") ?? process.env.CANARY_MCP_TOKEN;
+  if (!token?.trim()) {
+    console.error("canary mcp serve requires --token or CANARY_MCP_TOKEN");
+    return 1;
+  }
+  const context = resolveProjectContext({ configPath });
+  const server = new CanaryMcpServer({
+    token,
+    maxConcurrent: 1,
+    ports: bindPorts(context, bindings),
+  });
+  await serveStdio(server);
+  return 0;
+}
+
+function bindPorts(context: ProjectContext, bindings: McpCliBindings): CanaryMcpPorts {
+  return {
+    projectRoot: context.projectRoot,
+    async run(input, signal) {
