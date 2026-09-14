@@ -57,4 +57,70 @@ export function eventFromResult(
   runId: string,
   result: {
     caseId: string;
-    executionId: s
+    executionId: string;
+    passed: boolean;
+    assertions?: Array<{ id?: string; passed?: boolean }>;
+    metrics?: { latencyMs?: number; steps?: number; toolCalls?: number };
+    coverage?: { status?: string; lines?: number; branches?: number; functions?: number; statements?: number };
+    failureCategory?: string;
+  },
+): ExportEvent {
+  const assertions = result.assertions ?? [];
+  return {
+    v: 1,
+    kind: "canary.run",
+    profile,
+    runId,
+    caseId: result.caseId,
+    executionId: result.executionId,
+    evaluator: {
+      ids: assertions.map((a) => a.id ?? "unknown").filter(Boolean),
+      passed: assertions.filter((a) => a.passed === true).length,
+      total: assertions.length,
+    },
+    result: {
+      passed: result.passed,
+      latencyMs: result.metrics?.latencyMs,
+      steps: result.metrics?.steps,
+      toolCalls: result.metrics?.toolCalls,
+      failureCategory: result.failureCategory,
+    },
+    coverage: {
+      status: result.coverage?.status ?? "unavailable",
+      lines: result.coverage?.lines,
+      branches: result.coverage?.branches,
+      functions: result.coverage?.functions,
+      statements: result.coverage?.statements,
+    },
+    attributes: sanitizeAttributes({
+      "canary.run.id": runId,
+      "canary.case.id": result.caseId,
+      "canary.execution.id": result.executionId,
+      "canary.result.passed": result.passed,
+    }),
+  };
+}
+export class BoundedExporter {
+  private readonly queue: ExportEvent[] = [];
+  private draining: Promise<void> | undefined;
+  private closed = false;
+  private lastSent = 0;
+  private healthState: ExportHealth = { state: "idle", queued: 0, sent: 0, failed: 0, dropped: 0 };
+  private readonly options: Required<ExportOptions>;
+  constructor(
+    private readonly transport: ExportTransport,
+    options: ExportOptions,
+  ) {
+    this.options = {
+      maxQueue: 256,
+      maxBatch: 16,
+      maxBytes: 64 * 1024,
+      ratePerSecond: 10,
+      timeoutMs: 3000,
+      retries: 2,
+      backoffMs: 100,
+      ...options,
+    };
+    if (
+      this.options.maxQueue < 1 ||
+      t
