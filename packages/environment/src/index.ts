@@ -21,6 +21,8 @@ function clone<T>(value: T): T {
 }
 
 export class MemoryStateStore implements StateStore {
+  /** Restore only rewinds in-memory state. HTTP/MCP/filesystem side effects are not rolled back. */
+  readonly externalRollback = "unsupported" as const;
   private current: Record<string, unknown>;
   private readonly snapshots = new Map<string, Record<string, unknown>>();
   constructor(initial: Record<string, unknown> = {}) {
