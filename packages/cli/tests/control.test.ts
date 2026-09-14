@@ -40,4 +40,15 @@ describe("L02 CLI parity", () => {
     );
     const log = vi.spyOn(console, "log").mockImplementation(() => {});
     try {
-      e
+      expect(await controlCommand(["status"], config)).toBe(0);
+      expect(await controlCommand(["revision", "authorization.revoke", "auth"], config)).toBe(0);
+      expect(await controlCommand(["act", "--file", file], config)).toBe(0);
+      expect(await controlCommand(["act", "--file", file], config)).toBe(0);
+      expect(await controlCommand(["audit"], config)).toBe(0);
+      expect(p.audit()).toHaveLength(1);
+      expect(p.snapshot().authorizations[0]?.revoked).toBe(true);
+    } finally {
+      log.mockRestore();
+    }
+  });
+});
