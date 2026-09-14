@@ -50,4 +50,15 @@ function bindPorts(context: ProjectContext, bindings: McpCliBindings): CanaryMcp
     },
     submitProposal(input) {
       const proposal = input.proposal;
-      const runId = pro
+      const runId = proposal && typeof proposal === "object" && "runId" in proposal ? String((proposal as { runId: unknown }).runId) : "";
+      const snapshot = bindings.readRun(runId, context);
+      if (!snapshot) throw new Error("submit_proposal requires a proposal.runId that exists in the bound project");
+      return validateHostProposal(proposal, snapshot);
+    },
+  };
+}
+
+function flag(rest: string[], name: string): string | undefined {
+  const index = rest.indexOf(name);
+  return index >= 0 ? rest[index + 1] : undefined;
+}
