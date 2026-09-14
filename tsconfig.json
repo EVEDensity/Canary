@@ -29,6 +29,18 @@
       "path": "packages/experience"
     },
     {
+      "path": "packages/policy"
+    },
+    {
+      "path": "packages/isolation"
+    },
+    {
+      "path": "packages/hard-evolution"
+    },
+    {
+      "path": "packages/loop"
+    },
+    {
       "path": "packages/runner"
     },
     {
