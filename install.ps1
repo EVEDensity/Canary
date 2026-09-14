@@ -25,4 +25,23 @@ Environment:
   CANARY_DIR       Override clone destination (default: %USERPROFILE%\Canary)
   CANARY_REF       Optional tag, branch, or commit to pin after cloning/updating
 
-The installer refuses to overwrite a non-Git di
+The installer refuses to overwrite a non-Git directory or update a dirty checkout.
+Offline failures leave the existing installation untouched and print the Git/pnpm error.
+"@
+}
+function Invoke-Checked([string]$Command, [string[]]$Arguments) {
+  & $Command @Arguments
+  if ($LASTEXITCODE -ne 0) { throw "$Command failed with exit code $LASTEXITCODE" }
+}
+function Assert-Tool([string]$Command) {
+  if (-not (Get-Command $Command -ErrorAction SilentlyContinue)) { throw "$Command is required but was not found on PATH." }
+}
+function Clone-Or-Update {
+  Assert-Tool 'git'
+  if (Test-Path (Join-Path $RepoDir '.git')) {
+    $status = (& git -C $RepoDir status --porcelain)
+    if ($status) { throw "Refusing to update dirty checkout: $RepoDir" }
+    Write-Host "-> Updating existing checkout at $RepoDir"
+    Invoke-Checked 'git' @('-C', $RepoDir, 'pull', '--ff-only')
+  } elseif (Test-Path $RepoDir) {
+    $entries = Get-ChildItem -Force $RepoDir
