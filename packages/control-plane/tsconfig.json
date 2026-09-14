@@ -1,0 +1,32 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "tsBuildInfoFile": "dist/.tsbuildinfo",
+    "rootDir": "src",
+    "outDir": "dist"
+  },
+  "include": ["src/**/*.ts"],
+  "references": [
+    {
+      "path": "../core"
+    },
+    {
+      "path": "../trace"
+    },
+    {
+      "path": "../improvement"
+    },
+    {
+      "path": "../experience"
+    },
+    {
+      "path": "../policy"
+    },
+    {
+      "path": "../hard-evolution"
+    },
+    {
+      "path": "../loop"
+    }
+  ]
+}
