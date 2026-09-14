@@ -1,6 +1,6 @@
 # 后续任务总表
 
-> 本目录是后续实施的唯一任务入口。**F-01 到 F-05 与 Q-01 到 Q-04 已实施**；其余任务仍为待实施。已有代码只是起点，不代表满足未勾选任务的验收。文档重构不构成实施授权，不自动启用软/硬进化。
+> 本目录是后续实施的唯一任务入口。**F-01 到 F-05、Q-01 到 Q-04、S-01/S-03/S-04、H-01 到 H-03 与 L-01 已实施**。S-02、L-02、L-03 仍为待实施。已有代码只是起点，不代表满足未勾选任务的验收。文档重构不构成实施授权，不自动启用软/硬进化。
 
 先读[工作协议](00-working-protocol.md)，再领取一个明确 ID。当前能力见[代码审计](../evidence/code-audit.md)，理想终态见[自循环设计](../design/agent-loop.md)。不设未经估算的周数和发布日期。
 
@@ -21,10 +21,10 @@
 | S-02 | P1     | [可选 MCP Server 与兼容矩阵](03-host-and-soft-evolution.md#s-02)   | F-05；宿主需求已确认              | 待实施 |
 | S-03 | P1     | [版本化经验与加载器](03-host-and-soft-evolution.md#s-03)           | Q-03/04、F-04                     | 已实施 |
 | S-04 | P1     | [人工驱动的软进化试验](03-host-and-soft-evolution.md#s-04)         | S-01/03、Q-04、F-05               | 已实施 |
-| H-01 | P0*    | [策略、权限与真实隔离](04-controlled-hard-evolution.md#h-01)       | F-05 的执行端口；威胁建模可先做   | 待实施 |
-| H-02 | P0*    | [候选代码与独立验证](04-controlled-hard-evolution.md#h-02)         | H-01、Q-01/02/03/04               | 待实施 |
-| H-03 | P0*    | [精确应用、撤销与回滚](04-controlled-hard-evolution.md#h-03)       | H-02、F-04                        | 待实施 |
-| L-01 | P2     | [有限持续循环控制器](05-continuous-loop-and-ecosystem.md#l-01)     | S-04、H-01；自动改源码另需 H-03   | 待实施 |
+| H-01 | P0*    | [策略、权限与真实隔离](04-controlled-hard-evolution.md#h-01)       | F-05 的执行端口；威胁建模可先做   | 已实施 |
+| H-02 | P0*    | [候选代码与独立验证](04-controlled-hard-evolution.md#h-02)         | H-01、Q-01/02/03/04               | 已实施 |
+| H-03 | P0*    | [精确应用、撤销与回滚](04-controlled-hard-evolution.md#h-03)       | H-02、F-04                        | 已实施 |
+| L-01 | P2     | [有限持续循环控制器](05-continuous-loop-and-ecosystem.md#l-01)     | S-04、H-01；自动改源码另需 H-03   | 已实施 |
 | L-02 | P2     | [长期观察与控制面 UI](05-continuous-loop-and-ecosystem.md#l-02)    | L-01、F-02/04、Q-04               | 待实施 |
 | L-03 | P2     | [分发兼容与可选观测导出](05-continuous-loop-and-ecosystem.md#l-03) | F-01/02/04/05；基础安装测试可先做 | 待实施 |
 
