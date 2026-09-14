@@ -28,7 +28,8 @@
     "@canary/policy": "workspace:*",
     "@canary/isolation": "workspace:*",
     "@canary/hard-evolution": "workspace:*",
-    "@canary/loop": "workspace:*"
+    "@canary/loop": "workspace:*",
+    "@canary/mcp-server": "workspace:*"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
