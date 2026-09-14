@@ -718,4 +718,86 @@ async function softTrialCommand(rest: string[], configPath?: string): Promise<nu
       completedCases: selectedResults.length,
       passedCases: selectedResults.filter((result) => result.passed).length,
     };
-    const isolated = new ExperienceStore(resolve(softTrialDir(context, record.id), "exper
+    const isolated = new ExperienceStore(resolve(softTrialDir(context, record.id), "experiences"));
+    isolated.importRecord(experience);
+    if (["proposed", "active"].includes(experience.status)) isolated.transition(experience.id, "validated");
+    if (isolated.get(experience.id)?.status === "validated") isolated.activate(experience.id);
+    let executed: RunCommandResult | undefined;
+    try {
+      executed = await runCommandDetailed({
+        configPath,
+        headless: true,
+        noOpen: true,
+        json: true,
+        suppressOutput: true,
+        caseIds: selectedIds,
+        candidateOf: record.baselineRunId,
+        experiences: isolated,
+      });
+      const candidate = executed.snapshot;
+      const comparison = compareRuns(baselineSubset, candidate, holdoutCaseIds(candidate.results));
+      const comparisonPath = resolve(softTrialDir(context, record.id), "comparison.json");
+      writeFileSync(comparisonPath, JSON.stringify(comparison, null, 2), "utf8");
+      const validation = assessSoftTrial({
+        baseline: baselineSubset,
+        candidate,
+        comparison,
+        regressionCaseIds: record.regressionCaseIds,
+        holdoutCaseIds: record.holdoutCaseIds,
+        candidateExitCode: executed.exitCode,
+        comparisonArtifact: comparisonPath,
+      });
+      writeFileSync(
+        resolve(softTrialDir(context, record.id), "validation.json"),
+        JSON.stringify(validation, null, 2),
+        "utf8",
+      );
+      const next: SoftTrialRecord = {
+        ...record,
+        status: validation.valid ? "validated" : "rejected",
+        budget: { ...record.budget, observedCases: candidate.results.length, observedChars: experience.content.length },
+        validation,
+      };
+      writeSoftTrial(context, next);
+      softTrialOutput({ valid: validation.valid, action, record: next, comparison });
+      return validation.valid ? 0 : 1;
+    } finally {
+      await executed?.close();
+    }
+  }
+  if (action === "approve") {
+    if (record.status !== "validated" || !record.validation?.valid) {
+      softTrialOutput({
+        valid: false,
+        status: "rejected",
+        errors: ["Only a valid independent trial can be manually approved"],
+      });
+      return 1;
+    }
+    const actor = flagValue(rest, "--actor");
+    const reason = flagValue(rest, "--reason");
+    if (!actor || !reason) {
+      softTrialOutput({ valid: false, status: "rejected", errors: ["Manual approval requires --actor and --reason"] });
+      return 1;
+    }
+    const next: SoftTrialRecord = {
+      ...record,
+      status: "approved",
+      authorization: { status: "approved", actor, reason, approvedAt: new Date().toISOString() },
+    };
+    writeSoftTrial(context, next);
+    softTrialOutput({ valid: true, action, record: next });
+    return 0;
+  }
+  if (action === "run") {
+    const { ControlPlane } = await import("@canary/control-plane");
+    new ControlPlane(context.projectRoot, context.artifactRoot).assertSoftApproval(trialId);
+    if (record.status !== "approved" || record.authorization.status !== "approved") {
+      softTrialOutput({
+        valid: false,
+        status: "rejected",
+        errors: ["Trial must have independent validation and explicit human approval before activation"],
+      });
+      return 1;
+    }
+    const prior = record.priorActive ?? store.activePointer(cont
