@@ -47,6 +47,9 @@
                        },
                        {
                            "path":  "../loop"
+                       },
+                       {
+                           "path":  "../mcp-server"
                        }
                    ]
 }
