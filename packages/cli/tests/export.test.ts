@@ -22,4 +22,17 @@ describe("export", () => {
     expect(text).not.toContain("super-secret"); expect(text).not.toContain("raw input"); expect(text).not.toContain("raw output"); expect(text).not.toContain("holdout secret"); expect(text).not.toContain("C:\\\\private"); expect(text).toContain("case-safe");
   });
   it("rejects traversal IDs and does not overwrite exports", () => {
-    const root = mkdtempSync(join(tmpdir(), "canary-export-")); const c = context(root); mkdirSync(c.artifactRoot, { recursi
+    const root = mkdtempSync(join(tmpdir(), "canary-export-")); const c = context(root); mkdirSync(c.artifactRoot, { recursive: true });
+    expect(() => buildExport(c, { runIds: ["../escape"] })).toThrow("Invalid export run ID");
+    const out = resolve(root, "export.json"); writeExport(c, out); expect(() => writeExport(c, out)).toThrow(); expect(existsSync(out)).toBe(true);
+  });
+  it("serializes NDJSON and never creates a transport by default", () => {
+    const root = mkdtempSync(join(tmpdir(), "canary-export-")); const c = context(root); mkdirSync(c.artifactRoot, { recursive: true });
+    const value = buildExport(c, { format: "ndjson" }); const text = serializeExport(value); expect(text.split("\n")[0]).toContain('"type":"manifest"'); expect(text.endsWith("\n")).toBe(true);
+    const fetchSpy = vi.spyOn(globalThis, "fetch"); expect(fetchSpy).not.toHaveBeenCalled(); fetchSpy.mockRestore();
+  });
+});
+
+
+
+
