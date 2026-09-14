@@ -639,4 +639,83 @@ async function softTrialCommand(rest: string[], configPath?: string): Promise<nu
         status: "rejected",
         errors: [
           ...(missing.length ? ["Unknown baseline cases: " + missing.join(", ")] : []),
-          ...(overlap.length ? ["Cases cannot be both regression and holdout
+          ...(overlap.length ? ["Cases cannot be both regression and holdout: " + overlap.join(", ")] : []),
+        ],
+      });
+      return 1;
+    }
+    if (experience.projectRoot !== context.projectRoot || !["validated", "active"].includes(experience.status)) {
+      softTrialOutput({
+        valid: false,
+        status: "rejected",
+        errors: [
+          "Experience must be project-scoped and validated before trial; accepted/verified fields are not execution evidence",
+        ],
+      });
+      return 1;
+    }
+    const selectedResults = baseline.results.filter((result) => selectedIds.includes(result.caseId));
+    const maxCases = parseBoundedInteger(flagValue(rest, "--max-cases"), "--max-cases") ?? selectedIds.length;
+    const maxChars = parseBoundedInteger(flagValue(rest, "--max-chars"), "--max-chars") ?? 8_000;
+    if (selectedIds.length > maxCases || experience.content.length > maxChars) {
+      softTrialOutput({ valid: false, status: "rejected", errors: ["Trial budget exceeded"] });
+      return 1;
+    }
+    const id = "soft_trial_" + randomUUID();
+    const record: SoftTrialRecord = {
+      v: 1,
+      id,
+      projectRoot: context.projectRoot,
+      configPath: context.configFile,
+      baselineRunId: baselineId,
+      experienceId,
+      experienceContentHash: experience.contentHash,
+      datasetIdentity: softTrialDatasetIdentity(selectedResults),
+      regressionCaseIds,
+      holdoutCaseIds: holdoutIds,
+      budget: { maxCases, maxChars },
+      status: "prepared",
+      authorization: {
+        status: "not_approved",
+        reason: "Preparation is not authorization; validation must be independent and human approval is separate.",
+      },
+      priorActive: store.activePointer(context.projectRoot),
+    };
+    writeSoftTrial(context, record);
+    softTrialOutput({ valid: true, action, record });
+    return 0;
+  }
+  if (!trialId) {
+    console.log(USAGE);
+    return 1;
+  }
+  const record = readSoftTrial(context, trialId);
+  if (!record) {
+    softTrialOutput({ valid: false, status: "rejected", errors: ["Soft trial not found: " + trialId] });
+    return 1;
+  }
+  const experience = store.get(record.experienceId);
+  if (!experience) {
+    softTrialOutput({ valid: false, status: "rejected", errors: ["Experience not found: " + record.experienceId] });
+    return 1;
+  }
+  if (action === "validate") {
+    if (record.status !== "prepared") {
+      softTrialOutput({ valid: false, status: "rejected", errors: ["Trial must be prepared, found " + record.status] });
+      return 1;
+    }
+    const baseline = readRunArtifact(record.baselineRunId, undefined, configPath);
+    if (!baseline) {
+      softTrialOutput({ valid: false, status: "rejected", errors: ["Run not found: " + record.baselineRunId] });
+      return 1;
+    }
+    const selectedIds = [...new Set([...record.regressionCaseIds, ...record.holdoutCaseIds])];
+    const selectedResults = baseline.results.filter((result) => selectedIds.includes(result.caseId));
+    const baselineSubset: RunSnapshot = {
+      ...baseline,
+      results: selectedResults,
+      totalCases: selectedResults.length,
+      completedCases: selectedResults.length,
+      passedCases: selectedResults.filter((result) => result.passed).length,
+    };
+    const isolated = new ExperienceStore(resolve(softTrialDir(context, record.id), "exper
