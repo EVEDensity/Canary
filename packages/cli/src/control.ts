@@ -47,4 +47,28 @@ export async function controlCommand(rest: string[], configPath?: string): Promi
           kind: "canary.control",
           ...address,
           mode: process.env.CANARY_CONTROL_TOKEN ? "operator_available" : "read_only",
-          projectRoo
+          projectRoot: context.projectRoot,
+        });
+        await new Promise<void>((done) => {
+          const shutdown = () => {
+            control.server.closeAllConnections();
+            control.server.close(() => done());
+          };
+          process.once("SIGINT", shutdown);
+          process.once("SIGTERM", shutdown);
+          control.server.once("close", () => {
+            process.off("SIGINT", shutdown);
+            process.off("SIGTERM", shutdown);
+            done();
+          });
+        });
+        return 0;
+      }
+      default:
+        throw new Error("Usage: canary control status|audit|revision|act|serve");
+    }
+  } catch (error) {
+    print({ error: error instanceof Error ? error.message : String(error) });
+    return 1;
+  }
+}
