@@ -210,4 +210,178 @@ function parseRepetitions(raw: string | undefined): number | undefined {
   if (!Number.isInteger(value) || value < 1) throw new Error(`Invalid --repetitions ${raw}`);
   return value;
 }
-function selectCases(cases: Te
+function selectCases(cases: TestCase[], options: CliOptions): TestCase[] {
+  let selected = cases;
+  if (options.caseId) selected = selected.filter((testCase) => testCase.id === options.caseId);
+  if (options.caseIds?.length) selected = selected.filter((testCase) => options.caseIds!.includes(testCase.id));
+  if (options.tags?.length) selected = selected.filter((testCase) => (testCase.tags ?? []).some((tag) => options.tags!.includes(tag)));
+  if (options.caseId && !selected.length) throw new Error(`No test case matched --case ${options.caseId}`);
+  if (options.tags?.length && !selected.length) throw new Error(`No test case matched --tag ${options.tags.join(", ")}`);
+  if (options.caseIds?.length) {
+    const missing = options.caseIds.filter((id) => !selected.some((testCase) => testCase.id === id));
+    if (missing.length) throw new Error(`Replay cases not found in current config: ${missing.join(", ")}`);
+  }
+  return selected;
+}
+
+export async function runCommandDetailed(options: CliOptions = {}): Promise<RunCommandResult> {
+  const context = resolveProjectContext(options);
+  if (!existsSync(context.configFile)) throw new Error(missingConfigMessage(context.configFile));
+  const config = await loadConfig(context.configFile);
+  const cases = await loadCases(config.cases, context.projectRoot, config.coverage.exclude);
+  const selected = selectCases(cases, options);
+  const store = new RunStore();
+  const runId = `run_${randomUUID()}`;
+  const fallbackReps = options.repetitions ?? config.runtime?.repetitions ?? 1;
+  const planned = selected.reduce((sum, testCase) => sum + (testCase.options?.repetitions ?? fallbackReps), 0);
+  store.create(planned, runId, options.replayOf);
+  const evaluationInput = {
+    store,
+    config: options.entry ? { ...config, agent: { ...config.agent, entry: options.entry } } : config,
+    context,
+    selected,
+    replayOf: options.replayOf,
+    candidateOf: options.candidateOf,
+    repetitions: options.repetitions,
+    signal: options.signal,
+    experiences: options.experiences,
+    consoleReporter: Boolean(config.reporters?.includes("console")),
+    silent: options.json,
+    runId,
+  };
+  const webEnabled = !options.headless && config.web?.enabled !== false;
+  let uiUrl = "";
+  let close = async (): Promise<void> => { /* no listener */ };
+  if (webEnabled) {
+    const { createWebServer } = await import("@canary/web");
+    const writeToken = randomUUID();
+    const web = createWebServer(store, config.web?.host ?? "127.0.0.1", options.port ?? config.web?.port ?? 0, context.artifactRoot, {
+      writeToken,
+      onReplay: async (sourceId, request) => {
+        const source = store.get(sourceId);
+        if (!source) throw new Error(`Run not found: ${sourceId}`);
+        const wanted = request.caseId ? [request.caseId] : [...new Set(source.results.map((result) => result.caseId))];
+        const replayCases = cases.filter((testCase) => wanted.includes(testCase.id));
+        if (!replayCases.length) throw new Error("No cases to replay");
+        const replayed = await runEvaluation({ ...evaluationInput, selected: replayCases, replayOf: sourceId, runId: undefined });
+        return { replayRunId: replayed.runId };
+      },
+    });
+    const listening = await web.listen();
+    uiUrl = `${listening.url}/?runId=${encodeURIComponent(runId)}&token=${encodeURIComponent(writeToken)}`;
+    if (!options.json && !options.suppressOutput) {
+      console.log(`runId: ${runId}`);
+      console.log(`canary UI: ${uiUrl}`);
+    }
+    if (!options.noOpen && config.web?.open !== false) openBrowser(uiUrl);
+    let webClosed = false;
+    close = async (): Promise<void> => {
+      if (webClosed || !web.server.listening) { webClosed = true; return; }
+      await new Promise<void>((resolveClose, rejectClose) => web.server.close((error) => error ? rejectClose(error) : resolveClose()));
+      webClosed = true;
+    };
+  } else if (!options.json && !options.suppressOutput) {
+    console.log(`runId: ${runId}`);
+  }
+  const executed = await runEvaluation(evaluationInput);
+  if (options.json && !options.suppressOutput) {
+    console.log(JSON.stringify(hostRunOutput(context, executed.snapshot, executed.artifactPath, executed.exitCode)));
+  } else if (!options.suppressOutput) {
+    printRunSummary(executed.snapshot, { artifactPath: executed.artifactPath, uiUrl: uiUrl || undefined, exitCode: executed.exitCode });
+  }
+  return { exitCode: executed.exitCode, runId: executed.runId, artifactPath: executed.artifactPath, uiUrl, snapshot: executed.snapshot, store, close };
+}
+export async function runCommand(options: CliOptions = {}): Promise<number> {
+  return (await runCommandDetailed(options)).exitCode;
+}
+
+function parseArgv(argv: string[]): { command: string; rest: string[] } {
+  const args = argv.filter((item) => item !== "--");
+  const command = args[0] && !args[0].startsWith("-") ? args[0] : "run";
+  return { command, rest: command === args[0] ? args.slice(1) : args };
+}
+
+export { CANARY_HOME_FILE, missingConfigMessage, readInstalledHome, resolveCanaryProjectRoot, resolveConfigFile, resolveProjectContext } from "./home.js";
+
+function parseBoundedInteger(raw: string | undefined, name: string): number | undefined {
+  if (raw === undefined) return undefined;
+  const value = Number(raw);
+  if (!Number.isInteger(value) || value < 1) throw new Error(`Invalid ${name} ${raw}`);
+  return value;
+}
+
+function printHost(value: unknown): void {
+  console.log(JSON.stringify(value, null, 2));
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function experienceStoreFor(configPath?: string): { context: ProjectContext; store: ExperienceStore } {
+  const context = resolveProjectContext({ configPath });
+  return { context, store: new ExperienceStore(resolve(context.projectRoot, ".canary", "experiences")) };
+}
+
+function experienceOutput(kind: string, value: unknown): void {
+  printHost({ v: 1, kind, ...isRecord(value) ? value : { value } });
+}
+
+async function experienceCommand(rest: string[], configPath?: string): Promise<number> {
+  const action = rest[0];
+  const { context, store } = experienceStoreFor(configPath);
+  if (action === "list") {
+    experienceOutput("canary.experience.list", { projectRoot: context.projectRoot, active: store.activePointer(context.projectRoot), records: store.list() });
+    return 0;
+  }
+  if (action === "propose") {
+    const file = flagValue(rest, "--file");
+    if (!file) { console.log(USAGE); return 1; }
+    let raw: unknown;
+    try { raw = JSON.parse(readFileSync(resolve(context.invocationRoot, file), "utf8")); }
+    catch (error) { experienceOutput("canary.experience.proposal", { valid: false, errors: [`Experience file is not valid JSON: ${error instanceof Error ? error.message : String(error)}`] }); return 1; }
+    if (!isRecord(raw)) { experienceOutput("canary.experience.proposal", { valid: false, errors: ["Experience must be a JSON object"] }); return 1; }
+    const declaredRoot = typeof raw.projectRoot === "string" ? resolve(raw.projectRoot) : context.projectRoot;
+    if (declaredRoot !== context.projectRoot) { experienceOutput("canary.experience.proposal", { valid: false, errors: ["Experience projectRoot must match the selected project"] }); return 1; }
+    try {
+      const input: ExperienceInput = {
+        key: String(raw.key ?? ""), projectRoot: context.projectRoot,
+        source: isRecord(raw.source) && typeof raw.source.kind === "string" ? { kind: raw.source.kind as ExperienceInput["source"]["kind"], ...(typeof raw.source.ref === "string" ? { ref: raw.source.ref } : {}) } : { kind: "human" },
+        summary: String(raw.summary ?? ""), content: String(raw.content ?? ""),
+        counterexamples: Array.isArray(raw.counterexamples) ? raw.counterexamples.filter((item): item is string => typeof item === "string") : [],
+        scope: isRecord(raw.scope) ? { caseIds: Array.isArray(raw.scope.caseIds) ? raw.scope.caseIds.filter((item): item is string => typeof item === "string") : undefined, tags: Array.isArray(raw.scope.tags) ? raw.scope.tags.filter((item): item is string => typeof item === "string") : undefined, featureIds: Array.isArray(raw.scope.featureIds) ? raw.scope.featureIds.filter((item): item is string => typeof item === "string") : undefined } : undefined,
+        expiresAt: typeof raw.expiresAt === "string" ? raw.expiresAt : undefined, expiryReason: typeof raw.expiryReason === "string" ? raw.expiryReason : undefined,
+      };
+      const record = store.propose(input);
+      experienceOutput("canary.experience.proposal", { valid: true, record, approval: { status: "not_approved" } });
+      return 0;
+    } catch (error) { experienceOutput("canary.experience.proposal", { valid: false, errors: [error instanceof Error ? error.message : String(error)], approval: { status: "not_approved" } }); return 1; }
+  }
+  if (["validate", "activate", "revoke", "expire"].includes(action ?? "")) {
+    const id = rest[1];
+    if (!id) { console.log(USAGE); return 1; }
+    try {
+      const record = action === "validate" ? store.transition(id, "validated") : action === "activate" ? store.activate(id) : action === "revoke" ? store.revoke(id) : store.transition(id, "expired", "expired by operator");
+      experienceOutput(`canary.experience.${action}`, { record, approval: { status: "not_approved" } });
+      return 0;
+    } catch (error) { experienceOutput(`canary.experience.${action}`, { valid: false, errors: [error instanceof Error ? error.message : String(error)], approval: { status: "not_approved" } }); return 1; }
+  }
+  if (action === "clear") { store.clear(context.projectRoot); experienceOutput("canary.experience.clear", { projectRoot: context.projectRoot, active: store.activePointer(context.projectRoot) }); return 0; }
+  if (action === "load") {
+    try {
+      const loaded = store.load({ projectRoot: context.projectRoot, caseId: flagValue(rest, "--case"), tags: flagValues(rest, "--tag"), featureIds: flagValues(rest, "--feature"), maxItems: parseBoundedInteger(flagValue(rest, "--max-items"), "--max-items"), maxChars: parseBoundedInteger(flagValue(rest, "--max-chars"), "--max-chars") });
+      experienceOutput("canary.experience.load", { projectRoot: context.projectRoot, loaded: loaded.loaded.map(({ content: _content, ...reference }) => reference), skipped: loaded.skipped, totalChars: loaded.totalChars });
+      return 0;
+    } catch (error) { experienceOutput("canary.experience.load", { valid: false, errors: [error instanceof Error ? error.message : String(error)] }); return 1; }
+  }
+  console.log(USAGE);
+  return 1;
+}
+
+
+function softTrialDir(context: ProjectContext, trialId: string): string { return resolve(context.artifactRoot, "soft-trials", trialId); }
+function softTrialFile(context: ProjectContext, trialId: string): string { return resolve(softTrialDir(context, trialId), "trial.json"); }
+function readSoftTrial(context: ProjectContext, trialId: string): SoftTrialRecord | undefined {
+  try { return JSON.parse(readFileSync(softTrialFile(context, trialId), "utf8")) as SoftTrialRecord; } catch { return undefined; }
+}
+function writeSoftTrial(context: Projec
