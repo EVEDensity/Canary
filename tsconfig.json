@@ -41,6 +41,9 @@
       "path": "packages/loop"
     },
     {
+      "path": "packages/mcp-server"
+    },
+    {
       "path": "packages/runner"
     },
     {
