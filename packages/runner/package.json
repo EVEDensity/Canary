@@ -18,7 +18,9 @@
     "@canary/evaluators": "workspace:*",
     "@canary/adapters": "workspace:*",
     "@canary/environment": "workspace:*",
-    "@canary/experience": "workspace:*"
+    "@canary/experience": "workspace:*",
+    "@canary/isolation": "workspace:*",
+    "@canary/policy": "workspace:*"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
