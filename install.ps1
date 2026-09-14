@@ -45,3 +45,25 @@ function Clone-Or-Update {
     Invoke-Checked 'git' @('-C', $RepoDir, 'pull', '--ff-only')
   } elseif (Test-Path $RepoDir) {
     $entries = Get-ChildItem -Force $RepoDir
+    if ($entries.Count -gt 0) { throw "Refusing to overwrite non-Git directory: $RepoDir" }
+    Write-Host "-> Cloning $RepoUrl -> $RepoDir"
+    Invoke-Checked 'git' @('clone', $RepoUrl, $RepoDir)
+  } else {
+    Write-Host "-> Cloning $RepoUrl -> $RepoDir"
+    New-Item -ItemType Directory -Path (Split-Path -Parent $RepoDir) -Force | Out-Null
+    Invoke-Checked 'git' @('clone', $RepoUrl, $RepoDir)
+  }
+  if ($CanaryRef) {
+    Invoke-Checked 'git' @('-C', $RepoDir, 'fetch', '--tags', '--prune', 'origin')
+    Invoke-Checked 'git' @('-C', $RepoDir, 'checkout', '--detach', $CanaryRef)
+  }
+}
+function Install-Canary {
+  $installer = Join-Path $RepoDir 'scripts\install-global.mjs'
+  if (-not (Test-Path $installer)) { throw "Missing installer script at $installer" }
+  Assert-Tool 'node'
+  Invoke-Checked 'node' @($installer)
+}
+if ($Help) { Show-Usage; exit 0 }
+Clone-Or-Update
+Install-Canary
