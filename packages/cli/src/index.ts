@@ -998,4 +998,106 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
   if (command === "experience") return experienceCommand(rest, configPath);
   if (command === "isolation") return isolationCommand(rest, configPath);
   if (command === "policy") return policyCommand(rest, configPath);
-  if
+  if (command === "loop") return loopCommand(rest, configPath);
+  if (command === "control") return controlCommand(rest, configPath);
+  if (command === "export") {
+    const output = flagValue(rest, "--out");
+    if (!output) {
+      console.log(USAGE);
+      return 1;
+    }
+    try {
+      const manifest = writeExport(resolveProjectContext({ configPath }), output, {
+        format: (flagValue(rest, "--format") as "json" | "ndjson" | undefined) ?? "json",
+        runIds: flagValues(rest, "--run"),
+        maxRuns: flagValue(rest, "--max-runs") ? Number(flagValue(rest, "--max-runs")) : undefined,
+      });
+      console.log(JSON.stringify({ kind: "canary.export", manifest }, null, 2));
+      return 0;
+    } catch (error) {
+      console.error(error instanceof Error ? error.message : String(error));
+      return 1;
+    }
+  }
+
+  if (command === "mcp") {
+    return mcpCommand(rest, configPath, {
+      readRun: (runId, context) => readRunArtifact(runId, context.projectRoot, context.configFile),
+      runHeadless: async ({ context, caseId, signal }) => {
+        const result = await runCommandDetailed({
+          cwd: context.projectRoot,
+          configPath: context.configFile,
+          headless: true,
+          noOpen: true,
+          suppressOutput: true,
+          caseId,
+          signal,
+        });
+        return hostRunOutput(context, result.snapshot, result.artifactPath, result.exitCode);
+      },
+    });
+  }
+  if (command === "help") {
+    console.log(USAGE);
+    return 0;
+  }
+  if (command === "runs") {
+    printRunList(listRunArtifacts(undefined, configPath));
+    return 0;
+  }
+  if (command === "show") {
+    const runId = rest[0];
+    if (!runId) {
+      console.log(USAGE);
+      return 1;
+    }
+    const snapshot = readRunArtifact(runId, undefined, configPath);
+    if (!snapshot) {
+      console.error(`Run not found: ${runId}`);
+      return 1;
+    }
+    printRunSummary(snapshot, {
+      artifactPath: resolve(artifactRoot(undefined, configPath), runId, "run.json"),
+      exitCode: snapshot.status === "completed" ? 0 : 1,
+    });
+    return snapshot.status === "completed" ? 0 : 1;
+  }
+  if (command === "report") {
+    const runId = rest[0];
+    if (!runId) {
+      console.log(USAGE);
+      return 1;
+    }
+    const snapshot = readRunArtifact(runId, undefined, configPath);
+    if (!snapshot) {
+      console.error(`Run not found: ${runId}`);
+      return 1;
+    }
+    const formatIndex = rest.indexOf("--format");
+    const format = parseReportFormat(formatIndex >= 0 ? rest[formatIndex + 1] : "markdown");
+    console.log(
+      renderReport(
+        {
+          runId: snapshot.runId,
+          status: snapshot.status,
+          startedAt: snapshot.startedAt,
+          finishedAt: snapshot.finishedAt,
+          totalCases: snapshot.totalCases,
+          passedCases: snapshot.passedCases,
+          results: snapshot.results,
+          coverage: snapshot.coverage,
+        },
+        format,
+      ),
+    );
+    return snapshot.status === "completed" ? 0 : 1;
+  }
+  if (command === "improve") {
+    const runId = rest[0];
+    if (!runId) {
+      console.log(USAGE);
+      return 1;
+    }
+    const snapshot = readRunArtifact(runId, undefined, configPath);
+    if (!snapshot) {
+      console.error(`Run not foun
