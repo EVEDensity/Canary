@@ -27,4 +27,4 @@ Function Agent 的 context 提供 emit、tools、state、model 等由 Runner 组
 
 后续协议改造必须明确锁定版本：2025-11-25 与 2026-07-28 的生命周期/协商机制有差异，不能统一写成“所有 MCP 都先 initialize”。核对依据见 [研究资料](../research/agent-evolution.md)。
 
-当前方向是 **Canary 调用 MCP Agent/工具**；未来宿主通过 Canary MCP Server 获取证据、提交候选是反向集成，尚未实现。`/canary` 也不是本包自动提供的通用宿主命令。
+当前 adapters 方向仍是 **Canary 调用 MCP Agent/工具**。反向集成由独立的 `@canary/mcp-server`（`canary mcp serve`）提供最小 `canary.run` / `canary.evidence` / `canary.submit_proposal` 工具，默认无源码写能力；关闭该服务后 CLI 与 Skill 仍可用。本指南不宣称 Cursor/Claude/Codex 的 MCP 连接字符串已实测。`/canary` 也不是本包自动提供的通用宿主命令。
