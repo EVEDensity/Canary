@@ -100,6 +100,26 @@ export function eventFromResult(
     }),
   };
 }
+
+export interface OtlpAttribute { key: string; value: { stringValue?: string; boolValue?: boolean; intValue?: string; doubleValue?: number }; }
+export interface OtlpResource { attributes: OtlpAttribute[]; }
+export interface OtlpScope { name: string; version?: string; }
+export interface OtlpSpan { traceId: string; spanId: string; name: string; startTimeUnixNano: string; endTimeUnixNano: string; attributes?: OtlpAttribute[]; status?: { code: number; message?: string }; }
+export interface OtlpLogRecord { timeUnixNano: string; body?: { stringValue: string }; attributes?: OtlpAttribute[]; }
+export interface OtlpMetric { name: string; description?: string; unit?: string; sum?: { dataPoints: Array<{ asDouble?: number; timeUnixNano: string }> }; }
+export interface OtlpExportRequest { resourceSpans?: Array<{ resource: OtlpResource; scopeSpans: Array<{ scope: OtlpScope; spans: OtlpSpan[] }> }>; resourceLogs?: Array<{ resource: OtlpResource; scopeLogs: Array<{ scope: OtlpScope; logRecords: OtlpLogRecord[] }> }>; resourceMetrics?: Array<{ resource: OtlpResource; scopeMetrics: Array<{ scope: OtlpScope; metrics: OtlpMetric[] }> }>; }
+export function toOtlpJson(events: ExportEvent[], serviceName = "canary"): OtlpExportRequest {
+  const resource = { attributes: [{ key: "service.name", value: { stringValue: serviceName } }] };
+  return { resourceSpans: [{ resource, scopeSpans: [{ scope: { name: "canary.exporter", version: "1.0.0" }, spans: events.map((e, i) => ({ traceId: e.runId.replace(/[^0-9a-f]/gi, "").padEnd(32, "0").slice(0,32), spanId: e.executionId.replace(/[^0-9a-f]/gi, "").padEnd(16, "0").slice(0,16), name: `canary.case.${e.caseId}`, startTimeUnixNano: String(Date.now()*1e6), endTimeUnixNano: String(Date.now()*1e6), attributes: Object.entries(e.attributes).map(([key,value]) => ({ key, value: typeof value === "boolean" ? { boolValue:value } : typeof value === "number" ? { doubleValue:value } : { stringValue:value } })), status: { code: e.result.passed ? 1 : 2 } })) }] }] };
+}
+export interface PhoenixSpanPayload { schema_version: "1.0"; span: Record<string, unknown>; }
+export function toPhoenixPayload(event: ExportEvent): PhoenixSpanPayload { return { schema_version: "1.0", span: { trace_id: event.runId, span_id: event.executionId, name: `canary.case.${event.caseId}`, start_time: new Date().toISOString(), end_time: new Date().toISOString(), status: event.result.passed ? "OK" : "ERROR", attributes: event.attributes } }; }
+export interface LangfuseIngestionPayload { batch: Array<{ type: "trace-create" | "generation-create" | "event-create"; body: Record<string, unknown> }>; }
+export function toLangfusePayload(event: ExportEvent): LangfuseIngestionPayload { return { batch: [{ type: "trace-create", body: { id: event.runId, name: `canary.case.${event.caseId}`, timestamp: new Date().toISOString(), metadata: event.attributes } }, { type: "event-create", body: { id: event.executionId, traceId: event.runId, name: "canary.result", statusMessage: event.result.passed ? "passed" : "failed" } }] }; }
+export class OtlpJsonTransport implements ExportTransport {
+  constructor(private readonly endpoint: string, private readonly headers: Record<string,string> = {}) { if (!/^https:\/\//i.test(endpoint)) throw new Error("Exporter endpoint must use HTTPS"); }
+  async send(batch: ExportBatch, signal: AbortSignal): Promise<void> { const r=await fetch(this.endpoint,{method:"POST",headers:{"content-type":"application/json",...this.headers},body:JSON.stringify(toOtlpJson(batch.events)),signal}); if(!r.ok) throw new Error(`Exporter HTTP ${r.status}`); }
+}
 export class BoundedExporter {
   private readonly queue: ExportEvent[] = [];
   private draining: Promise<void> | undefined;
@@ -224,3 +244,5 @@ export function profileEndpoint(profile: ExportProfile, endpoint: string): strin
     ? endpoint
     : endpoint.replace(/\/$/, "") + (profile === "phoenix" ? "/v1/traces" : "/api/public/ingestion");
 }
+
+export * from './spool.js';

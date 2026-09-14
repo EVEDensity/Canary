@@ -31,6 +31,7 @@ import { LoopController, createIdlePorts } from "@canary/loop";
 import { mcpCommand } from "./mcp.js";
 import { controlCommand } from "./control.js";
 import { writeExport } from "./export.js";
+import { diagnosticSnapshot } from "./diagnostics.js";
 
 export interface CliOptions {
   configPath?: string;
@@ -73,6 +74,8 @@ const USAGE = `Usage: canary run [--headless] [--no-open] [--json] [--case <id>]
        canary policy show [--config <path>]
        canary loop status|stop|takeover [--reason <text>] [--config <path>]
        canary control status|audit|revision|act|serve [--config <path>]
+       canary paths|doctor|version
+       canary uninstall
        canary export --out <file> [--format json|ndjson] [--run <runId>] [--max-runs <n>] [--config <path>]
        canary mcp matrix
        canary mcp serve --token <token> [--config <path>]`;
@@ -1000,6 +1003,14 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
   if (command === "policy") return policyCommand(rest, configPath);
   if (command === "loop") return loopCommand(rest, configPath);
   if (command === "control") return controlCommand(rest, configPath);
+  if (command === "paths" || command === "doctor" || command === "version") {
+    console.log(JSON.stringify(diagnosticSnapshot(process.cwd(), configPath), null, 2));
+    return 0;
+  }
+  if (command === "uninstall") {
+    console.log("Use uninstall.ps1 on Windows or uninstall.sh on macOS/Linux to remove the global launcher safely.");
+    return 0;
+  }
   if (command === "export") {
     const output = flagValue(rest, "--out");
     if (!output) {

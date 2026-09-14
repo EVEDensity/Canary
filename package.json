@@ -22,7 +22,8 @@
     "demo:headless": "pnpm --filter @canary/cli canary run --headless --no-open",
     "check:demo": "pnpm demo:headless",
     "install:global": "node scripts/install-global.mjs",
-    "canary": "pnpm --filter @canary/cli canary"
+    "canary": "pnpm --filter @canary/cli canary",
+    "verify:distribution": "node scripts/verify-distribution.mjs"
   },
   "devDependencies": {
     "@changesets/cli": "^3.0.2",

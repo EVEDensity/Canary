@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { spawnSync } from "node:child_process";
-import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync, copyFileSync, renameSync, rmSync } from "node:fs";
 import { homedir, platform } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -13,6 +13,8 @@ const binDir = isWin
 const metaDir = join(homedir(), ".canary");
 const homeFile = join(metaDir, "home.json");
 const expectedNodeMajor = 22;
+const migrationVersion = 2;
+const requestedRef = process.env.CANARY_REF?.trim();
 const expectedPnpm = "10.15.0";
 
 function fail(message) {
@@ -48,6 +50,11 @@ function assertCheckout() {
   if (status.status !== 0) fail("could not inspect the Git checkout.");
   if (status.stdout.trim()) fail(`refusing to update a dirty checkout: ${repoRoot}`);
 }
+function resolveRef() {
+  const r = probe("git", ["rev-parse", "--verify", requestedRef ? `${requestedRef}^{commit}` : "HEAD"]);
+  if (r.status !== 0) fail(`CANARY_REF is invalid or unavailable: ${requestedRef}`);
+  return r.stdout.trim();
+}
 function addToPath() {
   if (isWin) {
     const escaped = binDir.replace(/'/g, "''");
@@ -76,8 +83,16 @@ assertCheckout();
 console.log(`Installing Canary from source checkout: ${repoRoot}`);
 run("pnpm", ["install", "--frozen-lockfile"]);
 run("pnpm", ["build"]);
+const ref = resolveRef();
 mkdirSync(metaDir, { recursive: true });
-writeFileSync(homeFile, JSON.stringify({ root: repoRoot, installedAt: new Date().toISOString(), version: "0.1.0", sourceInstall: true, node: process.versions.node, pnpm: expectedPnpm, binDir }, null, 2), "utf8");
+const backupDir = join(metaDir, "backups", new Date().toISOString().replace(/[:.]/g, "-"));
+mkdirSync(backupDir, { recursive: true });
+for (const file of [homeFile, join(binDir, isWin ? "canary.cmd" : "canary"), join(binDir, "canary-run.mjs")]) if (existsSync(file)) copyFileSync(file, join(backupDir, file.split(/[\\/]/).pop()));
+const metadata = { root: repoRoot, installedAt: new Date().toISOString(), version: "0.1.0", migrationVersion, sourceInstall: true, node: process.versions.node, pnpm: expectedPnpm, ref, canaryRef: requestedRef ?? "HEAD", binDir };
+writeFileSync(homeFile + ".tmp", JSON.stringify(metadata, null, 2), "utf8");
 writeLauncher();
+const launcher = join(binDir, isWin ? "canary.cmd" : "canary");
+if (!existsSync(launcher) || !existsSync(join(binDir, "canary-run.mjs"))) { if (existsSync(homeFile)) copyFileSync(join(backupDir, "home.json"), homeFile); fail("installation state validation failed"); }
+renameSync(homeFile + ".tmp", homeFile);
 addToPath();
 console.log(`Canary installed. Project root remains the caller's current directory; installation root is ${repoRoot}.`);
