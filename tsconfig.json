@@ -57,6 +57,9 @@
     },
     {
       "path": "packages/control-plane"
+    },
+    {
+      "path": "packages/exporter-core"
     }
   ]
 }
