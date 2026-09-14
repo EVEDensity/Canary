@@ -1,8 +1,8 @@
-import { describe, expect, it } from "vitest";
-import { mkdtempSync } from "node:fs";
+﻿import { describe, expect, it } from "vitest";
+import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { createAuthorization } from "@canary/policy";
+import { AuthorizationStore, createAuthorization } from "@canary/policy";
 import { LoopController, type LoopPorts } from "../src/index.js";
 
 function auth(root: string) {
@@ -120,4 +120,15 @@ describe("L-01 loop controller", () => {
     expect(stopped.state).toBe("stopped");
     expect(stopped.stopReason).toMatch(/no-gain/);
   });
+});
+
+describe("L02 in-flight control",()=>{
+ it.each(["stop","revoke"])("honors %s while trial awaits without applying",async action=>{
+  const root=mkdtempSync(join(tmpdir(),"canary-loop-control-")),a=auth(root);new AuthorizationStore(root).save(a);
+  let release!:()=>void,entered!:()=>void;const started=new Promise<void>(r=>entered=r),waiting=new Promise<void>(r=>release=r);let applied=0;
+  const controller=new LoopController(root,ports({trial:async()=>{entered();await waiting;return {valid:true,gain:true};},apply:async()=>{applied++;return {applied:true,idempotencyKey:"must-not-apply"};}}),{cooldownMs:0},a);
+  const running=controller.trigger("in-flight");await started;
+  if(action==="stop")writeFileSync(join(root,".canary/loop/control.json"),JSON.stringify({state:"stopped",reason:"operator test"}));else new AuthorizationStore(root).revoke(a.id,"test-revoke");
+  release();expect((await running).state).toBe("stopped");expect(applied).toBe(0);expect((await controller.trigger("later")).state).toBe("stopped");
+ });
 });
