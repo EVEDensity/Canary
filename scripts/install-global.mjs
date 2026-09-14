@@ -35,4 +35,32 @@ function ensureRuntime() {
   const pnpm = probe("pnpm", ["--version"]);
   if (pnpm.status !== 0) {
     console.log("pnpm was not found; enabling Corepack…");
-    run("c
+    run("corepack", ["enable"]);
+    run("corepack", ["prepare", `pnpm@${expectedPnpm}`, "--activate"]);
+  } else if (pnpm.stdout.trim() !== expectedPnpm) {
+    fail(`pnpm ${expectedPnpm} is required; found ${pnpm.stdout.trim()}. Set up Corepack or install the pinned version.`);
+  }
+}
+function assertCheckout() {
+  const gitDir = join(repoRoot, ".git");
+  if (!existsSync(gitDir)) fail(`installation root is not a Git checkout: ${repoRoot}`);
+  const status = probe("git", ["status", "--porcelain"]);
+  if (status.status !== 0) fail("could not inspect the Git checkout.");
+  if (status.stdout.trim()) fail(`refusing to update a dirty checkout: ${repoRoot}`);
+}
+function addToPath() {
+  if (isWin) {
+    const escaped = binDir.replace(/'/g, "''");
+    const script = `$bin='${escaped}'; $path=[Environment]::GetEnvironmentVariable('Path','User'); if ($null -eq $path) { $path='' }; if (($path -split ';') -notcontains $bin) { [Environment]::SetEnvironmentVariable('Path', (($path.TrimEnd(';') + ';' + $bin).Trim(';')), 'User') }`;
+    const result = spawnSync("powershell", ["-NoProfile", "-Command", script], { stdio: "inherit" });
+    if (result.status !== 0) console.warn(`Could not update PATH automatically. Add this folder manually:\n  ${binDir}`);
+    return;
+  }
+  const rc = join(homedir(), ".profile");
+  const line = `export PATH="${binDir}:$PATH"`;
+  const current = readFileIfExists(rc);
+  if (!current.includes(line)) writeFileSync(rc, `${current.trimEnd()}\n${line}\n`, "utf8");
+}
+function readFileIfExists(path) { try { return readFileSync(path, "utf8"); } catch { return ""; } }
+function writeLauncher() {
+  mkdirSync(bi
