@@ -59,7 +59,10 @@
                                                           ],
                                           "@canary/control-plane":  [
                                                                         "packages/control-plane/src/index.ts"
-                                                                    ]
+                                                                    ],
+                                          "@canary/exporter-core":  [
+                                                                      "packages/exporter-core/src/index.ts"
+                                                                  ]
                                       },
                             "declaration":  true,
                             "declarationMap":  true,
@@ -72,3 +75,4 @@
                             "incremental":  true
                         }
 }
+
