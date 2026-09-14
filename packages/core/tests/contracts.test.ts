@@ -17,6 +17,7 @@ describe("core contracts and barrel compatibility", () => {
     expect(CORE_CONTRACTS.projectContext.wired).toBe(true);
     expect(CORE_CONTRACTS.experiment.wired).toBe(false);
     expect(CORE_CONTRACTS.trial.wired).toBe(false);
-    expect(CORE_CONTRACTS.activation.wired).toBe(false);
+    expect(CORE_CONTRACTS.authorization.wired).toBe(true);
+    expect(CORE_CONTRACTS.activation.wired).toBe(true);
   });
 });
