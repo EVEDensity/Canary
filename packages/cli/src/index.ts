@@ -136,4 +136,140 @@ export function artifactRoot(cwd?: string, configPath?: string): string {
 export function defaultRegressionDir(cwd?: string, configPath?: string): string {
   const root = resolveProjectContext({ cwd, configPath }).projectRoot;
   if (existsSync(resolve(root, "cases/regression"))) return resolve(root, "cases/regression");
-  if (existsSync(resolve(root, "exampl
+  if (existsSync(resolve(root, "examples/local-agent/cases"))) return resolve(root, "examples/local-agent/cases/regression");
+  return resolve(root, "cases/regression");
+}
+export function listRunArtifacts(cwd?: string, configPath?: string): RunSnapshot[] {
+  return new FileArtifactRepository(artifactRoot(cwd, configPath)).listRuns();
+}
+export function readRunArtifact(runId: string, cwd?: string, configPath?: string): RunSnapshot | undefined {
+  const repository = new FileArtifactRepository(artifactRoot(cwd, configPath));
+  const run = repository.readRun(runId);
+  if (!run) return undefined;
+  const coverage = run.coverage ?? repository.readCoverage(runId);
+  const improvements = repository.readJson<unknown[]>(runId, "improvement.json");
+  return {
+    ...run,
+    ...(coverage ? { coverage } : {}),
+    ...(Array.isArray(improvements) ? { improvements } : {}),
+  };
+}
+
+function openBrowser(url: string): void {
+  if (process.platform === "win32") void import("node:child_process").then(({ spawn }) => spawn("cmd", ["/c", "start", "", url], { detached: true, stdio: "ignore" }));
+  else if (process.platform === "darwin") void import("node:child_process").then(({ spawn }) => spawn("open", [url], { detached: true, stdio: "ignore" }));
+  else void import("node:child_process").then(({ spawn }) => spawn("xdg-open", [url], { detached: true, stdio: "ignore" }));
+}
+
+function formatCoverage(coverage?: CoverageSummary): string {
+  if (!coverage) return "unavailable";
+  const part = (key: "lines" | "functions" | "branches" | "statements") => `${key} ${coverage[key].covered}/${coverage[key].total} (${coverage[key].pct}%)`;
+  return `${coverage.status} · ${part("lines")} · ${part("functions")} · ${part("branches")} · ${part("statements")}`;
+}
+
+export function printRunSummary(run: RunSnapshot, extras: { artifactPath: string; uiUrl?: string; exitCode: number }): void {
+  const failedCases = Math.max(0, run.completedCases - run.passedCases);
+  const assertions = run.results.flatMap((result) => result.assertions);
+  const failedAssertions = assertions.filter((item) => !item.passed).length;
+  console.log(`runId: ${run.runId}`);
+  console.log(`status: ${run.status}`);
+  console.log(`cases: ${run.passedCases} passed / ${failedCases} failed / ${run.totalCases} total`);
+  console.log(`coverage: ${formatCoverage(run.coverage)}`);
+  console.log(`evaluation: ${assertions.length - failedAssertions} passed / ${failedAssertions} failed assertions`);
+  console.log(`artifact: ${extras.artifactPath}`);
+  if (extras.uiUrl) console.log(`ui: ${extras.uiUrl}`);
+  console.log(`exit: ${extras.exitCode}`);
+}
+
+function printRunList(runs: RunSnapshot[]): void {
+  if (!runs.length) { console.log("No runs found."); return; }
+  for (const run of runs) {
+    console.log(`${run.runId}\t${run.status}\t${run.passedCases}/${run.totalCases}\t${run.startedAt}`);
+  }
+}
+
+export interface RunCommandResult { exitCode: number; runId: string; artifactPath: string; uiUrl: string; snapshot: RunSnapshot; store: RunStore; close: () => Promise<void> }
+
+function flagValue(rest: string[], name: string): string | undefined {
+  const index = rest.indexOf(name);
+  return index >= 0 ? rest[index + 1] : undefined;
+}
+function flagValues(rest: string[], name: string): string[] {
+  const values: string[] = [];
+  for (let index = 0; index < rest.length; index += 1) {
+    if (rest[index] === name && rest[index + 1]) values.push(rest[++index]!);
+  }
+  return values;
+}
+function parseRepetitions(raw: string | undefined): number | undefined {
+  if (raw === undefined) return undefined;
+  const value = Number(raw);
+  if (!Number.isInteger(value) || value < 1) throw new Error(`Invalid --repetitions ${raw}`);
+  return value;
+}
+function selectCases(cases: TestCase[], options: CliOptions): TestCase[] {
+  let selected = cases;
+  if (options.caseId) selected = selected.filter((testCase) => testCase.id === options.caseId);
+  if (options.caseIds?.length) selected = selected.filter((testCase) => options.caseIds!.includes(testCase.id));
+  if (options.tags?.length) selected = selected.filter((testCase) => (testCase.tags ?? []).some((tag) => options.tags!.includes(tag)));
+  if (options.caseId && !selected.length) throw new Error(`No test case matched --case ${options.caseId}`);
+  if (options.tags?.length && !selected.length) throw new Error(`No test case matched --tag ${options.tags.join(", ")}`);
+  if (options.caseIds?.length) {
+    const missing = options.caseIds.filter((id) => !selected.some((testCase) => testCase.id === id));
+    if (missing.length) throw new Error(`Replay cases not found in current config: ${missing.join(", ")}`);
+  }
+  return selected;
+}
+
+export async function runCommandDetailed(options: CliOptions = {}): Promise<RunCommandResult> {
+  const context = resolveProjectContext(options);
+  if (!existsSync(context.configFile)) throw new Error(missingConfigMessage(context.configFile));
+  const config = await loadConfig(context.configFile);
+  const cases = await loadCases(config.cases, context.projectRoot, config.coverage.exclude);
+  const selected = selectCases(cases, options);
+  const store = new RunStore();
+  const runId = `run_${randomUUID()}`;
+  const fallbackReps = options.repetitions ?? config.runtime?.repetitions ?? 1;
+  const planned = selected.reduce((sum, testCase) => sum + (testCase.options?.repetitions ?? fallbackReps), 0);
+  store.create(planned, runId, options.replayOf);
+  const evaluationInput = {
+    store,
+    config: options.entry ? { ...config, agent: { ...config.agent, entry: options.entry } } : config,
+    context,
+    selected,
+    replayOf: options.replayOf,
+    candidateOf: options.candidateOf,
+    repetitions: options.repetitions,
+    signal: options.signal,
+    experiences: options.experiences,
+    consoleReporter: Boolean(config.reporters?.includes("console")),
+    silent: options.json,
+    runId,
+  };
+  const webEnabled = !options.headless && config.web?.enabled !== false;
+  let uiUrl = "";
+  let close = async (): Promise<void> => { /* no listener */ };
+  if (webEnabled) {
+    const { createWebServer } = await import("@canary/web");
+    const writeToken = randomUUID();
+    const web = createWebServer(store, config.web?.host ?? "127.0.0.1", options.port ?? config.web?.port ?? 0, context.artifactRoot, {
+      writeToken,
+      onReplay: async (sourceId, request) => {
+        const source = store.get(sourceId);
+        if (!source) throw new Error(`Run not found: ${sourceId}`);
+        const wanted = request.caseId ? [request.caseId] : [...new Set(source.results.map((result) => result.caseId))];
+        const replayCases = cases.filter((testCase) => wanted.includes(testCase.id));
+        if (!replayCases.length) throw new Error("No cases to replay");
+        const replayed = await runEvaluation({ ...evaluationInput, selected: replayCases, replayOf: sourceId, runId: undefined });
+        return { replayRunId: replayed.runId };
+      },
+    });
+    const listening = await web.listen();
+    uiUrl = `${listening.url}/?runId=${encodeURIComponent(runId)}&token=${encodeURIComponent(writeToken)}`;
+    if (!options.json && !options.suppressOutput) {
+      console.log(`runId: ${runId}`);
+      console.log(`canary UI: ${uiUrl}`);
+    }
+    if (!options.noOpen && config.web?.open !== false) openBrowser(uiUrl);
+    let webClosed = false;
+    close = async 
