@@ -143,4 +143,79 @@ export async function discoverCaseFiles(
 }
 
 export async function loadCases(pattern: string | string[], cwd: string, exclude: string[] = []): Promise<TestCase[]> {
-  const files = await discoverCaseFiles(pattern
+  const files = await discoverCaseFiles(pattern, cwd, exclude);
+  if (!files.length)
+    throw new Error(`No test case files matched: ${Array.isArray(pattern) ? pattern.join(", ") : pattern}`);
+  const cases: TestCase[] = [];
+  const ids = new Set<string>();
+  for (const file of files) {
+    const value = defaultExport(await importModule(file));
+    const values = Array.isArray(value) ? value : [value];
+    for (const candidate of values) {
+      let testCase: TestCase;
+      try {
+        testCase = parseTestCase(candidate, `TestCase in ${file}`) as TestCase;
+      } catch (error) {
+        throw new Error(
+          `Invalid TestCase schema in ${file}: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
+      if (ids.has(testCase.id)) throw new Error(`Duplicate test case id: ${testCase.id}`);
+      ids.add(testCase.id);
+      cases.push(testCase);
+    }
+  }
+  return cases;
+}
+
+export function artifactRoot(cwd?: string, configPath?: string): string {
+  return resolveProjectContext({ cwd, configPath }).artifactRoot;
+}
+export function defaultRegressionDir(cwd?: string, configPath?: string): string {
+  const root = resolveProjectContext({ cwd, configPath }).projectRoot;
+  if (existsSync(resolve(root, "cases/regression"))) return resolve(root, "cases/regression");
+  if (existsSync(resolve(root, "examples/local-agent/cases")))
+    return resolve(root, "examples/local-agent/cases/regression");
+  return resolve(root, "cases/regression");
+}
+export function listRunArtifacts(cwd?: string, configPath?: string): RunSnapshot[] {
+  return new FileArtifactRepository(artifactRoot(cwd, configPath)).listRuns();
+}
+export function readRunArtifact(runId: string, cwd?: string, configPath?: string): RunSnapshot | undefined {
+  const repository = new FileArtifactRepository(artifactRoot(cwd, configPath));
+  const run = repository.readRun(runId);
+  if (!run) return undefined;
+  const coverage = run.coverage ?? repository.readCoverage(runId);
+  const improvements = repository.readJson<unknown[]>(runId, "improvement.json");
+  return {
+    ...run,
+    ...(coverage ? { coverage } : {}),
+    ...(Array.isArray(improvements) ? { improvements } : {}),
+  };
+}
+
+function openBrowser(url: string): void {
+  if (process.platform === "win32")
+    void import("node:child_process").then(({ spawn }) =>
+      spawn("cmd", ["/c", "start", "", url], { detached: true, stdio: "ignore" }),
+    );
+  else if (process.platform === "darwin")
+    void import("node:child_process").then(({ spawn }) => spawn("open", [url], { detached: true, stdio: "ignore" }));
+  else
+    void import("node:child_process").then(({ spawn }) =>
+      spawn("xdg-open", [url], { detached: true, stdio: "ignore" }),
+    );
+}
+
+function formatCoverage(coverage?: CoverageSummary): string {
+  if (!coverage) return "unavailable";
+  const part = (key: "lines" | "functions" | "branches" | "statements") =>
+    `${key} ${coverage[key].covered}/${coverage[key].total} (${coverage[key].pct}%)`;
+  return `${coverage.status} · ${part("lines")} · ${part("functions")} · ${part("branches")} · ${part("statements")}`;
+}
+
+export function printRunSummary(
+  run: RunSnapshot,
+  extras: { artifactPath: string; uiUrl?: string; exitCode: number },
+): void {
+  const failedCases = Math.max(0, run.completedCases - run.passedCase
