@@ -63,4 +63,21 @@ function addToPath() {
 }
 function readFileIfExists(path) { try { return readFileSync(path, "utf8"); } catch { return ""; } }
 function writeLauncher() {
-  mkdirSync(bi
+  mkdirSync(binDir, { recursive: true });
+  const runnerPath = join(binDir, "canary-run.mjs");
+  const runner = `import { spawnSync } from "node:child_process";\nimport { existsSync } from "node:fs";\nimport { join } from "node:path";\nconst repoRoot = ${JSON.stringify(repoRoot)};\nconst cli = join(repoRoot, "packages/cli/src/index.ts");\nif (!existsSync(cli)) { console.error("canary install is broken: missing CLI at " + cli); process.exit(1); }\nconst result = spawnSync(process.execPath, ["--import", "tsx", cli, ...process.argv.slice(2)], { cwd: process.cwd(), stdio: "inherit", env: { ...process.env, CANARY_HOME: repoRoot } });\nprocess.exit(result.status ?? 1);\n`;
+  writeFileSync(runnerPath, runner, "utf8");
+  if (isWin) writeFileSync(join(binDir, "canary.cmd"), `@echo off\r\n"${process.execPath}" "${runnerPath}" %*\r\nexit /b %ERRORLEVEL%\r\n`, "utf8");
+  else { const launcher = join(binDir, "canary"); writeFileSync(launcher, `#!/usr/bin/env bash\nexec "${process.execPath}" "${runnerPath}" "$@"\n`, "utf8"); chmodSync(launcher, 0o755); }
+}
+
+ensureRuntime();
+assertCheckout();
+console.log(`Installing Canary from source checkout: ${repoRoot}`);
+run("pnpm", ["install", "--frozen-lockfile"]);
+run("pnpm", ["build"]);
+mkdirSync(metaDir, { recursive: true });
+writeFileSync(homeFile, JSON.stringify({ root: repoRoot, installedAt: new Date().toISOString(), version: "0.1.0", sourceInstall: true, node: process.versions.node, pnpm: expectedPnpm, binDir }, null, 2), "utf8");
+writeLauncher();
+addToPath();
+console.log(`Canary installed. Project root remains the caller's current directory; installation root is ${repoRoot}.`);
