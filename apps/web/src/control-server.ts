@@ -71,4 +71,41 @@ export function createControlServer(plane: ControlPlane, options: { port?: numbe
           chunks.push(b);
         }
         let body: Command;
- 
+        try {
+          body = JSON.parse(Buffer.concat(chunks).toString("utf8")) as Command;
+        } catch {
+          throw new ControlError(400, "Invalid JSON");
+        }
+        json(res, 200, { audit: plane.execute(body, { role: "operator" }) });
+        return;
+      }
+      json(res, 404, { error: "Route not found" });
+    } catch (error) {
+      json(res, error instanceof ControlError ? error.status : 409, {
+        error: error instanceof Error ? error.message : "Operation failed",
+      });
+    }
+  }
+  server.requestTimeout = 10_000;
+  server.headersTimeout = 10_000;
+  return {
+    server,
+    listen: () =>
+      new Promise<{ url: string; port: number }>((done, reject) => {
+        server.once("error", reject);
+        server.listen(options.port ?? 0, "127.0.0.1", () => {
+          const address = server.address();
+          if (!address || typeof address === "string") {
+            reject(new Error("No listening address"));
+            return;
+          }
+          origin = `http://127.0.0.1:${address.port}`;
+          server.off("error", reject);
+          done({ url: origin, port: address.port });
+        });
+      }),
+  };
+}
+export function generateControlToken(): string {
+  return randomBytes(32).toString("hex");
+}
