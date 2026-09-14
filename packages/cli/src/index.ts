@@ -472,4 +472,86 @@ async function experienceCommand(rest: string[], configPath?: string): Promise<n
         source:
           isRecord(raw.source) && typeof raw.source.kind === "string"
             ? {
-                kind: raw.source.kind as ExperienceInput["sour
+                kind: raw.source.kind as ExperienceInput["source"]["kind"],
+                ...(typeof raw.source.ref === "string" ? { ref: raw.source.ref } : {}),
+              }
+            : { kind: "human" },
+        summary: String(raw.summary ?? ""),
+        content: String(raw.content ?? ""),
+        counterexamples: Array.isArray(raw.counterexamples)
+          ? raw.counterexamples.filter((item): item is string => typeof item === "string")
+          : [],
+        scope: isRecord(raw.scope)
+          ? {
+              caseIds: Array.isArray(raw.scope.caseIds)
+                ? raw.scope.caseIds.filter((item): item is string => typeof item === "string")
+                : undefined,
+              tags: Array.isArray(raw.scope.tags)
+                ? raw.scope.tags.filter((item): item is string => typeof item === "string")
+                : undefined,
+              featureIds: Array.isArray(raw.scope.featureIds)
+                ? raw.scope.featureIds.filter((item): item is string => typeof item === "string")
+                : undefined,
+            }
+          : undefined,
+        expiresAt: typeof raw.expiresAt === "string" ? raw.expiresAt : undefined,
+        expiryReason: typeof raw.expiryReason === "string" ? raw.expiryReason : undefined,
+      };
+      const record = store.propose(input);
+      experienceOutput("canary.experience.proposal", { valid: true, record, approval: { status: "not_approved" } });
+      return 0;
+    } catch (error) {
+      experienceOutput("canary.experience.proposal", {
+        valid: false,
+        errors: [error instanceof Error ? error.message : String(error)],
+        approval: { status: "not_approved" },
+      });
+      return 1;
+    }
+  }
+  if (["validate", "activate", "revoke", "expire"].includes(action ?? "")) {
+    const id = rest[1];
+    if (!id) {
+      console.log(USAGE);
+      return 1;
+    }
+    try {
+      const record =
+        action === "validate"
+          ? store.transition(id, "validated")
+          : action === "activate"
+            ? store.activate(id)
+            : action === "revoke"
+              ? store.revoke(id)
+              : store.transition(id, "expired", "expired by operator");
+      experienceOutput(`canary.experience.${action}`, { record, approval: { status: "not_approved" } });
+      return 0;
+    } catch (error) {
+      experienceOutput(`canary.experience.${action}`, {
+        valid: false,
+        errors: [error instanceof Error ? error.message : String(error)],
+        approval: { status: "not_approved" },
+      });
+      return 1;
+    }
+  }
+  if (action === "clear") {
+    store.clear(context.projectRoot);
+    experienceOutput("canary.experience.clear", {
+      projectRoot: context.projectRoot,
+      active: store.activePointer(context.projectRoot),
+    });
+    return 0;
+  }
+  if (action === "load") {
+    try {
+      const loaded = store.load({
+        projectRoot: context.projectRoot,
+        caseId: flagValue(rest, "--case"),
+        tags: flagValues(rest, "--tag"),
+        featureIds: flagValues(rest, "--feature"),
+        maxItems: parseBoundedInteger(flagValue(rest, "--max-items"), "--max-items"),
+        maxChars: parseBoundedInteger(flagValue(rest, "--max-chars"), "--max-chars"),
+      });
+      experienceOutput("canary.experience.load", {
+        projectRoot: context.projectRoot,
