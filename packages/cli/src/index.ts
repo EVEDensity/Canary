@@ -529,4 +529,227 @@ async function hostCommand(rest: string[], configPath?: string): Promise<number>
   if (action === "validate-proposal") {
     const runId = rest[1];
     const file = flagValue(rest, "--file");
-    if (!runId || !file) { 
+    if (!runId || !file) { console.log(USAGE); return 1; }
+    const snapshot = readRunArtifact(runId, undefined, configPath);
+    if (!snapshot) { printHost({ v: 1, kind: "canary.host.proposal-validation", valid: false, status: "rejected", errors: [`Run not found: ${runId}`] }); return 1; }
+    const context = resolveProjectContext({ configPath });
+    const proposalPath = resolve(context.invocationRoot, file);
+    const validation = validateHostProposalFile(proposalPath, snapshot, context.artifactRoot);
+    printHost(validation);
+    return validation.valid ? 0 : 1;
+  }
+  console.log(USAGE);
+  return 1;
+}
+
+function isolationCommand(rest: string[], configPath?: string): number {
+  const action = rest[0] ?? "probe";
+  const context = resolveProjectContext({ configPath });
+  if (action !== "probe") { console.log(USAGE); return 1; }
+  printHost({
+    v: 1,
+    kind: "canary.isolation.probe",
+    capability: probeIsolation(),
+    boundary: PROCESS_BOUNDARY,
+    projectRoot: context.projectRoot,
+  });
+  return 0;
+}
+
+function policyCommand(rest: string[], configPath?: string): number {
+  const action = rest[0] ?? "show";
+  const context = resolveProjectContext({ configPath });
+  if (action !== "show") { console.log(USAGE); return 1; }
+  const store = new PolicyStore(context.projectRoot);
+  printHost({ v: 1, kind: "canary.policy", policy: store.loadOrCreate(context.projectRoot) });
+  return 0;
+}
+
+function loopCommand(rest: string[], configPath?: string): number {
+  const action = rest[0] ?? "status";
+  const context = resolveProjectContext({ configPath });
+  const controller = new LoopController(context.projectRoot, createIdlePorts());
+  if (action === "status") {
+    printHost({ v: 1, kind: "canary.loop", snapshot: controller.getState() });
+    return 0;
+  }
+  if (action === "stop") {
+    printHost({ v: 1, kind: "canary.loop", snapshot: controller.stop(flagValue(rest, "--reason") ?? "cli stop") });
+    return 0;
+  }
+  if (action === "takeover") {
+    printHost({ v: 1, kind: "canary.loop", snapshot: controller.takeover(flagValue(rest, "--reason") ?? "human takeover") });
+    return 0;
+  }
+  console.log(USAGE);
+  return 1;
+}
+
+export async function main(argv = process.argv.slice(2)): Promise<number> {
+  const { command, rest } = parseArgv(argv);
+  const configPath = flagValue(rest, "--config");
+  if (command === "host") return hostCommand(rest, configPath);
+  if (command === "soft-trial") return softTrialCommand(rest, configPath);
+  if (command === "experience") return experienceCommand(rest, configPath);
+  if (command === "isolation") return isolationCommand(rest, configPath);
+  if (command === "policy") return policyCommand(rest, configPath);
+  if (command === "loop") return loopCommand(rest, configPath);
+  if (command === "mcp") {
+    return mcpCommand(rest, configPath, {
+      readRun: (runId, context) => readRunArtifact(runId, context.projectRoot, context.configFile),
+      runHeadless: async ({ context, caseId, signal }) => {
+        const result = await runCommandDetailed({
+          cwd: context.projectRoot,
+          configPath: context.configFile,
+          headless: true,
+          noOpen: true,
+          suppressOutput: true,
+          caseId,
+          signal,
+        });
+        return hostRunOutput(context, result.snapshot, result.artifactPath, result.exitCode);
+      },
+    });
+  }
+  if (command === "help") { console.log(USAGE); return 0; }
+  if (command === "runs") {
+    printRunList(listRunArtifacts(undefined, configPath));
+    return 0;
+  }
+  if (command === "show") {
+    const runId = rest[0];
+    if (!runId) { console.log(USAGE); return 1; }
+    const snapshot = readRunArtifact(runId, undefined, configPath);
+    if (!snapshot) { console.error(`Run not found: ${runId}`); return 1; }
+    printRunSummary(snapshot, { artifactPath: resolve(artifactRoot(undefined, configPath), runId, "run.json"), exitCode: snapshot.status === "completed" ? 0 : 1 });
+    return snapshot.status === "completed" ? 0 : 1;
+  }
+  if (command === "report") {
+    const runId = rest[0];
+    if (!runId) { console.log(USAGE); return 1; }
+    const snapshot = readRunArtifact(runId, undefined, configPath);
+    if (!snapshot) { console.error(`Run not found: ${runId}`); return 1; }
+    const formatIndex = rest.indexOf("--format");
+    const format = parseReportFormat(formatIndex >= 0 ? rest[formatIndex + 1] : "markdown");
+    console.log(renderReport({ runId: snapshot.runId, status: snapshot.status, startedAt: snapshot.startedAt, finishedAt: snapshot.finishedAt, totalCases: snapshot.totalCases, passedCases: snapshot.passedCases, results: snapshot.results, coverage: snapshot.coverage }, format));
+    return snapshot.status === "completed" ? 0 : 1;
+  }
+  if (command === "improve") {
+    const runId = rest[0];
+    if (!runId) { console.log(USAGE); return 1; }
+    const snapshot = readRunArtifact(runId, undefined, configPath);
+    if (!snapshot) { console.error(`Run not found: ${runId}`); return 1; }
+    const suggestions = proposeFromResults(snapshot.runId, snapshot.results);
+    const outIndex = rest.indexOf("--out");
+    const outDir = resolve(outIndex >= 0 && rest[outIndex + 1] ? rest[outIndex + 1]! : defaultRegressionDir(undefined, configPath));
+    const drafts = writeRegressionDrafts(suggestions, outDir);
+    writeFileSync(resolve(artifactRoot(undefined, configPath), runId, "improvement.json"), JSON.stringify(suggestions, null, 2), "utf8");
+    console.log(JSON.stringify({ suggestions, drafts }, null, 2));
+    return 0;
+  }
+  if (command === "suggest") {
+    const runId = rest[0];
+    if (!runId) { console.log(USAGE); return 1; }
+    const snapshot = readRunArtifact(runId, undefined, configPath);
+    if (!snapshot) { console.error(`Run not found: ${runId}`); return 1; }
+    const stored = snapshot.improvements;
+    let suggestions: ImprovementSuggestion[] = Array.isArray(stored) && stored.length
+      ? stored as ImprovementSuggestion[]
+      : proposeFromResults(snapshot.runId, snapshot.results);
+    const acceptId = flagValue(rest, "--accept");
+    const rejectId = flagValue(rest, "--reject");
+    const verifyId = flagValue(rest, "--verify");
+    try {
+      if (acceptId) suggestions = applySuggestionDecision(suggestions, acceptId, "accepted");
+      if (rejectId) suggestions = applySuggestionDecision(suggestions, rejectId, "rejected");
+      if (verifyId) suggestions = applySuggestionDecision(suggestions, verifyId, "verified");
+    } catch (error) {
+      console.error(error instanceof Error ? error.message : String(error));
+      return 1;
+    }
+    writeFileSync(resolve(artifactRoot(undefined, configPath), runId, "improvement.json"), JSON.stringify(suggestions, null, 2), "utf8");
+    const outIndex = rest.indexOf("--out");
+    const outDir = resolve(outIndex >= 0 && rest[outIndex + 1] ? rest[outIndex + 1]! : defaultRegressionDir(undefined, configPath));
+    const drafts = verifyId ? verifiedRegressionDrafts(suggestions, outDir) : [];
+    console.log(JSON.stringify({ suggestions, drafts }, null, 2));
+    return 0;
+  }
+  if (command === "candidate") {
+    const baselineId = rest[0];
+    if (!baselineId) { console.log(USAGE); return 1; }
+    const baseline = readRunArtifact(baselineId, undefined, configPath);
+    if (!baseline) { console.error(`Run not found: ${baselineId}`); return 1; }
+    const options: CliOptions = {
+      headless: rest.includes("--headless"),
+      noOpen: rest.includes("--no-open"),
+      json: rest.includes("--json"),
+      caseIds: [...new Set(baseline.results.map((result) => result.caseId))],
+      candidateOf: baselineId,
+      entry: flagValue(rest, "--entry"),
+      configPath: flagValue(rest, "--config"),
+    };
+    const port = flagValue(rest, "--port");
+    if (port) options.port = Number(port);
+    const executed = await runCommandDetailed(options);
+    const candidate = readRunArtifact(executed.runId, undefined, configPath) ?? executed.store.get(executed.runId);
+    if (!candidate) { console.error("Candidate run did not persist"); return 1; }
+    const holdout = holdoutCaseIds([...baseline.results, ...candidate.results]);
+    const comparison = compareRuns(baseline, candidate, holdout);
+    writeFileSync(resolve(artifactRoot(undefined, configPath), executed.runId, "comparison.json"), JSON.stringify(comparison, null, 2), "utf8");
+    console.log(JSON.stringify(comparison, null, 2));
+    await executed.close();
+    return exitCodeForComparison(comparison, executed.exitCode);
+  }
+  if (command === "compare") {
+    const baselineId = rest[0];
+    const candidateId = rest[1];
+    if (!baselineId || !candidateId) { console.log(USAGE); return 1; }
+    const baseline = readRunArtifact(baselineId, undefined, configPath);
+    const candidate = readRunArtifact(candidateId, undefined, configPath);
+    if (!baseline || !candidate) { console.error("Both baseline and candidate runs must exist"); return 1; }
+    const holdout = holdoutCaseIds([...baseline.results, ...candidate.results]);
+    const comparison = compareRuns(baseline, candidate, holdout);
+    writeFileSync(resolve(artifactRoot(undefined, configPath), candidateId, "comparison.json"), JSON.stringify(comparison, null, 2), "utf8");
+    console.log(JSON.stringify(comparison, null, 2));
+    return exitCodeForComparison(comparison, candidate.status === "completed" ? 0 : 1);
+  }
+  if (command === "replay") {
+    const runId = rest[0];
+    if (!runId) { console.log(USAGE); return 1; }
+    const snapshot = readRunArtifact(runId, undefined, configPath);
+    if (!snapshot) { console.error(`Run not found: ${runId}`); return 1; }
+    const options: CliOptions = {
+      headless: rest.includes("--headless"),
+      noOpen: rest.includes("--no-open"),
+      json: rest.includes("--json"),
+      caseIds: [...new Set(snapshot.results.map((result) => result.caseId))],
+      replayOf: runId,
+    };
+    options.configPath = flagValue(rest, "--config");
+    const port = flagValue(rest, "--port");
+    if (port) options.port = Number(port);
+    return runCommand(options);
+  }
+  if (command !== "run") { console.log(USAGE); return 1; }
+  const options: CliOptions = { headless: rest.includes("--headless"), noOpen: rest.includes("--no-open"), json: rest.includes("--json") };
+  options.caseId = flagValue(rest, "--case");
+  options.tags = flagValues(rest, "--tag");
+  options.entry = flagValue(rest, "--entry");
+  try { options.repetitions = parseRepetitions(flagValue(rest, "--repetitions")); }
+  catch (error) { console.error(error instanceof Error ? error.message : String(error)); return 1; }
+  const port = flagValue(rest, "--port");
+  if (port) options.port = Number(port);
+  options.configPath = flagValue(rest, "--config");
+  const controller = new AbortController();
+  const stop = (): void => controller.abort();
+  process.once("SIGINT", stop);
+  process.once("SIGTERM", stop);
+  options.signal = options.signal ?? controller.signal;
+  try {
+    return await runCommand(options);
+  } finally {
+    process.off("SIGINT", stop);
+    process.off("SIGTERM", stop);
+  }
+}
+if (process.argv[1]?.endsWith("index.ts") || process.argv[1]?.endsWith("index.js")) process.exitCode = await main();
