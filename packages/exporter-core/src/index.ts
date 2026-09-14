@@ -123,4 +123,55 @@ export class BoundedExporter {
     };
     if (
       this.options.maxQueue < 1 ||
-      t
+      this.options.maxBatch < 1 ||
+      this.options.maxBatch > this.options.maxQueue ||
+      this.options.maxBytes < 1024 ||
+      this.options.ratePerSecond <= 0
+    )
+      throw new Error("Invalid exporter limits");
+  }
+  health(): ExportHealth {
+    return { ...this.healthState, queued: this.queue.length };
+  }
+  enqueue(event: ExportEvent): boolean {
+    if (this.closed || this.queue.length >= this.options.maxQueue) {
+      this.healthState.dropped++;
+      return false;
+    }
+    this.queue.push(event);
+    this.healthState.queued = this.queue.length;
+    void this.drain();
+    return true;
+  }
+  async flush(deadlineMs = 5000): Promise<ExportHealth> {
+    if (this.closed) return this.health();
+    this.healthState.state = "draining";
+    const until = Date.now() + deadlineMs;
+    while (this.queue.length && Date.now() < until) {
+      await this.drain();
+      if (this.queue.length) await new Promise((r) => setTimeout(r, Math.min(25, until - Date.now())));
+    }
+    this.healthState.state = this.queue.length ? "degraded" : this.healthState.failed ? "degraded" : "idle";
+    return this.health();
+  }
+  async close(deadlineMs = 5000): Promise<ExportHealth> {
+    const result = await this.flush(deadlineMs);
+    this.closed = true;
+    return result;
+  }
+  private async drain(): Promise<void> {
+    if (this.draining || this.closed || !this.queue.length) { if (this.draining) await this.draining; return; }
+    this.draining = this.drainOne().finally(() => {
+      this.draining = undefined;
+      if (this.queue.length && !this.closed) void this.drain();
+    });
+    await this.draining;
+  }
+  private async drainOne(): Promise<void> {
+    const wait = Math.max(0, 1000 / this.options.ratePerSecond - (Date.now() - this.lastSent));
+    if (wait) await new Promise((r) => setTimeout(r, wait));
+    const events: ExportEvent[] = [];
+    while (events.length < this.options.maxBatch && this.queue.length) {
+      const candidate = this.queue[0]!;
+      const size = Buffer.byteLength(JSON.stringify(candidate));
+      if (events.length && Buffe
