@@ -16,6 +16,11 @@
       "@canary/reporters": ["packages/reporters/src/index.ts"],
       "@canary/runner": ["packages/runner/src/index.ts"],
       "@canary/trace": ["packages/trace/src/index.ts"],
+      "@canary/experience": ["packages/experience/src/index.ts"],
+      "@canary/policy": ["packages/policy/src/index.ts"],
+      "@canary/isolation": ["packages/isolation/src/index.ts"],
+      "@canary/hard-evolution": ["packages/hard-evolution/src/index.ts"],
+      "@canary/loop": ["packages/loop/src/index.ts"],
       "@canary/web": ["apps/web/src/index.ts"]
     },
     "declaration": true,
