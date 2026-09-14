@@ -14,4 +14,22 @@ export async function controlCommand(rest: string[], configPath?: string): Promi
     switch (rest[0] ?? "status") {
       case "status":
         print(plane.snapshot());
-        return
+        return 0;
+      case "audit":
+        print(plane.audit());
+        return 0;
+      case "revision": {
+        if (!rest[1] || !rest[2]) throw new Error("Usage: canary control revision <action> <target>");
+        print({ action: rest[1], target: rest[2], revision: plane.revision(rest[1] as Action, rest[2]) });
+        return 0;
+      }
+      case "act": {
+        const file = flag("--file");
+        if (!file)
+          throw new Error(
+            "Usage: canary control act --file <command.json>; command requires action, target, expectedRevision, requestId, actor, reason",
+          );
+        const command = JSON.parse(
+          readFileSync(resolve(context.invocationRoot, file), "utf8").replace(/^\uFEFF/, ""),
+        ) as Command;
+      
