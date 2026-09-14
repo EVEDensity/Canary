@@ -32,4 +32,19 @@ export async function controlCommand(rest: string[], configPath?: string): Promi
         const command = JSON.parse(
           readFileSync(resolve(context.invocationRoot, file), "utf8").replace(/^\uFEFF/, ""),
         ) as Command;
-      
+        print(plane.execute(command, { role: "operator" }));
+        return 0;
+      }
+      case "serve": {
+        const portText = flag("--port"),
+          port = portText === undefined ? 0 : Number(portText);
+        if (!Number.isInteger(port) || port < 0 || port > 65535)
+          throw new Error("Port must be an integer from 0 to 65535");
+        const { createControlServer } = await import("@canary/web");
+        const control = createControlServer(plane, { port, writeToken: process.env.CANARY_CONTROL_TOKEN });
+        const address = await control.listen();
+        print({
+          kind: "canary.control",
+          ...address,
+          mode: process.env.CANARY_CONTROL_TOKEN ? "operator_available" : "read_only",
+          projectRoo
