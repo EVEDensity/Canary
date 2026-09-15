@@ -1,7 +1,6 @@
 <div align="center">
   <img src="docs/images/logo-hero.png" height="200" align="middle" />
 
-  <h1>Canary</h1>
 
   <p><strong>像跑单元测试一样测试你的 AI Agent。</strong><br>
   本地执行 · V8 源码覆盖率 · 可回放 · 可对比 · 可导出</p>
