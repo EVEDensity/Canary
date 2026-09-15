@@ -1,4 +1,4 @@
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, writeFileSync, renameSync } from "node:fs";
 import { resolve } from "node:path";
 import type { CanaryConfig, CoverageSummary, ProjectContext, RunSnapshot, TestCase } from "@canary/core";
 import { createCoverageManifest, mergeCoverageSummaries, preparingCoverage } from "@canary/coverage";
@@ -19,17 +19,18 @@ function diskSnapshot(store: RunStore, runId: string): RunSnapshot {
   return redactRunSnapshot(store.get(runId)!);
 }
 
+function atomicWrite(file: string, value: string): void { const tmp = `${file}.${process.pid}.tmp`; writeFileSync(tmp, value, "utf8"); renameSync(tmp, file); }
 function writeLiveArtifacts(artifactDir: string, snapshot: RunSnapshot): void {
-  writeFileSync(resolve(artifactDir, "run.json"), JSON.stringify(snapshot, null, 2), "utf8");
-  if (snapshot.coverage) writeFileSync(resolve(artifactDir, "coverage.json"), JSON.stringify(snapshot.coverage, null, 2), "utf8");
-  writeFileSync(resolve(artifactDir, "trajectory.json"), JSON.stringify(snapshot.results.map((result) => ({
+  atomicWrite(resolve(artifactDir, "run.json"), JSON.stringify(snapshot, null, 2));
+  if (snapshot.coverage) atomicWrite(resolve(artifactDir, "coverage.json"), JSON.stringify(snapshot.coverage, null, 2));
+  atomicWrite(resolve(artifactDir, "trajectory.json"), JSON.stringify(snapshot.results.map((result) => ({
     caseId: result.caseId,
     repetition: result.repetition,
     trajectoryId: result.trajectoryId,
     termination: result.trajectory?.termination,
     events: result.trajectory?.events ?? [],
-  })), null, 2), "utf8");
-  writeFileSync(resolve(artifactDir, "evaluator.json"), JSON.stringify(snapshot.results.map((result) => ({
+  })), null, 2));
+  atomicWrite(resolve(artifactDir, "evaluator.json"), JSON.stringify(snapshot.results.map((result) => ({
     caseId: result.caseId,
     repetition: result.repetition,
     execution: {
@@ -37,7 +38,7 @@ function writeLiveArtifacts(artifactDir: string, snapshot: RunSnapshot): void {
       durationMs: result.metrics?.latencyMs,
     },
     evaluation: { status: result.passed ? "passed" : "failed", failureCategory: result.failureCategory, assertions: result.assertions },
-  })), null, 2), "utf8");
+  })), null, 2));
 }
 
 function writeFinalReports(artifactDir: string, snapshot: RunSnapshot, formats: ReporterFormat[], gate: ReturnType<typeof evaluateCoverageGates>, suggestions: unknown[]): string {

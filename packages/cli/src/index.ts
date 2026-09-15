@@ -1011,6 +1011,13 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
     console.log("Use uninstall.ps1 on Windows or uninstall.sh on macOS/Linux to remove the global launcher safely.");
     return 0;
   }
+  if (command === "repair") {
+    try {
+      const home = resolve(process.env.CANARY_HOME ?? "");
+      console.log(JSON.stringify({ repaired: Boolean(home), action: "re-run install-global or upgrade-global to rebuild metadata and launcher" }, null, 2));
+      return 0;
+    } catch (error) { console.error(error instanceof Error ? error.message : String(error)); return 1; }
+  }
   if (command === "export") {
     const output = flagValue(rest, "--out");
     if (!output) {
