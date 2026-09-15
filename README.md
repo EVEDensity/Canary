@@ -1,162 +1,185 @@
 <div align="center">
   <img src="docs/images/logo-hero.png" height="200" align="middle" />
+
+  <h1>Canary</h1>
+
+  <p><strong>像跑单元测试一样测试你的 AI Agent。</strong><br>
+  本地执行 · V8 源码覆盖率 · 可回放 · 可对比 · 可导出</p>
+
+  <div>
+    <a href="https://github.com/EVEDensity/Canary/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/EVEDensity/Canary/ci.yml?label=ci&style=flat-square" alt="CI" /></a>
+    <a href="https://github.com/EVEDensity/Canary/releases/latest"><img src="https://img.shields.io/github/v/release/EVEDensity/Canary?color=76bad9&style=flat-square" alt="Release" /></a>
+    <img src="https://img.shields.io/badge/license-Apache--2.0-blue?style=flat-square" alt="License: Apache-2.0" />
+    <img src="https://img.shields.io/badge/pnpm-10-orange?logo=pnpm&style=flat-square" alt="pnpm" />
+    <img src="https://img.shields.io/badge/node-%E2%89%A522-green?logo=node.js&style=flat-square" alt="Node ≥22" />
+    <a href="https://github.com/EVEDensity/Canary/stargazers"><img src="https://img.shields.io/github/stars/EVEDensity/Canary?style=flat-square" alt="Stars" /></a>
+  </div>
+
+  <p>
+    <a href="docs/guides/getting-started.md">🚀 快速开始</a> ｜
+    <a href="docs/current/architecture.md">架构</a> ｜
+    <a href="docs/guides/evaluation-and-coverage.md">特性矩阵</a> ｜
+    <a href="docs/guides/improvement.md">回归分析</a> ｜
+    <a href="docs/guides/ci-and-validation.md">CI 集成</a> ｜
+    <a href="https://github.com/EVEDensity/Canary/issues">Issue</a>
+  </p>
 </div>
 
-<div align="center">
+![Web UI five-view screenshot](docs/images/ui-overview.png)
 
-<div>
-<a href="https://github.com/EVEDensity/Canary/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/EVEDensity/Canary/ci.yml?label=ci&style=flat-square" alt="CI" /></a>
-<a href="https://github.com/EVEDensity/Canary/releases/latest"><img src="https://img.shields.io/github/v/release/EVEDensity/Canary?color=76bad9&style=flat-square" alt="Release" /></a>
-<img src="https://img.shields.io/badge/license-Apache--2.0-blue?style=flat-square" alt="License: Apache-2.0" />
-<img src="https://img.shields.io/badge/pnpm-10-orange?logo=pnpm&style=flat-square" alt="pnpm" />
-<img src="https://img.shields.io/badge/node-%E2%89%A522-green?logo=node.js&style=flat-square" alt="Node ≥22" />
-<a href="https://github.com/EVEDensity/Canary/stargazers"><img src="https://img.shields.io/github/stars/EVEDensity/Canary?style=flat-square" alt="Stars" /></a>
-</div>
+---
 
-<br>
+## 🎯 为什么用 Canary？
 
-<a href="docs/guides/getting-started.md">Getting Started</a> ｜
-<a href="docs/current/architecture.md">Architecture</a> ｜
-<a href="docs/guides/evaluation-and-coverage.md">Feature Coverage</a> ｜
-<a href="docs/guides/improvement.md">Self-Improvement</a> ｜
-<a href="docs/guides/ci-and-validation.md">CI</a> ｜
-<a href="docs/guides/troubleshooting.md">Troubleshooting</a> ｜
-<a href="./SECURITY.md">Security</a> ｜
-<a href="https://github.com/EVEDensity/Canary/issues">Issues</a>
+你在构建一个 AI Agent，但你敢回答这些问题吗：
 
-</div>
+- 你的 Agent **真的**执行了正确的工具链吗？
+- 改了一行 prompt，之前通过的 case 会不会悄悄挂掉？
+- 你能拿到 Agent 的 **源码覆盖率**，而不是只看返回值对不对？
+- 你能把一次执行 **完整回放** 给同事看吗？
 
-**canary** is a local-first TypeScript Agent testing, coverage, and improvement workspace. It runs your Agent like an end-to-end test — records trajectory, collects V8 source coverage, and turns failures into auditable regression work. The current implementation does **not** edit Agent source. Future controlled evolution is a design target, not an enabled feature.
+Canary 就是为回答这些问题而生的。它像 Jest 之于单元测试，只是测试对象换成了 Agent。
 
-Canary executes configured cases, records observable events, checks assertions and state, and collects coverage for supported local Node agents. It cannot automatically capture the internal prompts or tool chains of remote black-box agents. Interpret coverage by its status and precision; unavailable numeric placeholders are not measured coverage. Existing suggestions and baseline/candidate reports support manual diagnosis, **not safe automatic admission**. See the [code audit](docs/evidence/code-audit.md) for known comparison and Judge gaps.
+> Like a canary in a coal mine — early signal, precise localization, auditable trail.
 
-![Local UI five-view screenshot](docs/images/ui-overview.png)
+---
 
-## ✨ Key Features
+## ✨ 核心特性
 
-1. 🎯 **V8 Source Coverage** — Live continuous sampling during execution, merged at final; honestly reports `unavailable` when instrumentation is absent.
-2. 🪝 **Multi-Adapter** — Agent adapters: `function` (local), `http` (black-box), `mcp` (stdio). MCP tools have separate stdio/HTTP adapters.
-3. 🔁 **Repetitions** — `--repetitions N` runs each selected case N times; current comparison does not yet provide reliable trial aggregation or statistical admission.
-4. 🛠️ **Mock Environment** — In-memory StateStore with snapshot/restore + MockToolAdapter; no external services required.
-5. 🧪 **Extensible Evaluators** — Built-in assertion / state / tool / policy / loop / coverage / coverage-gate evaluators; Judge provider interfaces exist, but CLI/Runner do not yet wire a real semantic Judge.
-6. 🏷️ **Replay & Compare** — Replay re-executes recorded case IDs against current configuration, not a frozen historical environment; CLI also provides comparison and reports.
-7. 🧠 **Improvement Assistance** — Failure attribution → manually review regression drafts → run a supplied candidate → inspect comparison. No automatic code application or trusted admission controller.
-8. 🖼️ **Five-View Web UI** — Live run / Case Detail (assertion diff + source highlight + state diff + preparing state) / Coverage / Compare / Replay.
+| | |
+|---|---|
+| 🎯 | **V8 源码覆盖率** — 执行时实时采样，合并行/分支/函数/语句覆盖；适配不支持时诚实地标记 `unavailable` |
+| 🔌 | **多适配器** — 本地函数、HTTP 黑盒、MCP stdio/HTTP，一套 CLI 覆盖 |
+| 🔁 | **多次重复** — `--repetitions N` 自动跑 N 次，捕获非确定性波动 |
+| 🛠️ | **Mock 环境** — 内存 StateStore + 快照/恢复 + MockToolAdapter，零外部依赖 |
+| 🧪 | **7 类 Evaluator** — 断言 / 状态 / 工具 / 策略 / 循环 / 覆盖率 / 覆盖率门禁 |
+| 🏷️ | **回放 & 对比** — 完整重跑历史 case，baseline vs candidate diff 一目了然 |
+| 🧠 | **回归归因** — 失败 → 归因 → 生成候选 → 对比报告，全链路可审计 |
+| 🖼️ | **五视图 Web UI** — Live Run / Case Detail / Coverage / Compare / Replay，SSE 实时推送 |
 
-## 🚀 Quick Start
+---
 
-> Installation scripts create a global command, but the current launcher sets its working directory to the installed checkout. **Running from another project does not yet automatically select that project.** Review remote scripts before executing them. See [installation details](docs/guides/getting-started.md).
+## 🚀 快速开始
 
-Requires Node ≥22 and Git.
+**1 分钟装完，0 API Key，自带 15 个可跑的 demo case。**
+
+> ⚠️ 需要 Node ≥ 22 和 Git。
 
 **Windows (PowerShell):**
-
 ```powershell
 iwr -useb https://raw.githubusercontent.com/EVEDensity/Canary/main/install.ps1 | iex
 ```
 
 **macOS / Linux:**
-
 ```bash
 curl -fsSL https://raw.githubusercontent.com/EVEDensity/Canary/main/install.sh | bash
 ```
 
-Already cloned? Run `node scripts/install-global.mjs` from the repo root, or use the manual clone path:
-
-```powershell
-git clone https://github.com/EVEDensity/Canary.git "$env:USERPROFILE\Canary"; node "$env:USERPROFILE\Canary\scripts\install-global.mjs"
-```
-
-Open a **new terminal**, then:
+新开一个终端，然后：
 
 ```bash
-canary run
+canary run                       # 跑默认 15 个 case
+canary run --headless --no-open  # 无头模式（CI 友好）
+canary report <runId>            # 生成 markdown 报告
+canary compare <base> <cand>     # 对比两次运行
+canary replay <runId>            # 完整回放
 ```
 
-Normally runs the selected project's suite: local `canary.config.ts` wins over the installed demo. The CLI prints `runId` and the UI URL **before** cases execute. Headless or `web.enabled: false` does not bind a port: `canary run --headless --no-open`. For another project, pass `--config <path>` (relative paths resolve from the invocation directory); `runs` / `show` / `report` / `replay` / `compare` use the same project root.
+就这么多。第一次跑会在 `.canary/artifacts/<runId>/` 生成完整的 trajectory + 覆盖率 + 报告。
 
-Already inside the repo? `node scripts/install-global.mjs` or `pnpm install:global`.
+---
 
-Default suite: 15 deterministic cases under `cases/` against `examples/local-agent` — no API keys needed. Artifacts land under the selected config directory at `.canary/artifacts/<runId>/`.
+## 🧑‍💻 适用场景
 
-### Common Commands
+| 场景 | 怎么用 |
+|---|---|
+| **本地 Agent 开发** | `function` 适配器直接 import 你的 TS 入口，拿真实 V8 覆盖率 |
+| **远程 Agent / SaaS** | `http` 适配器 + 断言 evaluator，黑盒也能测回归 |
+| **MCP Server** | 直接测 stdio/HTTP 的 MCP tools，验证工具行为稳定性 |
+| **CI/CD 门禁** | headless 模式 + coverage-gate evaluator，低于阈值直接 fail |
+| **实验对比** | 同一 case 跑 baseline 和 candidate，`compare` 出 markdown diff |
 
-```bash
-canary run                             # Global command after install:global
-canary run --headless --no-open
-canary report <runId> --format markdown
-canary compare <baselineId> <candidateId>
-canary replay <runId> --headless --no-open
-canary run --repetitions 3 --tag nightly
-```
+内置 6 个 example agent 覆盖以上所有场景：`local-agent` · `mcp-agent` · `http-agent` · `loop-agent` · `recovery-agent` · `improvement-demo`。
 
-## 📦 Monorepo Structure
+---
+
+## 📦 项目结构
 
 ```
 Canary/
 ├── packages/
-│   ├── core/           # Domain types + Zod schema + IPC protocol
-│   ├── coverage/       # V8 collector + Istanbul fallback + fragments merge
-│   ├── evaluators/     # Evaluator suite + attribution engine + LLM Judge
-│   ├── adapters/       # Agent: function / http / mcp; separate MCP Tool adapters
-│   ├── environment/    # In-memory StateStore + MockTool
-│   ├── runner/         # Orchestration · repetitions · cancel · streaming artifacts
+│   ├── core/           # 领域类型 + Zod Schema + IPC 协议
+│   ├── coverage/       # V8 采集 + Istanbul 回退 + fragments 合并
+│   ├── evaluators/     # Evaluator 套件 + 归因引擎 + LLM Judge 接口
+│   ├── adapters/       # Agent 适配器: function / http / mcp
+│   ├── environment/    # 内存 StateStore + MockTool
+│   ├── runner/         # 编排 · repetitions · cancel · 流式 artifact
 │   ├── reporters/      # json · markdown · junit · console
-│   ├── improvement/    # Compare · decideSuggestion · regression drafts
-│   ├── trace/          # JSONL persistence store
-│   └── cli/            # run / runs / show / report / compare / improve / suggest / candidate / replay
-├── apps/web/           # Five-view Web UI (SSE)
+│   ├── improvement/    # Compare · 回归归因 · 候选建议
+│   ├── trace/          # JSONL 持久化存储
+│   └── cli/            # run / runs / show / report / compare / replay / improve
+├── apps/web/           # 五视图 Web UI (SSE)
 ├── cases/              # smoke / regression / holdout
-├── examples/           # local-agent · mcp-agent · http-agent · loop-agent · recovery-agent · improvement-demo
-├── docs/               # current / guides / design / roadmap / evidence / research / archive
+├── examples/           # 6 个可直接跑的 demo agent
 └── .github/workflows/  # CI · Release
 ```
 
-## 📋 Adapter & Coverage Matrix
+---
 
-| Target         | Adapter                  | Coverage                                     |
-| -------------- | ------------------------ | -------------------------------------------- |
-| Local TS Agent | `function`               | V8 lines / branches / functions / statements |
-| HTTP Agent     | `http`                   | `unavailable`                                |
-| MCP Agent      | `mcp` stdio              | `unavailable`                                |
-| MCP Tools      | `mcp-stdio` / `mcp-http` | N/A (tools)                                  |
-| Bun            | CLI smoke only           | not claimed                                  |
+## 🔌 适配器 & 覆盖率支持矩阵
 
-## ⚠️ Honest Boundaries
+| Target | Adapter | Coverage |
+|---|---|---|
+| 本地 TS Agent | `function` | ✅ V8 行/分支/函数/语句 |
+| HTTP Agent | `http` | ❌ `unavailable`（黑盒） |
+| MCP Agent | `mcp` stdio | ❌ `unavailable`（进程隔离） |
+| MCP Tools | `mcp-stdio` / `mcp-http` | N/A（纯工具层） |
+| Bun | CLI smoke 仅 | ❌ 未宣称支持 |
 
-`canary` does **not** measure remote black-box reasoning quality, non-Node languages, browser visual agents, or Docker sandboxes. Explicit Judge error, timeout and low-confidence paths can fail, but absent injection currently falls back to a deterministic output-existence stub. **That fallback is not semantic evaluation and must not authorize autonomous changes.**
+---
 
-The runner is **not** a sandbox — it executes your Agent code directly. By default no model API is called outbound.
+## 🗺️ 路线图
 
-## 📚 Documentation and Future Work
+- **Soft Evolution** — 自动生成回归修复建议（当前：归因 → 手动 review）
+- **Hard Evolution** — 受控的自动 code apply + verify + gate admission
+- **更多语言** — Python / Go / Rust 的 V8-aligned 覆盖率采集器
+- **浏览器 Agent** — Playwright adapter + 视觉断言
 
-Start at the [documentation index](docs/README.md). Current behavior, ideal architecture and pending tasks are separate:
+> 当前 Runner 不编辑 Agent 源码，不执行沙箱隔离，不调用外部 LLM API。
 
-- [Actual architecture](docs/current/architecture.md) and [validation baseline](docs/evidence/validation-baseline.md).
-- [Ideal bounded Agent loop](docs/design/agent-loop.md) and [soft/hard evolution policy](docs/design/evolution-policy.md).
-- [Implementation roadmap](docs/roadmap/README.md): all future tasks remain pending.
+---
 
-## ❤️ Contributing
+## ❤️ 贡献
 
-Issues and Pull Requests are always welcome. For adding new features, please discuss via an Issue first.
+欢迎 Issue 和 PR。大改动请先开 Issue 讨论。
 
 ```bash
 git clone https://github.com/EVEDensity/Canary
 cd Canary
 pnpm install
-pnpm build          # package exports resolve built dist
-pnpm check          # format / lint / typecheck / test
-pnpm demo:headless  # default 15-case smoke (same as CI)
+pnpm build          # 编译所有 packages
+pnpm check          # format + lint + typecheck + test
+pnpm demo:headless  # 跑默认 15-case smoke（和 CI 一样）
 ```
 
-## 🌍 Community & Links
+---
 
-<a href="https://github.com/EVEDensity/Canary/discussions">Discussions</a> ｜
-<a href="https://github.com/EVEDensity/Canary/issues">Issue Tracker</a> ｜
-<a href="docs/guides/ci-and-validation.md">10-minute Acceptance</a>
+## 🌍 社区
+
+<a href="https://github.com/EVEDensity/Canary/discussions">💬 Discussions</a> ｜
+<a href="https://github.com/EVEDensity/Canary/issues">🐛 Issue Tracker</a> ｜
+<a href="docs/guides/ci-and-validation.md">✅ 10 分钟验收</a>
+
+---
 
 ## 📄 License
 
 [Apache-2.0](./LICENSE)
 
-—— Like a canary in a coal mine: early signal, precise localization, auditable trail.
+---
+
+<div align="center">
+
+如果这个项目对你有帮助，**点个 ⭐ 吧！** 你的 star 是我持续迭代的燃料 🧪
+
+</div>
