@@ -1,6 +1,6 @@
 # 当前架构：以代码为准
 
-> 范围：代码基线以 Git 工作区为准；R1 运行器隔离与恢复见 [R1 执行记录](../evidence/r1-execution-record.md)。这不是目标架构图。
+> 范围：代码基线以 Git 工作区为准；R1 运行器隔离与恢复见 [R1 执行记录](../evidence/r1-execution-record.md)；R2 配置发现与 doctor 诊断见 [R2 执行记录](../evidence/r2-execution-record.md)。这不是目标架构图。
 > 逐项证据和风险见 [源码核对](../evidence/code-audit.md)，运行结果见 [验证记录](../evidence/validation-baseline.md)。
 
 ## 1. 实际主链路
@@ -42,7 +42,7 @@ CLI 在非 headless 时先分配 runId、监听并打印 UI 地址，再执行�
 | `packages/trace`       | JSONL v1、异步 sink、统一脱敏、FileArtifactRepository、RunStore                                                                                          | SSE 游标不跨重启；不是云遥测                                  |
 | `packages/improvement` | trial 对账、holdout 标签/数据集、可序列化草稿、独立 admission                                                                                            | 不修改 Agent；没有统计显著性和发布/回滚                       |
 | `packages/reporters`   | JSON / Markdown / JUnit / console                                                                                                                        | 不等于独立安全准入控制器                                      |
-| `packages/cli`         | ProjectContext、runEvaluation 应用服务；headless 不加载 Web                                                                                              | Skill/硬进化仍待 S/H 系列                                     |
+| `packages/cli`         | ProjectContext、runEvaluation 应用服务；headless 不加载 Web；doctor 导入受信任配置做 schema/权限/根冲突诊断，不自动改写用户文件                          | Skill/硬进化仍待 S/H 系列；R4 全局多语言 `--ci` 未完成        |
 | `apps/web`             | HTTP/SSE UI；写接口需要 token                                                                                                                            | 不是完整审批控制面                                            |
 
 ## 3. 当前可信边界
