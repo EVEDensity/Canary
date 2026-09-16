@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import {
   installationMetadata,
+  isInsideRoot,
   readInstalledHome,
   resolveCanaryProjectRoot,
   resolveConfigFile,
@@ -93,6 +94,7 @@ describe("installation and path aliases", () => {
     writeFileSync(file, JSON.stringify({ root, binDir: join(root, "bin") }));
     expect(installationMetadata(file)).toMatchObject({ status: "valid", value: { root } });
   });
+
   it("canonicalizes project aliases but retains the user's invocation path", () => {
     const root = temporaryRoot("canary aliases ");
     const project = join(root, "real project");
@@ -104,5 +106,15 @@ describe("installation and path aliases", () => {
     expect(context.invocationRoot).toBe(alias);
     expect(context.projectRoot).toBe(project);
     expect(context.artifactRoot).toBe(join(project, ".canary", "artifacts"));
+  });
+
+  it("treats a directory as inside itself and rejects siblings", () => {
+    const root = temporaryRoot("canary inside ");
+    const nested = join(root, "nested dir");
+    mkdirSync(nested);
+    expect(isInsideRoot(root, root)).toBe(true);
+    expect(isInsideRoot(nested, root)).toBe(true);
+    expect(isInsideRoot(root, nested)).toBe(false);
+    expect(isInsideRoot(temporaryRoot("canary sibling "), root)).toBe(false);
   });
 });
