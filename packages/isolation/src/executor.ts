@@ -1,4 +1,5 @@
 import { spawn, type ChildProcess } from "node:child_process";
+import { randomUUID } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
@@ -6,6 +7,7 @@ import { PathGuard, PolicyDenied, collectInodes, type EvolutionPolicyDocument, i
 import { probeIsolation, requiredMode, type IsolationPurpose } from "./capability.js";
 import { buildIsolatedEnv } from "./env.js";
 import { createIsolationPreload } from "./preload-source.js";
+import { killProcessTree } from "./process.js";
 
 export interface IsolationRequest {
   purpose: IsolationPurpose;
@@ -31,7 +33,7 @@ export function assertIsolationReady(request: IsolationRequest): ReturnType<type
 }
 
 export function writePreload(dir = tmpdir()): string {
-  const file = join(dir, `canary-isolation-preload-${process.pid}.cjs`);
+  const file = join(dir, `canary-isolation-preload-${process.pid}-${randomUUID()}.cjs`);
   mkdirSync(dirname(file), { recursive: true });
   writeFileSync(file, createIsolationPreload(), "utf8");
   return file;
@@ -80,7 +82,11 @@ export async function runIsolatedScript(request: IsolationRequest, source: strin
   child.stdout?.on("data", (chunk: string) => { stdout += chunk; });
   child.stderr?.on("data", (chunk: string) => { stderr += chunk; });
   const exitCode = await new Promise<number | null>((resolvePromise) => {
-    const timer = setTimeout(() => { child.kill("SIGKILL"); resolvePromise(null); }, timeoutMs);
+    const timer = setTimeout(() => {
+      if (child.pid) killProcessTree(child.pid);
+      else child.kill("SIGKILL");
+      resolvePromise(null);
+    }, timeoutMs);
     child.once("close", (code) => { clearTimeout(timer); resolvePromise(code); });
   });
   const denials = readDenials(denialLog);
@@ -109,7 +115,8 @@ export function spawnIsolatedNode(request: IsolationRequest, args: string[], std
   assertIsolationReady(request);
   const workspace = resolve(request.workspace);
   const protectAbs = request.policy.protect.map((item) => resolve(workspace, item));
-  const preload = writePreload(workspace);
+  const preloadDir = request.extraEnv?.CANARY_TMPDIR || workspace;
+  const preload = writePreload(preloadDir);
   const env = buildIsolatedEnv(request.envAllowlist ?? request.policy.envAllowlist, {
     ...request.extraEnv,
     CANARY_ISOLATION: JSON.stringify({

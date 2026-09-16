@@ -5,3 +5,4 @@ export { createIsolationPreload } from "./preload-source.js";
 export { assertIsolationReady, writePreload, runIsolatedScript, isolationGuard, spawnIsolatedNode } from "./executor.js";
 export type { IsolationRequest, IsolatedRunResult } from "./executor.js";
 export { assertIsolatedNetwork, assertIsolatedTool, denyUncontrolledMcp, proxyPolicyHosts } from "./proxy.js";
+export { PROCESS_ADAPTER, killProcessTree, pidAlive, reclaimOrphans, waitForExit } from "./process.js";
