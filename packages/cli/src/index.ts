@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync, unlinkSync, statSync } from "node:fs";
 import { createHash, randomUUID } from "node:crypto";
 import { missingConfigMessage, resolveProjectContext } from "./home.js";
 import { readdir } from "node:fs/promises";
@@ -31,9 +31,12 @@ import { LoopController, createIdlePorts } from "@canary/loop";
 import { mcpCommand } from "./mcp.js";
 import { controlCommand } from "./control.js";
 import { writeExport } from "./export.js";
-import { diagnosticSnapshot } from "./diagnostics.js";
+import { diagnosticSnapshot, pathsSnapshot, versionSnapshot } from "./diagnostics.js";
+import { CliFailure, printCiResult } from "./ci.js";
+import { ciExitCodeForRun } from "@canary/core";
 
 export interface CliOptions {
+  ci?: boolean;
   configPath?: string;
   cwd?: string;
   headless?: boolean;
@@ -51,7 +54,7 @@ export interface CliOptions {
   experiences?: ExperienceStore;
   suppressOutput?: boolean;
 }
-const USAGE = `Usage: canary run [--headless] [--no-open] [--json] [--case <id>] [--tag <tag>] [--repetitions <n>] [--port <number>] [--config <path>] [--entry <path>]
+const USAGE = `Usage: canary run [--ci] [--headless] [--no-open] [--json] [--case <id>] [--tag <tag>] [--repetitions <n>] [--port <number>] [--config <path>] [--entry <path>]
        canary runs
        canary show <runId>
        canary report <runId> [--format json|markdown|junit|console]
@@ -74,7 +77,8 @@ const USAGE = `Usage: canary run [--headless] [--no-open] [--json] [--case <id>]
        canary policy show [--config <path>]
        canary loop status|stop|takeover [--reason <text>] [--config <path>]
        canary control status|audit|revision|act|serve [--config <path>]
-       canary paths|doctor|version
+       canary paths|doctor [--json] [--config <path>]
+       canary version [--json | --plain]
        canary uninstall
        canary export --out <file> [--format json|ndjson] [--run <runId>] [--max-runs <n>] [--config <path>]
        canary mcp matrix
@@ -288,11 +292,37 @@ function selectCases(cases: TestCase[], options: CliOptions): TestCase[] {
 }
 
 export async function runCommandDetailed(options: CliOptions = {}): Promise<RunCommandResult> {
+  if (options.ci) options = { ...options, headless: true, noOpen: true, suppressOutput: true };
   const context = resolveProjectContext(options);
-  if (!existsSync(context.configFile)) throw new Error(missingConfigMessage(context.configFile));
-  const config = await loadConfig(context.configFile);
-  const cases = await loadCases(config.cases, context.projectRoot, config.coverage.exclude);
-  const selected = selectCases(cases, options);
+  let config: CanaryConfig;
+  let cases: TestCase[];
+  let selected: TestCase[];
+  try {
+    if (!existsSync(context.configFile)) throw new CliFailure(2, "CONFIG_NOT_FOUND", missingConfigMessage(context.configFile), "Use canary paths --json and pass --config <existing-canary.config.ts> from the tested project.");
+    config = await loadConfig(context.configFile);
+    cases = await loadCases(config.cases, context.projectRoot, config.coverage.exclude);
+    selected = selectCases(cases, options);
+    if (options.ci && !selected.length) throw new CliFailure(2, "NO_CASES", "No cases selected; CI cannot pass an empty run.", "Check the cases glob and filters in the trusted project configuration.");
+    if (options.ci && config.agent.adapter === "function") {
+      const entry = resolve(context.projectRoot, options.entry ?? config.agent.entry);
+      if (!existsSync(entry) || !statSync(entry).isFile()) throw new CliFailure(2, "AGENT_ENTRY_MISSING", "The configured function-agent entry is not a file.", "Correct agent.entry or --entry relative to projectRoot.");
+    }
+  } catch (error) {
+    if (!options.ci || error instanceof CliFailure) throw error;
+    throw new CliFailure(2, "CONFIG_INVALID", "Cannot load or validate the project configuration or cases.", "Check the config/case schema, imports, case IDs and selectors. Config modules are trusted executable code; secret-bearing exceptions are not printed.");
+  }
+  if (options.ci) {
+    // Force machine reports even when the developer selected console-only reporters.
+    config = { ...config, reporters: [...new Set([...(config.reporters ?? []), "json", "junit"] as const)] };
+    try {
+      mkdirSync(context.artifactRoot, { recursive: true });
+      const probe = resolve(context.artifactRoot, `.write-probe-${randomUUID()}`);
+      writeFileSync(probe, "", { flag: "wx" });
+      unlinkSync(probe);
+    } catch {
+      throw new CliFailure(5, "ARTIFACT_UNWRITABLE", "The project artifact collection is not writable.", "Check artifactRoot permissions, directory type and available disk space; do not delete historical runs.");
+    }
+  }
   const store = new RunStore();
   const runId = `run_${randomUUID()}`;
   const fallbackReps = options.repetitions ?? config.runtime?.repetitions ?? 1;
@@ -309,7 +339,7 @@ export async function runCommandDetailed(options: CliOptions = {}): Promise<RunC
     signal: options.signal,
     experiences: options.experiences,
     consoleReporter: Boolean(config.reporters?.includes("console")),
-    silent: options.json,
+    silent: options.json || options.suppressOutput || options.ci,
     runId,
   };
   const webEnabled = !options.headless && config.web?.enabled !== false;
@@ -367,6 +397,7 @@ export async function runCommandDetailed(options: CliOptions = {}): Promise<RunC
     console.log(`runId: ${runId}`);
   }
   const executed = await runEvaluation(evaluationInput);
+  if (options.ci) executed.exitCode = ciExitCodeForRun(executed.snapshot, executed.exitCode);
   if (options.json && !options.suppressOutput) {
     console.log(JSON.stringify(hostRunOutput(context, executed.snapshot, executed.artifactPath, executed.exitCode)));
   } else if (!options.suppressOutput) {
@@ -996,6 +1027,7 @@ function loopCommand(rest: string[], configPath?: string): number {
 export async function main(argv = process.argv.slice(2)): Promise<number> {
   const { command, rest } = parseArgv(argv);
   const configPath = flagValue(rest, "--config");
+  if (command === "run" && rest.includes("--ci")) return printCiResult(rest, runCommandDetailed);
   if (command === "host") return hostCommand(rest, configPath);
   if (command === "soft-trial") return softTrialCommand(rest, configPath);
   if (command === "experience") return experienceCommand(rest, configPath);
@@ -1004,8 +1036,23 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
   if (command === "loop") return loopCommand(rest, configPath);
   if (command === "control") return controlCommand(rest, configPath);
   if (command === "paths" || command === "doctor" || command === "version") {
-    console.log(JSON.stringify(diagnosticSnapshot(process.cwd(), configPath), null, 2));
-    return 0;
+    const allowed = new Set(command === "version" ? ["--json", "--plain"] : ["--json", "--config"]);
+    for (let i = 0; i < rest.length; i++) {
+      const flag = rest[i]!;
+      if (!allowed.has(flag) || (flag === "--config" && (!rest[i + 1] || rest[i + 1]!.startsWith("--")))) {
+        console.error("Invalid diagnostic arguments. Use canary help."); return 2;
+      }
+      if (flag === "--config") i++;
+    }
+    if (command === "version") {
+      if (rest.includes("--plain") && rest.includes("--json")) { console.error("Choose --plain or --json."); return 2; }
+      const version = versionSnapshot();
+      console.log(rest.includes("--json") ? JSON.stringify(version) : version.canaryVersion);
+      return 0;
+    }
+    const payload = command === "paths" ? pathsSnapshot(undefined, configPath) : diagnosticSnapshot(undefined, configPath);
+    console.log(JSON.stringify(payload, null, rest.includes("--json") ? undefined : 2));
+    return "exitCode" in payload ? payload.exitCode : 0;
   }
   if (command === "uninstall") {
     console.log("Use uninstall.ps1 on Windows or uninstall.sh on macOS/Linux to remove the global launcher safely.");
