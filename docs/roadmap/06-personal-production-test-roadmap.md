@@ -1,7 +1,7 @@
 # Canary 个人开发者生产级测试路线图
 
-> 版本：1.0
-> 更新日期：2026-09-15
+> 版本：1.1（R0 契约冻结）
+> 更新日期：2026-09-16
 > 状态：新的唯一执行基线
 
 本文档取代此前围绕 L-03、分发产品化、外部观测和六格 CI 矩阵的后续安排。旧文档仍保留在 docs/roadmap/ 与 docs/archive/ 中，用于追溯设计历史，但不再作为实施清单。后续代码、测试、文档和验收均以本文档为准。
@@ -24,7 +24,7 @@ Canary 的目标不是 npm 分发平台、云端观测平台或自动修改一�
 ## 2. 不可违反的产品原则
 
 1. **本地优先**：项目代码、运行日志、artifact、trace 和报告默认只写本地；不启用网络 exporter 时不得产生自动外发。
-2. **根目录分离**：projectRoot 是被测项目；installRoot 是 Canary 安装/运行时目录；artifactRoot 是本次运行产物目录；invocationRoot 是用户执行命令的位置。任何根目录不得因缺省值而互相替代。
+2. **根目录分离**：projectRoot 是被测项目；installRoot 是 Canary 安装/运行时目录；artifactRoot 是项目的历史运行集合目录，单次产物位于 artifactRoot/runId；invocationRoot 是用户执行命令的位置。任何根目录不得因缺省值而互相替代。
 3. **证据优先**：通过、失败、阻塞、未执行都必须有状态和原因；测试数量不等于验证完成。
 4. **失败可恢复**：取消、超时、崩溃和机器重启后，已完成的结果不能被静默覆盖；重复运行必须可区分且幂等。
 5. **默认不自治**：Canary 不安装即自启循环，不寻找未授权的模型凭证，不自动修改用户项目，不自动上传原始输入输出。
@@ -110,7 +110,7 @@ AgentHub 只是复杂多语言样本，不是架构规范。它当前的测试�
 |   6 | 隐私或策略门禁失败                          |
 |  10 | Canary 内部错误                             |
 
---ci 的输出必须适合机器解析，终端只输出摘要和 artifact 路径。它是自我排查入口，不是“无条件把整个仓库所有脚本都运行一遍”。未声明的检查不能被偷偷升级为必需门禁。
+R0 固定 --ci 的 stdout 为单行 v1 JSON，包含摘要、退出码与 artifact 路径；诊断日志写 stderr。它是自我排查入口，不是“无条件把整个仓库所有脚本都运行一遍”。未声明的检查不能被偷偷升级为必需门禁。
 
 ### 4.2 canary run
 
@@ -140,13 +140,15 @@ AgentHub 只是复杂多语言样本，不是架构规范。它当前的测试�
 - Agent fixture 和凭证需求；
 - 是否允许用户主动启用网络检查。
 
-默认路径建议：
+R0 已冻结的路径契约（替代初稿建议）：
 
 - invocationRoot = 用户执行命令时的绝对路径；
 - projectRoot = 配置解析后的被测项目绝对路径；
-- installRoot = Canary 自身运行时/用户数据目录；
-- artifactRoot = projectRoot/.canary/artifacts/<run-id>；
-- configFile = projectRoot/.canary/config.* 或显式 --config。
+- installRoot = Canary 源码安装/运行时目录；~/.canary/home.json 是注册文件，不是被测项目；
+- artifactRoot = projectRoot/.canary/artifacts；单次目录 = artifactRoot/<run-id>；
+- configFile = 向上发现的 canary.config.ts 或显式 --config；.canary/config.* 不在 R0 实现范围。
+
+projectRoot 优先级是显式 --config > 最近祖先配置 > 调用目录（缺配置报错）；永不隐式回退安装 Demo。Canary 自测时 projectRoot 与 installRoot 可相等。完整 CLI/schema/退出码和兼容边界见 [R0 契约](../guides/r0-cli-contract.md)。本节其余配置字段与全面诊断属于后续阶段目标，不代表已全部实现。
 
 诊断必须检测并报告：配置不存在、安装元数据损坏、launcher 缺失、项目根与安装根冲突、artifact 根不可写、路径包含空格、非默认用户目录以及符号链接/大小写造成的根目录别名。
 
@@ -201,6 +203,8 @@ AgentHub 只是复杂多语言样本，不是架构规范。它当前的测试�
 
 ### R0：基线冻结与契约清理
 
+状态：**已完成（Windows Node 24 范围）**。证据见 [R0 执行记录](../evidence/r0-execution.md)；Ubuntu/macOS 与 Node 22 不据此标记 verified。
+
 目标：让新规划和现有代码对齐。
 
 交付：统一 projectRoot/installRoot/artifactRoot/invocationRoot；固定 run --ci、run、doctor、paths、version 的 CLI 契约；统一退出码和证据状态 schema；将旧路线图标记为历史参考；修复当前文档格式检查失败。
@@ -209,6 +213,8 @@ AgentHub 只是复杂多语言样本，不是架构规范。它当前的测试�
 
 ### R1：运行器稳定性与测试隔离
 
+状态：**已完成（Windows Node 24 范围）**。证据见 [R1 执行记录](../evidence/r1-execution-record.md)；Ubuntu/macOS 与 Node 22 不据此标记 verified。
+
 目标：解决生产测试工具最核心的进程和隔离问题。
 
 交付：子进程树终止、超时、取消和孤儿回收；独立临时目录、端口、环境和工作目录；并发运行锁、重复执行去重和运行 ID；崩溃后可读取 partial run 并继续收尾；Windows、Linux、macOS 的路径和信号适配层。
@@ -216,6 +222,8 @@ AgentHub 只是复杂多语言样本，不是架构规范。它当前的测试�
 验收：故意制造 hanging process、非零退出、重复启动、并发启动、锁残留和临时目录冲突，结果均可分类且不会污染其他运行。
 
 ### R2：配置发现与自我诊断
+
+状态：待实施（下一阶段）。R0 已建立 roots、doctor/paths/version 的最小 schema 和部分缺失诊断；完整冲突/权限/修复验收仍未完成。
 
 目标：让 canary run --ci 能自己找出“为什么没有正常测试”。
 
@@ -273,19 +281,20 @@ AgentHub 只是复杂多语言样本，不是架构规范。它当前的测试�
 
 ## 10. 当前状态与首批执行顺序
 
-截至 2026-09-15：
+截至 2026-09-16：
 
-| 能力                                                           | 当前状态                                     | 说明                                                            |
-| -------------------------------------------------------------- | -------------------------------------------- | --------------------------------------------------------------- |
-| Canary 本地评估、trace、artifact、Web 控制面                   | verified（仓库内）                           | 已有历史证据，但仍需按新 schema 收敛                            |
-| 基础 CLI version/paths/doctor/run                              | declared                                     | 有实现，--ci 全局产品契约尚未完成                               |
-| 三平台                                                         | declared                                     | 当前本地 Windows 证据不能代表 Ubuntu/macOS                      |
-| Node 24                                                        | verified（本地基线）                         | 需绑定实际命令和日期                                            |
-| Node 22                                                        | declared                                     | 尚未作为新路线图的完整兼容证据                                  |
-| AgentHub 适配                                                  | excluded（写死适配）/blocked（当前样本运行） | AgentHub 是样本，不是 Canary 架构要求；其测试存在收集阻塞和失败 |
-| pi 等开源 Agent fixture                                        | declared                                     | 需建立固定来源和离线/凭证边界                                   |
-| npm、独立 registry package、平台二进制、签名、SBOM、provenance | excluded                                     | 用户明确暂不考虑，不作为本路线图缺口                            |
-| 自动外发、云端观测、完整 Phoenix/Langfuse 生态适配             | excluded                                     | 不属于个人本地优先核心                                          |
+| 能力                                                           | 当前状态                                     | 说明                                                                               |
+| -------------------------------------------------------------- | -------------------------------------------- | ---------------------------------------------------------------------------------- |
+| Canary 本地评估、trace、artifact、Web 控制面                   | verified（仓库内）                           | 已有历史证据，但仍需按新 schema 收敛                                               |
+| 运行器超时/取消/预算、进程树、锁/tmp/port、checkpoint 恢复     | verified（Windows Node 24）                  | Ubuntu/macOS 与 Node 22 仍为 declared；见 [R1](../evidence/r1-execution-record.md) |
+| 基础 CLI version/paths/doctor/run                              | declared                                     | 有实现，--ci 全局产品契约尚未完成                                                  |
+| 三平台                                                         | declared                                     | 当前本地 Windows 证据不能代表 Ubuntu/macOS                                         |
+| Node 24                                                        | verified（本地基线）                         | 需绑定实际命令和日期                                                               |
+| Node 22                                                        | declared                                     | 尚未作为新路线图的完整兼容证据                                                     |
+| AgentHub 适配                                                  | excluded（写死适配）/blocked（当前样本运行） | AgentHub 是样本，不是 Canary 架构要求；其测试存在收集阻塞和失败                    |
+| pi 等开源 Agent fixture                                        | declared                                     | 需建立固定来源和离线/凭证边界                                                      |
+| npm、独立 registry package、平台二进制、签名、SBOM、provenance | excluded                                     | 用户明确暂不考虑，不作为本路线图缺口                                               |
+| 自动外发、云端观测、完整 Phoenix/Langfuse 生态适配             | excluded                                     | 不属于个人本地优先核心                                                             |
 
 首批执行顺序固定为：R0、R1、R2、R3、R4、R5、R6、R7、R8。R8 只有在核心稳定后实施。
 

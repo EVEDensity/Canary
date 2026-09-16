@@ -1,5 +1,7 @@
 # Q：评估可信度与准入门禁
 
+> 历史参考：本文件不再是待执行清单。后续唯一基线为 [个人开发者路线图](06-personal-production-test-roadmap.md)，当时的“已实施”不代表 R0–R8 已完成。
+
 > Q-01 到 Q-04 已落地到当前代码。compare 的 `improve` 与 suggestion 的 `verified` 仍不是安全证明或发布许可。
 
 <a id="q-01"></a>

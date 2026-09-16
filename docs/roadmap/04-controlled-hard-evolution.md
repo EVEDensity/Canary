@@ -1,5 +1,7 @@
 # H：受控硬进化
 
+> 历史参考：本文件不再是待执行清单。后续唯一基线为 [个人开发者路线图](06-personal-production-test-roadmap.md)，当时的“已实施”不代表 R0–R8 已完成。
+
 > H-01、H-02、H-03 已实施。权限开关本身不是隔离机制；userspace preload 也不是 OS 安全边界。
 
 <a id="h-01"></a>

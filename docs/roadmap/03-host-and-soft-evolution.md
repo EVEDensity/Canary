@@ -1,5 +1,7 @@
 # S：宿主接入与软进化
 
+> 历史参考：本文件不再是待执行清单。后续唯一基线为 [个人开发者路线图](06-personal-production-test-roadmap.md)，当时的“已实施”不代表 R0–R8 已完成。
+
 > 全部 S-01 到 S-04 已实施。默认人工触发；安装不自动常驻，不自动花费 Token。关闭 MCP Server 后 CLI/Skill 仍可用。
 
 <a id="s-01"></a>
