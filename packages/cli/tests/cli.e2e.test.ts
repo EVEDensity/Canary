@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, realpathSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { discoverCaseFiles, globToRegExp, listRunArtifacts, loadCases, main, readRunArtifact, runCommandDetailed } from "../src/index.js";
@@ -13,7 +13,7 @@ describe("case discovery", () => {
   });
 
   it("discovers nested and flat case files and rejects invalid or duplicate cases", async () => {
-    const cwd = mkdtempSync(join(tmpdir(), "canary-cases-"));
+    const cwd = realpathSync.native(mkdtempSync(join(tmpdir(), "canary-cases-")));
     mkdirSync(join(cwd, "cases", "nested"), { recursive: true });
     writeFileSync(join(cwd, "cases", "smoke.ts"), "export default { id: 'smoke', input: 'ok' };", "utf8");
     writeFileSync(join(cwd, "cases", "nested", "deep.ts"), "export default { id: 'deep', input: 'ok' };", "utf8");
@@ -32,7 +32,7 @@ describe("case discovery", () => {
 
 describe("canary run --headless", () => {
   it("writes run.json and places coverage in the RunStore", async () => {
-    const cwd = mkdtempSync(join(tmpdir(), "canary-cli-"));
+    const cwd = realpathSync.native(mkdtempSync(join(tmpdir(), "canary-cli-")));
     writeFileSync(join(cwd, "agent.mjs"), "export default async (input, ctx) => { ctx.emit({ type: 'tool_call', name: 'echo' }); return { value: input }; };", "utf8");
     writeFileSync(join(cwd, "cases.ts"), "export default [{ id: 'smoke', input: 'ok' }];", "utf8");
     writeFileSync(join(cwd, "canary.config.ts"), `export default { agent: { adapter: 'function', entry: './agent.mjs' }, cases: './cases.ts', coverage: { include: ['agent.mjs'], exclude: [] }, web: { host: '127.0.0.1', open: false } };`, "utf8");
@@ -65,8 +65,8 @@ describe("canary run --headless", () => {
   });
 
   it("writes artifacts to the --config project, not the invocation directory", async () => {
-    const invocation = mkdtempSync(join(tmpdir(), "canary-invoke-run-"));
-    const project = mkdtempSync(join(tmpdir(), "canary-target-run-"));
+    const invocation = realpathSync.native(mkdtempSync(join(tmpdir(), "canary-invoke-run-")));
+    const project = realpathSync.native(mkdtempSync(join(tmpdir(), "canary-target-run-")));
     writeFileSync(join(project, "agent.mjs"), "export default async (input) => ({ value: input });", "utf8");
     writeFileSync(join(project, "cases.ts"), "export default [{ id: 'smoke', input: 'ok' }];", "utf8");
     writeFileSync(join(project, "canary.config.ts"), `export default { agent: { adapter: 'function', entry: './agent.mjs' }, cases: './cases.ts', coverage: { include: ['agent.mjs'], exclude: [] }, web: { host: '127.0.0.1', open: false } };`, "utf8");
@@ -78,7 +78,7 @@ describe("canary run --headless", () => {
   });
 
   it("does not bind a UI port in headless mode", async () => {
-    const cwd = mkdtempSync(join(tmpdir(), "canary-cli-headless-"));
+    const cwd = realpathSync.native(mkdtempSync(join(tmpdir(), "canary-cli-headless-")));
     writeFileSync(join(cwd, "agent.mjs"), "export default async (input) => ({ value: input });", "utf8");
     writeFileSync(join(cwd, "cases.ts"), "export default [{ id: 'smoke', input: 'ok' }];", "utf8");
     writeFileSync(join(cwd, "canary.config.ts"), `export default { agent: { adapter: 'function', entry: './agent.mjs' }, cases: './cases.ts', coverage: { include: ['agent.mjs'], exclude: [] }, web: { enabled: true, host: '127.0.0.1', port: 1, open: true } };`, "utf8");
@@ -97,7 +97,7 @@ describe("canary run --headless", () => {
   });
 
   it("honors web.enabled: false without --headless", async () => {
-    const cwd = mkdtempSync(join(tmpdir(), "canary-cli-disabled-web-"));
+    const cwd = realpathSync.native(mkdtempSync(join(tmpdir(), "canary-cli-disabled-web-")));
     writeFileSync(join(cwd, "agent.mjs"), "export default async (input) => ({ value: input });", "utf8");
     writeFileSync(join(cwd, "cases.ts"), "export default [{ id: 'smoke', input: 'ok' }];", "utf8");
     writeFileSync(join(cwd, "canary.config.ts"), `export default { agent: { adapter: 'function', entry: './agent.mjs' }, cases: './cases.ts', coverage: { include: ['agent.mjs'], exclude: [] }, web: { enabled: false, host: '127.0.0.1', port: 1, open: true } };`, "utf8");
@@ -107,7 +107,7 @@ describe("canary run --headless", () => {
   });
 
   it("prints the UI address before cases finish so SSE is reachable mid-run", async () => {
-    const cwd = mkdtempSync(join(tmpdir(), "canary-cli-live-ui-"));
+    const cwd = realpathSync.native(mkdtempSync(join(tmpdir(), "canary-cli-live-ui-")));
     writeFileSync(join(cwd, "agent.mjs"), "export default async (input) => { await new Promise((resolve) => setTimeout(resolve, 1200)); return { value: input }; };", "utf8");
     writeFileSync(join(cwd, "cases.ts"), "export default [{ id: 'slow', input: 'ok' }];", "utf8");
     writeFileSync(join(cwd, "canary.config.ts"), `export default { agent: { adapter: 'function', entry: './agent.mjs' }, cases: './cases.ts', coverage: { include: ['agent.mjs'], exclude: [] }, web: { host: '127.0.0.1', open: false } };`, "utf8");
@@ -137,7 +137,7 @@ describe("canary run --headless", () => {
   });
 
   it("fails the shared coverage gate when required coverage is below threshold", async () => {
-    const cwd = mkdtempSync(join(tmpdir(), "canary-gate-"));
+    const cwd = realpathSync.native(mkdtempSync(join(tmpdir(), "canary-gate-")));
     writeFileSync(join(cwd, "agent.mjs"), "export default async (input) => ({ value: input });\nfunction unused(flag) { if (flag) return 1; return 0; }\n", "utf8");
     writeFileSync(join(cwd, "cases.ts"), "export default [{ id: 'smoke', input: 'ok', assertions: [{ type: 'output.exists' }] }];", "utf8");
     writeFileSync(join(cwd, "canary.config.ts"), `export default { agent: { adapter: 'function', entry: './agent.mjs' }, cases: './cases.ts', coverage: { include: ['agent.mjs'], exclude: [], branches: 100 }, web: { host: '127.0.0.1', open: false } };`, "utf8");
@@ -152,7 +152,7 @@ describe("canary run --headless", () => {
   });
 
   it("fails closed when judge.score is required and no provider is configured", async () => {
-    const cwd = mkdtempSync(join(tmpdir(), "canary-judge-missing-"));
+    const cwd = realpathSync.native(mkdtempSync(join(tmpdir(), "canary-judge-missing-")));
     writeFileSync(join(cwd, "agent.mjs"), "export default async (input) => ({ value: input });", "utf8");
     writeFileSync(join(cwd, "cases.ts"), "export default [{ id: 'scored', input: 'ok', assertions: [{ type: 'judge.score', minScore: 0.5 }] }];", "utf8");
     writeFileSync(join(cwd, "canary.config.ts"), `export default { agent: { adapter: 'function', entry: './agent.mjs' }, cases: './cases.ts', coverage: { include: ['agent.mjs'], exclude: [] }, web: { host: '127.0.0.1', open: false } };`, "utf8");
@@ -165,7 +165,7 @@ describe("canary run --headless", () => {
 
 describe("improvement CLI loop", () => {
   it("exports regression drafts from a failed run and rejects a holdout regression on compare", async () => {
-    const cwd = mkdtempSync(join(tmpdir(), "canary-improve-"));
+    const cwd = realpathSync.native(mkdtempSync(join(tmpdir(), "canary-improve-")));
     writeFileSync(join(cwd, "agent.mjs"), "export default async (input) => input === 'x' ? null : { value: input };", "utf8");
     writeFileSync(join(cwd, "cases.ts"), "export default [{ id: 'safe', input: 'ok', assertions: [{ type: 'output.exists' }] }, { id: 'broken', input: 'x', assertions: [{ type: 'output.exists' }] }];", "utf8");
     writeFileSync(join(cwd, "canary.config.ts"), `export default { agent: { adapter: 'function', entry: './agent.mjs' }, cases: './cases.ts', coverage: { include: ['agent.mjs'], exclude: [] }, web: { host: '127.0.0.1', open: false } };`, "utf8");
@@ -174,7 +174,7 @@ describe("improvement CLI loop", () => {
     const previousCwd = process.env.INIT_CWD;
     process.env.INIT_CWD = cwd;
     try {
-      const improveCode = await main(["improve", failed.runId, "--out", join(cwd, "cases/regression")]);
+      const improveCode = await main(["improve", failed.runId, "--out", join(cwd, "cases/regression"), "--config", join(cwd, "canary.config.ts")]);
       expect(improveCode).toBe(0);
       expect(existsSync(join(cwd, "cases/regression", "broken.regression.ts"))).toBe(true);
       expect(readFileSync(join(cwd, "cases/regression", "broken.regression.ts"), "utf8")).toContain("broken.regression");
@@ -191,7 +191,7 @@ describe("improvement CLI loop", () => {
     expect(candidate.exitCode).toBe(1);
     process.env.INIT_CWD = cwd;
     try {
-      const compareCode = await main(["compare", baseline.runId, candidate.runId]);
+      const compareCode = await main(["compare", baseline.runId, candidate.runId, "--config", join(cwd, "canary.config.ts")]);
       expect(compareCode).toBe(1);
     } finally {
       process.env.INIT_CWD = previousCwd;
@@ -199,7 +199,7 @@ describe("improvement CLI loop", () => {
   });
 
   it("accepts and verifies a suggestion then runs a one-click candidate pipeline", async () => {
-    const cwd = mkdtempSync(join(tmpdir(), "canary-candidate-"));
+    const cwd = realpathSync.native(mkdtempSync(join(tmpdir(), "canary-candidate-")));
     writeFileSync(join(cwd, "broken.mjs"), "export default async (input) => input === 'broken' ? null : { value: input };", "utf8");
     writeFileSync(join(cwd, "fixed.mjs"), "export default async (input) => ({ value: input });", "utf8");
     writeFileSync(join(cwd, "cases.ts"), "export default [{ id: 'safe', input: 'ok', assertions: [{ type: 'output.exists' }] }, { id: 'broken', input: 'broken', assertions: [{ type: 'output.exists' }] }, { id: 'holdout-planning', input: 'holdout', tags: ['holdout'], dataset: { split: 'holdout' }, assertions: [{ type: 'output.exists' }] }];", "utf8");
@@ -209,15 +209,15 @@ describe("improvement CLI loop", () => {
     const previousCwd = process.env.INIT_CWD;
     process.env.INIT_CWD = cwd;
     try {
-      expect(await main(["improve", baseline.runId, "--out", join(cwd, "cases/drafts")])).toBe(0);
+      expect(await main(["improve", baseline.runId, "--out", join(cwd, "cases/drafts"), "--config", join(cwd, "canary.config.ts")])).toBe(0);
       const suggestions = JSON.parse(readFileSync(join(cwd, ".canary/artifacts", baseline.runId, "improvement.json"), "utf8")) as Array<{ id: string; kind: string; caseId: string }>;
       const target = suggestions.find((item) => item.caseId === "broken");
       expect(target?.kind).toBe("wrong_output");
-      expect(await main(["suggest", baseline.runId, "--accept", target!.id])).toBe(0);
-      expect(await main(["suggest", baseline.runId, "--verify", target!.id, "--out", join(cwd, "cases/regression")])).toBe(0);
+      expect(await main(["suggest", baseline.runId, "--accept", target!.id, "--config", join(cwd, "canary.config.ts")])).toBe(0);
+      expect(await main(["suggest", baseline.runId, "--verify", target!.id, "--out", join(cwd, "cases/regression"), "--config", join(cwd, "canary.config.ts")])).toBe(0);
       expect(existsSync(join(cwd, "cases/regression", "broken.regression.ts"))).toBe(true);
       expect(readFileSync(join(cwd, "cases/regression", "broken.regression.ts"), "utf8")).toContain("verified");
-      const code = await main(["candidate", baseline.runId, "--entry", "./fixed.mjs", "--headless", "--no-open"]);
+      const code = await main(["candidate", baseline.runId, "--entry", "./fixed.mjs", "--headless", "--no-open", "--config", join(cwd, "canary.config.ts")]);
       expect(code).toBe(0);
       const candidateId = listRunArtifacts(cwd).find((run) => existsSync(join(cwd, ".canary/artifacts", run.runId, "comparison.json")))?.runId;
       expect(candidateId).toBeTruthy();
@@ -292,7 +292,7 @@ describe("improvement CLI loop", () => {
   });
 
   it("rejects a negative experience candidate and never approves it", async () => {
-    const cwd = mkdtempSync(join(tmpdir(), "canary-s04-negative-"));
+    const cwd = realpathSync.native(mkdtempSync(join(tmpdir(), "canary-s04-negative-")));
     writeFileSync(join(cwd, "agent.mjs"), "export default async (input, ctx) => ctx.experiences.length ? ({ value: input }) : (input === 'broken' ? null : { value: input });", "utf8");
     writeFileSync(join(cwd, "cases.ts"), "export default [{ id: 'broken', input: 'broken', assertions: [{ type: 'output.exists' }] }, { id: 'holdout', input: 'holdout', assertions: [{ type: 'output.exists' }] }];", "utf8");
     const configPath = join(cwd, "canary.config.ts");
@@ -330,7 +330,7 @@ describe("improvement CLI loop", () => {
   });
 
   it("does not activate a soft trial when required Judge evidence is missing", async () => {
-    const cwd = mkdtempSync(join(tmpdir(), "canary-s04-judge-"));
+    const cwd = realpathSync.native(mkdtempSync(join(tmpdir(), "canary-s04-judge-")));
     writeFileSync(join(cwd, "agent.mjs"), "export default async (input) => ({ value: input });", "utf8");
     writeFileSync(join(cwd, "cases.ts"), "export default [{ id: 'broken', input: 'broken', assertions: [{ type: 'judge.score', minScore: 0.5 }] }, { id: 'holdout', input: 'holdout', assertions: [{ type: 'judge.score', minScore: 0.5 }] }];", "utf8");
     const configPath = join(cwd, "canary.config.ts");
@@ -359,7 +359,7 @@ describe("improvement CLI loop", () => {
     } finally { process.env.INIT_CWD = previousCwd; }
   });
   it("fails the policy hard gate on unexpected violations even when output exists", async () => {
-    const cwd = mkdtempSync(join(tmpdir(), "canary-policy-"));
+    const cwd = realpathSync.native(mkdtempSync(join(tmpdir(), "canary-policy-")));
     writeFileSync(join(cwd, "agent.mjs"), "export default async (input, ctx) => { ctx.emit({ type: 'policy.violation', rule: 'no-exfil' }); return { value: input }; };", "utf8");
     writeFileSync(join(cwd, "cases.ts"), "export default [{ id: 'smoke', input: 'ok', assertions: [{ type: 'output.exists' }] }];", "utf8");
     writeFileSync(join(cwd, "canary.config.ts"), `export default { agent: { adapter: 'function', entry: './agent.mjs' }, cases: './cases.ts', coverage: { include: ['agent.mjs'] }, web: { host: '127.0.0.1', open: false } };`, "utf8");
@@ -374,7 +374,7 @@ describe("improvement CLI loop", () => {
 
 describe("canary replay", () => {
   it("re-executes the source run cases into a new artifact tagged replayOf", async () => {
-    const cwd = mkdtempSync(join(tmpdir(), "canary-replay-"));
+    const cwd = realpathSync.native(mkdtempSync(join(tmpdir(), "canary-replay-")));
     writeFileSync(join(cwd, "agent.mjs"), "export default async (input) => ({ value: input });", "utf8");
     writeFileSync(join(cwd, "cases.ts"), "export default [{ id: 'smoke', input: 'ok', assertions: [{ type: 'output.exists' }] }];", "utf8");
     writeFileSync(join(cwd, "canary.config.ts"), `export default { agent: { adapter: 'function', entry: './agent.mjs' }, cases: './cases.ts', coverage: { include: ['agent.mjs'], exclude: [] }, web: { host: '127.0.0.1', open: false } };`, "utf8");
@@ -383,7 +383,7 @@ describe("canary replay", () => {
     const previousCwd = process.env.INIT_CWD;
     process.env.INIT_CWD = cwd;
     try {
-      const code = await main(["replay", first.runId, "--headless", "--no-open"]);
+      const code = await main(["replay", first.runId, "--headless", "--no-open", "--config", join(cwd, "canary.config.ts")]);
       expect(code).toBe(0);
     } finally {
       process.env.INIT_CWD = previousCwd;
@@ -396,7 +396,7 @@ describe("canary replay", () => {
 
 describe("repetitions, tags, cancel and streaming artifacts", () => {
   it("runs case × repetitions and filters --tag", async () => {
-    const cwd = mkdtempSync(join(tmpdir(), "canary-reps-"));
+    const cwd = realpathSync.native(mkdtempSync(join(tmpdir(), "canary-reps-")));
     writeFileSync(join(cwd, "agent.mjs"), "export default async (input) => ({ value: input });", "utf8");
     writeFileSync(join(cwd, "cases.ts"), "export default [{ id: 'smoke', tags: ['fast'], input: 'ok', assertions: [{ type: 'output.exists' }] }, { id: 'slow', tags: ['slow'], input: 'later', assertions: [{ type: 'output.exists' }] }];", "utf8");
     writeFileSync(join(cwd, "canary.config.ts"), `export default { agent: { adapter: 'function', entry: './agent.mjs' }, cases: './cases.ts', coverage: { include: ['agent.mjs'], exclude: [] }, reporters: ['console', 'json'], web: { host: '127.0.0.1', open: false } };`, "utf8");
@@ -411,7 +411,7 @@ describe("repetitions, tags, cancel and streaming artifacts", () => {
   });
 
   it("writes a cancelled artifact when the run is aborted", async () => {
-    const cwd = mkdtempSync(join(tmpdir(), "canary-cancel-"));
+    const cwd = realpathSync.native(mkdtempSync(join(tmpdir(), "canary-cancel-")));
     writeFileSync(join(cwd, "agent.mjs"), "export default async () => new Promise(() => {});", "utf8");
     writeFileSync(join(cwd, "cases.ts"), "export default [{ id: 'stuck', input: 'ok' }];", "utf8");
     writeFileSync(join(cwd, "canary.config.ts"), `export default { agent: { adapter: 'function', entry: './agent.mjs' }, cases: './cases.ts', coverage: { include: ['agent.mjs'], exclude: [] }, web: { host: '127.0.0.1', open: false } };`, "utf8");
@@ -428,7 +428,7 @@ describe("repetitions, tags, cancel and streaming artifacts", () => {
   });
 
   it("cancels an in-flight case and persists the partial run", async () => {
-    const cwd = mkdtempSync(join(tmpdir(), "canary-cancel-live-"));
+    const cwd = realpathSync.native(mkdtempSync(join(tmpdir(), "canary-cancel-live-")));
     writeFileSync(join(cwd, "agent.mjs"), "export default async () => new Promise(() => {});", "utf8");
     writeFileSync(join(cwd, "cases.ts"), "export default [{ id: 'stuck', input: 'ok' }];", "utf8");
     writeFileSync(join(cwd, "canary.config.ts"), `export default { agent: { adapter: 'function', entry: './agent.mjs' }, cases: './cases.ts', coverage: { include: ['agent.mjs'], exclude: [] }, runtime: { timeoutMs: 5000 }, web: { host: '127.0.0.1', open: false } };`, "utf8");
@@ -445,7 +445,7 @@ describe("repetitions, tags, cancel and streaming artifacts", () => {
 
 describe("tool adapters, http black-box and concurrency", () => {
   it("injects MockToolAdapter so the agent uses ctx.tools.call", async () => {
-    const cwd = mkdtempSync(join(tmpdir(), "canary-mock-tools-"));
+    const cwd = realpathSync.native(mkdtempSync(join(tmpdir(), "canary-mock-tools-")));
     writeFileSync(join(cwd, "tools.mjs"), "export const demoTools = { echo: (args) => ({ echoed: args }) };", "utf8");
     writeFileSync(join(cwd, "agent.mjs"), "export default async (input, ctx) => { const args = { q: input }; ctx.emit({ type: 'tool.call', name: 'echo', args }); const value = await ctx.tools.call('echo', args); ctx.state.set('lastTool', 'echo'); ctx.emit({ type: 'state.snapshot', state: ctx.state.get() }); return value; };", "utf8");
     writeFileSync(join(cwd, "cases.ts"), "export default [{ id: 'echo', input: 'alpha', assertions: [{ type: 'tool.called', name: 'echo' }, { type: 'tool.args', name: 'echo', contains: { q: 'alpha' } }, { type: 'state.has', key: 'lastTool' }] }];", "utf8");
@@ -458,7 +458,7 @@ describe("tool adapters, http black-box and concurrency", () => {
   });
 
   it("runs MCP stdio tools through the runner tool chain", async () => {
-    const cwd = mkdtempSync(join(tmpdir(), "canary-mcp-tools-"));
+    const cwd = realpathSync.native(mkdtempSync(join(tmpdir(), "canary-mcp-tools-")));
     const script = "process.stdin.setEncoding('utf8'); let b=''; process.stdin.on('data',c=>{b+=c; const i=b.indexOf('\\n'); if(i>=0){ const m=JSON.parse(b.slice(0,i)); process.stdout.write(JSON.stringify({jsonrpc:'2.0',id:m.id,result:{ok:m.params.name,args:m.params.arguments}})+'\\n'); }});";
     writeFileSync(join(cwd, "agent.mjs"), "export default async (input, ctx) => { const args = { q: input }; ctx.emit({ type: 'tool.call', name: 'lookup', args }); return ctx.tools.call('lookup', args); };", "utf8");
     writeFileSync(join(cwd, "cases.ts"), "export default [{ id: 'mcp', input: 'alpha', assertions: [{ type: 'tool.called', name: 'lookup' }, { type: 'output.exists' }] }];", "utf8");
@@ -477,7 +477,7 @@ describe("tool adapters, http black-box and concurrency", () => {
     });
     await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", () => resolve()));
     const port = typeof server.address() === "object" && server.address() ? server.address()!.port : 0;
-    const cwd = mkdtempSync(join(tmpdir(), "canary-mcp-http-"));
+    const cwd = realpathSync.native(mkdtempSync(join(tmpdir(), "canary-mcp-http-")));
     writeFileSync(join(cwd, "agent.mjs"), "export default async (input, ctx) => { const args = { q: input }; ctx.emit({ type: 'tool.call', name: 'lookup', args }); return ctx.tools.call('lookup', args); };", "utf8");
     writeFileSync(join(cwd, "cases.ts"), "export default [{ id: 'mcp-http', input: 'alpha', assertions: [{ type: 'tool.called', name: 'lookup' }] }];", "utf8");
     writeFileSync(join(cwd, "canary.config.ts"), `export default { agent: { adapter: 'function', entry: './agent.mjs' }, cases: './cases.ts', tools: { adapter: 'mcp-http', url: 'http://127.0.0.1:${port}/mcp' }, coverage: { include: ['agent.mjs'] }, web: { host: '127.0.0.1', open: false } };`, "utf8");
@@ -503,7 +503,7 @@ describe("tool adapters, http black-box and concurrency", () => {
     });
     await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", () => resolve()));
     const port = typeof server.address() === "object" && server.address() ? server.address()!.port : 0;
-    const cwd = mkdtempSync(join(tmpdir(), "canary-http-demo-"));
+    const cwd = realpathSync.native(mkdtempSync(join(tmpdir(), "canary-http-demo-")));
     writeFileSync(join(cwd, "cases.ts"), "export default [{ id: 'http-echo', input: { goal: 'remote-task' }, assertions: [{ type: 'output.exists' }, { type: 'trajectory.required_event', event: 'http.request' }] }];", "utf8");
     writeFileSync(join(cwd, "canary.config.ts"), `export default { agent: { adapter: 'http', entry: 'http://127.0.0.1:${port}/agent' }, cases: './cases.ts', coverage: { include: ['cases.ts'] }, web: { host: '127.0.0.1', open: false } };`, "utf8");
     try {
@@ -519,7 +519,7 @@ describe("tool adapters, http black-box and concurrency", () => {
   });
 
   it("runs cases on a concurrent process pool", async () => {
-    const cwd = mkdtempSync(join(tmpdir(), "canary-pool-"));
+    const cwd = realpathSync.native(mkdtempSync(join(tmpdir(), "canary-pool-")));
     writeFileSync(join(cwd, "agent.mjs"), "export default async (input) => { const t = Date.now(); await new Promise((resolve) => setTimeout(resolve, 120)); return { value: input, t, done: Date.now() }; };", "utf8");
     writeFileSync(join(cwd, "cases.ts"), "export default [{ id: 'a', input: 'one', assertions: [{ type: 'output.exists' }] }, { id: 'b', input: 'two', assertions: [{ type: 'output.exists' }] }];", "utf8");
     writeFileSync(join(cwd, "canary.config.ts"), `export default { agent: { adapter: 'function', entry: './agent.mjs' }, cases: './cases.ts', coverage: { include: ['agent.mjs'] }, runtime: { concurrency: 2 }, web: { host: '127.0.0.1', open: false } };`, "utf8");
@@ -531,7 +531,7 @@ describe("tool adapters, http black-box and concurrency", () => {
   });
 
   it("emits bounded structured host output and records only an unapproved proposal", async () => {
-    const cwd = mkdtempSync(join(tmpdir(), "canary-host-protocol-"));
+    const cwd = realpathSync.native(mkdtempSync(join(tmpdir(), "canary-host-protocol-")));
     const configPath = join(cwd, "canary.config.ts");
     writeFileSync(join(cwd, "agent.mjs"), "export default async (input, ctx) => { ctx.emit({ type: 'tool_call', name: 'echo', secret: 'trace-secret' }); return { value: input, secret: 'output-secret' }; };", "utf8");
     writeFileSync(join(cwd, "cases.ts"), "export default [{ id: 'visible-case', input: 'input-secret', assertions: [{ type: 'output.exists' }] }];", "utf8");
@@ -622,7 +622,7 @@ describe("tool adapters, http black-box and concurrency", () => {
 
 describe("S-03 versioned experiences", () => {
   it("requires proposal validation and activation, injects only active context, and records references", async () => {
-    const cwd = mkdtempSync(join(tmpdir(), "canary-s03-cli-"));
+    const cwd = realpathSync.native(mkdtempSync(join(tmpdir(), "canary-s03-cli-")));
     const sourceFile = join(cwd, "agent.mjs");
     const sourceBefore = "export default async (input, ctx) => ({ input, experienceIds: ctx.experiences.map((item) => item.id), experienceVersions: ctx.experiences.map((item) => item.version) });";
     writeFileSync(sourceFile, sourceBefore, "utf8");
@@ -698,7 +698,7 @@ describe("S-03 versioned experiences", () => {
 
 describe("H-01 CLI isolation probe", () => {
   it("prints process boundaries and does not claim Node workers are an OS sandbox", async () => {
-    const cwd = mkdtempSync(join(tmpdir(), "canary-iso-cli-"));
+    const cwd = realpathSync.native(mkdtempSync(join(tmpdir(), "canary-iso-cli-")));
     writeFileSync(join(cwd, "agent.mjs"), "export default async (input) => ({ value: input });", "utf8");
     writeFileSync(join(cwd, "cases.ts"), "export default [{ id: 'smoke', input: 'ok' }];", "utf8");
     writeFileSync(join(cwd, "canary.config.ts"), `export default { agent: { adapter: 'function', entry: './agent.mjs' }, cases: './cases.ts', coverage: { include: ['agent.mjs'] } };`, "utf8");
