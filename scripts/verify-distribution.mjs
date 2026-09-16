@@ -1,5 +1,31 @@
-import { platform } from "node:os";
-const root=process.cwd();
-const rows=[
- ["Ubuntu Node 22","declared"],["Ubuntu Node 24","declared"],["Windows Node 22","declared"],["Windows Node 24",platform()==="win32"?"verified":"declared"],["macOS Node 22","declared"],["macOS Node 24","declared"],["paths with spaces","verified"],["non-default user directory","verified"],["independent install root","verified"],["independent project root","verified"],["clean install","declared"],["upgrade","declared"],["uninstall","declared"],["offline failure","verified"]
-]; console.log(JSON.stringify({version:1,root,results:Object.fromEntries(rows),excluded:["GitHub CI funding","npm registry packaging","signed artifacts"]},null,2));
+// Declaration inventory only: platform detection is not execution evidence.
+const scenarios = [
+  "Windows",
+  "Ubuntu LTS",
+  "macOS",
+  "Node 22 compatibility",
+  "Node 24 primary",
+  "paths with spaces",
+  "non-default user directory",
+  "independent install root",
+  "independent project root",
+  "clean install",
+  "upgrade",
+  "uninstall",
+  "offline failure",
+];
+console.log(
+  JSON.stringify(
+    {
+      version: 1,
+      kind: "canary.distribution.declarations",
+      executed: false,
+      root: process.cwd(),
+      results: Object.fromEntries(scenarios.map((name) => [name, "declared"])),
+      evidence: "See docs/evidence/r0-execution.md for the separately executed R0 scope; this command runs no checks.",
+      excluded: ["mandatory six-job CI matrix", "npm registry packaging", "signed artifacts"],
+    },
+    null,
+    2,
+  ),
+);

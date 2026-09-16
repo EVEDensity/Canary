@@ -5,6 +5,8 @@ import { homedir, platform } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { writeSourceLauncher } from "./source-launcher.mjs";
+
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const isWin = platform() === "win32";
 const binDir = isWin
@@ -69,14 +71,7 @@ function addToPath() {
   if (!current.includes(line)) writeFileSync(rc, `${current.trimEnd()}\n${line}\n`, "utf8");
 }
 function readFileIfExists(path) { try { return readFileSync(path, "utf8"); } catch { return ""; } }
-function writeLauncher() {
-  mkdirSync(binDir, { recursive: true });
-  const runnerPath = join(binDir, "canary-run.mjs");
-  const runner = `import { spawnSync } from "node:child_process";\nimport { existsSync } from "node:fs";\nimport { join } from "node:path";\nconst repoRoot = ${JSON.stringify(repoRoot)};\nconst cli = join(repoRoot, "packages/cli/src/index.ts");\nif (!existsSync(cli)) { console.error("canary install is broken: missing CLI at " + cli); process.exit(1); }\nconst result = spawnSync(process.execPath, ["--import", "tsx", cli, ...process.argv.slice(2)], { cwd: process.cwd(), stdio: "inherit", env: { ...process.env, CANARY_HOME: repoRoot } });\nprocess.exit(result.status ?? 1);\n`;
-  writeFileSync(runnerPath, runner, "utf8");
-  if (isWin) writeFileSync(join(binDir, "canary.cmd"), `@echo off\r\n"${process.execPath}" "${runnerPath}" %*\r\nexit /b %ERRORLEVEL%\r\n`, "utf8");
-  else { const launcher = join(binDir, "canary"); writeFileSync(launcher, `#!/usr/bin/env bash\nexec "${process.execPath}" "${runnerPath}" "$@"\n`, "utf8"); chmodSync(launcher, 0o755); }
-}
+function writeLauncher() { writeSourceLauncher(repoRoot, binDir); }
 
 ensureRuntime();
 assertCheckout();
