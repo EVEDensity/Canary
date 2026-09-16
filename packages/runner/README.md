@@ -12,4 +12,4 @@
 
 ## 当前实现注意
 
-Node worker 有超时、取消、IPC 校验和进程树清理，但继承宿主环境权限，**不是文件/网络安全沙箱**。HTTP/MCP 执行路径把 `AbortSignal` 传给请求/适配器；`createHttpAdapter` 本身仍是薄包装。端口 `CaseExecutor` / `createRunnerPorts()` 不是自动硬进化的安全保证。见[当前架构](../../docs/current/architecture.md)与[F-05 / H-01 任务](../../docs/roadmap/README.md)。
+Node worker 有统一的超时、取消、预算终止、IPC 校验和进程树清理，并为每次运行隔离 tmp/work/env/port/lock；子进程仍继承宿主权限，**不是文件/网络安全沙箱**。崩溃后可从 `checkpoint.json` 读取 partial run 并收尾，不会覆盖已完成结果。HTTP/MCP 把 `AbortSignal` 映射为 timeout/cancelled。见[当前架构](../../docs/current/architecture.md)与 [R1 路线图](../../docs/roadmap/06-personal-production-test-roadmap.md)。

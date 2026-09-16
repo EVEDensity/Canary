@@ -64,7 +64,7 @@ const send = (message) => new Promise((resolve) => {
     if (useIstanbul && coverageMod) {
       const entryPath = fileURLToPath(payload.entry);
       const instrumented = coverageMod.instrumentIstanbul(fs.readFileSync(entryPath, "utf8"), entryPath);
-      istanbulTmp = path.join(os.tmpdir(), "canary-istanbul-" + process.pid + path.extname(entryPath));
+      istanbulTmp = path.join(process.env.CANARY_TMPDIR || os.tmpdir(), "canary-istanbul-" + process.pid + path.extname(entryPath));
       fs.writeFileSync(istanbulTmp, instrumented.code);
       entryUrl = pathToFileURL(istanbulTmp).href;
     }

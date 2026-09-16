@@ -1,8 +1,8 @@
-import { spawn, spawnSync, type ChildProcess } from "node:child_process";
-import { existsSync } from "node:fs";
+import { spawn, type ChildProcess } from "node:child_process";
+import { existsSync, mkdirSync, rmSync } from "node:fs";
 import { createRequire } from "node:module";
 import { randomUUID } from "node:crypto";
-import { extname, resolve } from "node:path";
+import { extname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import type { CanaryConfig, CanaryModelConfig, CanaryToolsConfig, CoverageScript, CoverageSummary, EvalResult, FeatureDefinition, LoadedExperience, RunnerEvent, TestCase, Trajectory, TrajectoryEvent } from "@canary/core";
 import { IPC_MAX_BYTES, IPC_PROTOCOL_VERSION, parseChildMessage, snapshotSourceCase } from "@canary/core";
@@ -11,25 +11,21 @@ import type { FeatureEvent } from "@canary/coverage";
 import type { CoverageSourceConfig } from "@canary/coverage";
 import { evaluateAgent, attributeFailure, createJudgeProvider, type JudgePolicy, type JudgeProvider } from "@canary/evaluators";
 import { runHttpAgent, runMcpAgent } from "@canary/adapters";
-import { spawnIsolatedNode, assertIsolatedNetwork, denyUncontrolledMcp, type IsolationRequest } from "@canary/isolation";
+import { spawnIsolatedNode, assertIsolatedNetwork, denyUncontrolledMcp, killProcessTree, PROCESS_ADAPTER, waitForExit, type IsolationRequest } from "@canary/isolation";
 import { createChildScript } from "./child-script.js";
+import { budgetExceeded, budgetUsed, classifyRemoteFailure, classifyTermination, failureMessageFor } from "./lifecycle.js";
+import { defaultTmpRoot, isolatedEnv, type ExecutionWorkspace } from "./workspace.js";
 
 export type { RunnerEvent } from "@canary/core";
+export { killProcessTree, pidAlive, reclaimOrphans, waitForExit, PROCESS_ADAPTER } from "@canary/isolation";
+export { budgetExceeded, budgetUsed, classifyRemoteFailure, classifyTermination } from "./lifecycle.js";
+export { RunIsolationError, acquireRunLock, createExecutionWorkspace, isolatedEnv, releaseRunLock, reservePort, assertExclusiveTempDir } from "./workspace.js";
+export type { ExecutionWorkspace, IsolationFaultCode, PortLease } from "./workspace.js";
+export { findCheckpointForPid, listCheckpoints, readCheckpoint, recoverPartialRun, recoverStaleRuns, writeCheckpoint } from "./checkpoint.js";
+export type { RecoveredRun, RunCheckpoint } from "./checkpoint.js";
 
 export const DEFAULT_SAMPLE_INTERVAL_MS = 1000;
 export const DEFAULT_KILL_GRACE_MS = 500;
-
-export function killProcessTree(pid: number, signal: NodeJS.Signals = "SIGKILL"): void {
-  if (!pid) return;
-  if (process.platform === "win32") {
-    spawnSync("taskkill", ["/PID", String(pid), "/T", "/F"], { stdio: "ignore", windowsHide: true });
-    return;
-  }
-  try { process.kill(-pid, signal); }
-  catch {
-    try { process.kill(pid, signal); } catch { /* already exited */ }
-  }
-}
 
 export interface ExecutionOptions {
   cwd?: string;
@@ -59,6 +55,8 @@ export interface ExecutionOptions {
   judge?: JudgeProvider;
   judgePolicy?: JudgePolicy;
   isolation?: IsolationRequest;
+  workspace?: ExecutionWorkspace;
+  onChildPid?: (pid: number) => void;
 }
 type ChildMessage =
   | { v: 1; type: "ready" }
@@ -84,11 +82,14 @@ function resolveToolPayload(cwd: string, tools?: CanaryToolsConfig): CanaryTools
   return next;
 }
 
-function spawnExecution(options: ExecutionOptions, executionId: string): ChildProcess {
+function spawnExecution(options: ExecutionOptions, executionId: string): { child: ChildProcess; tmpDir: string; ephemeralTmp: boolean } {
   const cwd = options.cwd ?? process.cwd();
   const require = createRequire(import.meta.url);
   const tsxLoader = pathToFileURL(require.resolve("tsx")).href;
   const entry = pathToFileURL(resolve(cwd, options.entry)).href;
+  const ephemeralTmp = !options.workspace;
+  const tmpDir = options.workspace?.tmpDir ?? join(defaultTmpRoot(), `canary-exec-${options.runId}-${executionId}`);
+  mkdirSync(tmpDir, { recursive: true });
   const workerData = JSON.stringify({
     entry,
     exportName: options.exportName,
@@ -108,21 +109,29 @@ function spawnExecution(options: ExecutionOptions, executionId: string): ChildPr
     experiences: options.experiences ?? [],
   });
   const args = ["--enable-source-maps", "--import", tsxLoader, "-e", createChildScript()];
-  if (options.isolation) {
-    return spawnIsolatedNode(
-      { ...options.isolation, extraEnv: { ...options.isolation.extraEnv, CANARY_WORKER_DATA: workerData } },
-      args,
-    );
-  }
-  return spawn(options.nodeExecutable ?? process.execPath, args, {
-    cwd,
-    detached: process.platform !== "win32",
-    env: {
-      ...process.env,
+  const env = isolatedEnv(
+    tmpDir,
+    {
+      CANARY_RUN_ID: options.runId,
+      CANARY_CASE_ID: options.caseId,
+      CANARY_WORKDIR: options.workspace?.workDir,
       CANARY_WORKER_DATA: workerData,
     },
-    stdio: ["ignore", "ignore", "pipe", "ipc"],
-  });
+    options.workspace?.env ?? process.env,
+  );
+  const child = options.isolation
+    ? spawnIsolatedNode(
+        { ...options.isolation, extraEnv: { ...options.isolation.extraEnv, ...env } },
+        args,
+      )
+    : spawn(options.nodeExecutable ?? process.execPath, args, {
+        cwd,
+        detached: PROCESS_ADAPTER.usesProcessGroups,
+        windowsHide: true,
+        env,
+        stdio: ["ignore", "ignore", "pipe", "ipc"],
+      });
+  return { child, tmpDir, ephemeralTmp };
 }
 function makeCoverage(options: ExecutionOptions, scripts: CoverageScript[], partial: boolean, events: TrajectoryEvent[], initCaptured = false): CoverageSummary {
   if (!scripts.length) return { ...emptyCoverage(options.runId), lifecycle: { initCaptured, taskWindow: "reset-after-init" } };
@@ -135,10 +144,6 @@ function makeCoverage(options: ExecutionOptions, scripts: CoverageScript[], part
   const enriched = assignFeatureCoverage(base, options.features ?? [], featureEvents, options.testCase?.expectedFeatures ?? [], options.caseId, options.coverage.rootDir ?? options.cwd ?? process.cwd());
   return { ...enriched, status: partial ? "partial" : enriched.status, lifecycle: { initCaptured, taskWindow: "reset-after-init" } };
 }
-function budgetUsed(events: TrajectoryEvent[]): number {
-  return events.reduce((total, event) => total + (typeof event.cost === "number" ? event.cost : typeof event.budgetUsed === "number" ? event.budgetUsed : 0), 0);
-}
-
 export async function runExecution(options: ExecutionOptions): Promise<EvalResult> {
   const executionId = `exec_${randomUUID()}`; const startedAt = Date.now(); const events: TrajectoryEvent[] = [];
   if (options.signal?.aborted) {
@@ -148,29 +153,50 @@ export async function runExecution(options: ExecutionOptions): Promise<EvalResul
     options.onEvent?.({ type: "execution.failed", executionId, error: "Execution cancelled" });
     return finishEvaluation(options, executionId, startedAt, events, undefined, "Execution cancelled", coverage, "cancelled");
   }
-  const child = spawnExecution(options, executionId); let settled = false; let failure: string | undefined; let output: unknown;
-  let scripts: CoverageScript[] = []; let initScripts: CoverageScript[] = []; let coveragePartial = false; let didTimeout = false; let didCancel = false; let exitCode: number | null = null; let stderr = "";
+  const spawned = spawnExecution(options, executionId);
+  const child = spawned.child; let settled = false; let failure: string | undefined; let output: unknown;
+  let scripts: CoverageScript[] = []; let initScripts: CoverageScript[] = []; let coveragePartial = false;
+  let didTimeout = false; let didCancel = false; let didBudget = false; let stderr = "";
   let lastProvisionalKey = ""; let lastProvisionalAt = 0;
+  if (child.pid) {
+    options.workspace?.recordChildPid(child.pid);
+    options.onChildPid?.(child.pid);
+  }
   const sampleMinIntervalMs = options.coverage.sampleMinIntervalMs ?? 200;
   const killGraceMs = options.killGraceMs ?? DEFAULT_KILL_GRACE_MS;
   let killTimer: NodeJS.Timeout | undefined;
   const stopChild = (): void => {
     if (!child.pid || child.exitCode !== null) return;
-    try { child.kill("SIGTERM"); } catch { /* ignore */ }
-    killTimer = setTimeout(() => { if (child.exitCode === null && child.pid) killProcessTree(child.pid, "SIGKILL"); }, killGraceMs);
+    try { child.kill(PROCESS_ADAPTER.terminateSignal); } catch { /* ignore */ }
+    killTimer = setTimeout(() => { if (child.exitCode === null && child.pid) killProcessTree(child.pid, PROCESS_ADAPTER.killSignal); }, killGraceMs);
   };
   options.onEvent?.({ type: "execution.started", runId: options.runId, executionId, caseId: options.caseId });
   child.stderr?.setEncoding("utf8"); child.stderr?.on("data", (chunk: string) => { stderr += chunk; });
-  const cancel = (): void => { if (!settled) { didCancel = true; failure = "Execution cancelled"; stopChild(); } };
+  const cancel = (): void => { if (!settled && !didCancel) { didCancel = true; failure = "Execution cancelled"; stopChild(); } };
   options.signal?.addEventListener("abort", cancel, { once: true });
-  const timeout = setTimeout(() => { if (!settled) { didTimeout = true; failure = `Execution timed out after ${options.timeoutMs ?? 60_000}ms`; stopChild(); } }, options.timeoutMs ?? 60_000);
+  const timeout = setTimeout(() => {
+    if (!settled && !didCancel && !didBudget) {
+      didTimeout = true;
+      failure = `Execution timed out after ${options.timeoutMs ?? 60_000}ms`;
+      stopChild();
+    }
+  }, options.timeoutMs ?? 60_000);
   await new Promise<void>((resolvePromise) => {
     const done = (): void => { if (!settled) { settled = true; resolvePromise(); } };
     child.on("message", (raw: unknown) => {
       let message: ChildMessage;
       try { message = parseChildMessage(raw) as ChildMessage; }
       catch (error) { failure ??= error instanceof Error ? error.message : String(error); return; }
-      if (message.type === "event") { events.push(message.event); options.onEvent?.({ type: "trace.event", executionId, event: message.event }); }
+      if (message.type === "event") {
+        events.push(message.event);
+        options.onEvent?.({ type: "trace.event", executionId, event: message.event });
+        const over = budgetExceeded(events, { maxSteps: options.maxSteps, maxToolCalls: options.maxToolCalls, maxBudget: options.maxBudget });
+        if (over && !settled && !didCancel && !didTimeout && !didBudget) {
+          didBudget = true;
+          failure = over;
+          stopChild();
+        }
+      }
       else if (message.type === "result") output = message.value;
       else if (message.type === "error") failure ??= message.error;
       else if (message.type === "coverage") {
@@ -189,18 +215,28 @@ export async function runExecution(options: ExecutionOptions): Promise<EvalResul
       }
     });
     child.once("error", (error: Error) => { failure ??= error.stack ?? error.message; done(); });
-    child.once("close", (code: number | null) => { exitCode = code; if (code && !failure) failure = stderr.trim() ? `Execution child exited with code ${code}: ${stderr.trim()}` : `Execution child exited with code ${code}`; done(); });
+    child.once("close", (code: number | null) => {
+      if (code && !failure && !didTimeout && !didCancel && !didBudget) {
+        failure = stderr.trim() ? `Execution child exited with code ${code}: ${stderr.trim()}` : `Execution child exited with code ${code}`;
+      }
+      done();
+    });
   });
   if (killTimer) clearTimeout(killTimer);
   clearTimeout(timeout); options.signal?.removeEventListener("abort", cancel);
-  const termination: Trajectory["termination"] = didTimeout ? "timeout" : didCancel ? "cancelled" : failure ? "error" : "completed";
-  const coverage = makeCoverage(options, scripts, coveragePartial || didTimeout || didCancel, events, initScripts.length > 0);
+  if (child.pid) await waitForExit(child.pid, Math.max(killGraceMs, 500));
+  if (spawned.ephemeralTmp) {
+    try { rmSync(spawned.tmpDir, { recursive: true, force: true }); } catch { /* keep evidence if the OS still holds the dir */ }
+  }
+  const termination = classifyTermination({ cancelled: didCancel, timeout: didTimeout, budgetExceeded: didBudget, error: Boolean(failure) });
+  failure = failureMessageFor(termination, failure);
+  const coverage = makeCoverage(options, scripts, coveragePartial || termination !== "completed", events, initScripts.length > 0);
   options.onCoverage?.(coverage); options.onEvent?.({ type: "coverage.updated", executionId, coverage });
   if (failure) options.onEvent?.({ type: "execution.failed", executionId, error: failure });
   return finishEvaluation(options, executionId, startedAt, events, output, failure, coverage, termination);
 }
 
-export interface RunOptions { config: CanaryConfig; cwd?: string; runId: string; onEvent?: (event: RunnerEvent) => void; onCoverage?: (summary: CoverageSummary) => void; manifest?: CoverageSourceConfig["manifest"]; signal?: AbortSignal; repetition?: number; repetitionTotal?: number; judge?: JudgeProvider; judgePolicy?: JudgePolicy; experiences?: LoadedExperience[]; isolation?: IsolationRequest }
+export interface RunOptions { config: CanaryConfig; cwd?: string; runId: string; onEvent?: (event: RunnerEvent) => void; onCoverage?: (summary: CoverageSummary) => void; manifest?: CoverageSourceConfig["manifest"]; signal?: AbortSignal; repetition?: number; repetitionTotal?: number; judge?: JudgeProvider; judgePolicy?: JudgePolicy; experiences?: LoadedExperience[]; isolation?: IsolationRequest; workspace?: ExecutionWorkspace; onChildPid?: (pid: number) => void }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
@@ -245,13 +281,28 @@ export async function runHttpExecution(options: ExecutionOptions): Promise<EvalR
   const emit = (event: TrajectoryEvent) => { events.push(event); options.onEvent?.({ type: "trace.event", executionId, event }); };
   emit({ type: "http.request", timestamp: new Date().toISOString(), url: options.entry });
   if (options.isolation) assertIsolatedNetwork(options.entry, { allowHosts: options.isolation.policy.networkAllowHosts });
-  let output: unknown; let failure: string | undefined;
-  try { output = await runHttpAgent(options.entry, options.input, options.timeoutMs ?? 10_000, options.signal); emit({ type: "http.response", timestamp: new Date().toISOString() }); }
-  catch (error) { failure = error instanceof Error ? error.message : String(error); options.onEvent?.({ type: "execution.failed", executionId, error: failure }); }
+  let output: unknown; let failure: string | undefined; let termination: Trajectory["termination"] = "completed";
+  const timedOut = { current: false };
+  const timer = setTimeout(() => { timedOut.current = true; }, options.timeoutMs ?? 10_000);
+  try {
+    output = await runHttpAgent(options.entry, options.input, options.timeoutMs ?? 10_000, options.signal);
+    emit({ type: "http.response", timestamp: new Date().toISOString() });
+  } catch (error) {
+    const aborted = error instanceof Error && (error.name === "AbortError" || /abort/i.test(error.message));
+    const classified = classifyRemoteFailure(error, {
+      cancelled: Boolean(options.signal?.aborted),
+      timeout: (timedOut.current || aborted) && !options.signal?.aborted,
+    });
+    failure = classified.failure;
+    termination = classified.termination;
+    options.onEvent?.({ type: "execution.failed", executionId, error: failure });
+  } finally {
+    clearTimeout(timer);
+  }
   const coverage = emptyCoverage(options.runId);
   options.onCoverage?.(coverage);
   options.onEvent?.({ type: "coverage.updated", executionId, coverage });
-  return finishEvaluation(options, executionId, startedAt, events, output, failure, coverage, failure ? "error" : "completed");
+  return finishEvaluation(options, executionId, startedAt, events, output, failure, coverage, termination);
 }
 
 export async function runMcpExecution(options: ExecutionOptions): Promise<EvalResult> {
@@ -267,13 +318,28 @@ export async function runMcpExecution(options: ExecutionOptions): Promise<EvalRe
   const args = isTypeScript ? ["--import", tsxLoader, entry] : [entry];
   emit({ type: "mcp.request", timestamp: new Date().toISOString(), command, entry });
   if (options.isolation) denyUncontrolledMcp();
-  let output: unknown; let failure: string | undefined;
-  try { output = await runMcpAgent(command, args, options.input, options.timeoutMs ?? 10_000, options.signal); emit({ type: "mcp.response", timestamp: new Date().toISOString() }); }
-  catch (error) { failure = error instanceof Error ? error.message : String(error); options.onEvent?.({ type: "execution.failed", executionId, error: failure }); }
+  let output: unknown; let failure: string | undefined; let termination: Trajectory["termination"] = "completed";
+  const timedOut = { current: false };
+  const timer = setTimeout(() => { timedOut.current = true; }, options.timeoutMs ?? 10_000);
+  try {
+    output = await runMcpAgent(command, args, options.input, options.timeoutMs ?? 10_000, options.signal);
+    emit({ type: "mcp.response", timestamp: new Date().toISOString() });
+  } catch (error) {
+    const aborted = error instanceof Error && (error.name === "AbortError" || /abort/i.test(error.message));
+    const classified = classifyRemoteFailure(error, {
+      cancelled: Boolean(options.signal?.aborted),
+      timeout: (timedOut.current || aborted) && !options.signal?.aborted,
+    });
+    failure = classified.failure;
+    termination = classified.termination;
+    options.onEvent?.({ type: "execution.failed", executionId, error: failure });
+  } finally {
+    clearTimeout(timer);
+  }
   const coverage = emptyCoverage(options.runId);
   options.onCoverage?.(coverage);
   options.onEvent?.({ type: "coverage.updated", executionId, coverage });
-  return finishEvaluation(options, executionId, startedAt, events, output, failure, coverage, failure ? "error" : "completed");
+  return finishEvaluation(options, executionId, startedAt, events, output, failure, coverage, termination);
 }
 
 export async function mapLimit<T, R>(items: readonly T[], limit: number, mapper: (item: T, index: number) => Promise<R>): Promise<R[]> {
@@ -327,6 +393,8 @@ export async function runConfiguredCase(options: RunOptions, testCase: TestCase)
     judge: options.judge ?? (options.config.judge ? createJudgeProvider(options.config.judge) : undefined),
     judgePolicy: options.judgePolicy ?? { required: options.config.judge?.required, providerKind: options.config.judge?.provider },
     isolation: options.isolation,
+    workspace: options.workspace,
+    onChildPid: options.onChildPid,
   };
   if (options.config.agent.adapter === "http") return runHttpExecution(shared);
   if (options.config.agent.adapter === "mcp") return runMcpExecution(shared);
