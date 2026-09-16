@@ -1050,7 +1050,8 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
       console.log(rest.includes("--json") ? JSON.stringify(version) : version.canaryVersion);
       return 0;
     }
-    const payload = command === "paths" ? pathsSnapshot(undefined, configPath) : diagnosticSnapshot(undefined, configPath);
+    const payload =
+      command === "paths" ? pathsSnapshot(undefined, configPath) : await diagnosticSnapshot(undefined, configPath);
     console.log(JSON.stringify(payload, null, rest.includes("--json") ? undefined : 2));
     return "exitCode" in payload ? payload.exitCode : 0;
   }
