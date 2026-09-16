@@ -223,7 +223,7 @@ projectRoot 优先级是显式 --config > 最近祖先配置 > 调用目录（�
 
 ### R2：配置发现与自我诊断
 
-状态：待实施（下一阶段）。R0 已建立 roots、doctor/paths/version 的最小 schema 和部分缺失诊断；完整冲突/权限/修复验收仍未完成。
+状态：**已完成（Windows Node 24 范围）**。证据见 [R2 执行记录](../evidence/r2-execution-record.md)；Ubuntu/macOS 与 Node 22 不据此标记 verified。
 
 目标：让 canary run --ci 能自己找出“为什么没有正常测试”。
 
@@ -281,20 +281,21 @@ projectRoot 优先级是显式 --config > 最近祖先配置 > 调用目录（�
 
 ## 10. 当前状态与首批执行顺序
 
-截至 2026-09-16：
+截至 2026-09-17：
 
-| 能力                                                           | 当前状态                                     | 说明                                                                               |
-| -------------------------------------------------------------- | -------------------------------------------- | ---------------------------------------------------------------------------------- |
-| Canary 本地评估、trace、artifact、Web 控制面                   | verified（仓库内）                           | 已有历史证据，但仍需按新 schema 收敛                                               |
-| 运行器超时/取消/预算、进程树、锁/tmp/port、checkpoint 恢复     | verified（Windows Node 24）                  | Ubuntu/macOS 与 Node 22 仍为 declared；见 [R1](../evidence/r1-execution-record.md) |
-| 基础 CLI version/paths/doctor/run                              | declared                                     | 有实现，--ci 全局产品契约尚未完成                                                  |
-| 三平台                                                         | declared                                     | 当前本地 Windows 证据不能代表 Ubuntu/macOS                                         |
-| Node 24                                                        | verified（本地基线）                         | 需绑定实际命令和日期                                                               |
-| Node 22                                                        | declared                                     | 尚未作为新路线图的完整兼容证据                                                     |
-| AgentHub 适配                                                  | excluded（写死适配）/blocked（当前样本运行） | AgentHub 是样本，不是 Canary 架构要求；其测试存在收集阻塞和失败                    |
-| pi 等开源 Agent fixture                                        | declared                                     | 需建立固定来源和离线/凭证边界                                                      |
-| npm、独立 registry package、平台二进制、签名、SBOM、provenance | excluded                                     | 用户明确暂不考虑，不作为本路线图缺口                                               |
-| 自动外发、云端观测、完整 Phoenix/Langfuse 生态适配             | excluded                                     | 不属于个人本地优先核心                                                             |
+| 能力                                                           | 当前状态                                                        | 说明                                                                               |
+| -------------------------------------------------------------- | --------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| Canary 本地评估、trace、artifact、Web 控制面                   | verified（仓库内）                                              | 已有历史证据，但仍需按新 schema 收敛                                               |
+| 运行器超时/取消/预算、进程树、锁/tmp/port、checkpoint 恢复     | verified（Windows Node 24）                                     | Ubuntu/macOS 与 Node 22 仍为 declared；见 [R1](../evidence/r1-execution-record.md) |
+| 配置发现、doctor/paths/version 诊断                            | verified（Windows Node 24）                                     | Ubuntu/macOS 与 Node 22 仍为 declared；见 [R2](../evidence/r2-execution-record.md) |
+| 基础 CLI version/paths/doctor/run                              | doctor/paths/version 已按 R2 验收；run --ci 全局产品契约仍属 R4 | 普通 run 与跨语言检查编排尚未按 R4/R5 完成                                         |
+| 三平台                                                         | declared                                                        | 当前本地 Windows 证据不能代表 Ubuntu/macOS                                         |
+| Node 24                                                        | verified（本地基线）                                            | 需绑定实际命令和日期                                                               |
+| Node 22                                                        | declared                                                        | 尚未作为新路线图的完整兼容证据                                                     |
+| AgentHub 适配                                                  | excluded（写死适配）/blocked（当前样本运行）                    | AgentHub 是样本，不是 Canary 架构要求；其测试存在收集阻塞和失败                    |
+| pi 等开源 Agent fixture                                        | declared                                                        | 需建立固定来源和离线/凭证边界                                                      |
+| npm、独立 registry package、平台二进制、签名、SBOM、provenance | excluded                                                        | 用户明确暂不考虑，不作为本路线图缺口                                               |
+| 自动外发、云端观测、完整 Phoenix/Langfuse 生态适配             | excluded                                                        | 不属于个人本地优先核心                                                             |
 
 首批执行顺序固定为：R0、R1、R2、R3、R4、R5、R6、R7、R8。R8 只有在核心稳定后实施。
 

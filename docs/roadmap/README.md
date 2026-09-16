@@ -20,7 +20,7 @@ Canary 的定位是本地优先的 Agent/应用测试工作台，目标是个人
 | ---- | ------------------------------------- | --------------------------------------------------------------------------- |
 | R0   | 基线冻结、根目录和 CLI 契约           | 已完成，见 [R0 证据](../evidence/r0-execution.md)                           |
 | R1   | 运行器稳定性、隔离、并发和恢复        | 已完成（Windows Node 24），见 [R1 证据](../evidence/r1-execution-record.md) |
-| R2   | 配置发现、`doctor/paths/version` 诊断 | 待实施                                                                      |
+| R2   | 配置发现、`doctor/paths/version` 诊断 | 已完成（Windows Node 24），见 [R2 证据](../evidence/r2-execution-record.md) |
 | R3   | artifact、隐私、可复现和证据链        | 待实施                                                                      |
 | R4   | 全局 `canary run --ci` 门禁           | 待实施                                                                      |
 | R5   | 全面 `canary run` 和本地报告页面      | 待实施                                                                      |
@@ -28,7 +28,7 @@ Canary 的定位是本地优先的 Agent/应用测试工作台，目标是个人
 | R7   | 长跑、容量、断点恢复和运行手册        | 待实施                                                                      |
 | R8   | 受控 Skill/软自进化                   | 核心稳定后实施                                                              |
 
-R0 完成范围是现有 Agent case CI 入口、根目录/退出码/schema 冻结和 Windows 本地验收。R1 完成范围是运行器状态/超时/取消/预算、隔离与 Windows 进程树恢复；不代表 R2–R7 或三平台生产级验收完成。下一任务是 R2。
+R0 完成范围是现有 Agent case CI 入口、根目录/退出码/schema 冻结和 Windows 本地验收。R1 完成范围是运行器状态/超时/取消/预算、隔离与 Windows 进程树恢复。R2 完成范围是配置发现与 doctor/paths/version 的冲突/权限/修复建议验收（Windows Node 24）；不代表 R3–R7 或三平台生产级验收完成。下一任务是 R3。
 
 阶段的详细交付物、依赖、验收命令、状态定义和排除项见[新路线图](06-personal-production-test-roadmap.md)。
 
