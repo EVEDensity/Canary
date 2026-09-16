@@ -5,17 +5,17 @@
 
 ## 按目的阅读
 
-| 我想做什么                                    | 从这里开始                                                                                             |
-| --------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| 运行当前项目                                  | [安装与启动](guides/getting-started.md) → [运行 / UI / Replay](guides/running-and-ui.md)               |
-| 接入自己的 Agent                              | [适配器与环境](guides/adapters-and-environment.md) → [评估与覆盖率](guides/evaluation-and-coverage.md) |
-| 使用已有改进建议                              | [当前 improvement 流程](guides/improvement.md)，不是自动进化                                           |
-| 理解实际实现                                  | [当前架构](current/architecture.md) → [源码核对与缺口](evidence/code-audit.md)                         |
-| 理解理想 Agent 自循环                         | [理想自循环](design/agent-loop.md) → [硬规范与软 / 硬进化](design/evolution-policy.md)                 |
-| 理解全局安装、Dashboard、Skill/MCP 的产品目标 | [产品目标架构](design/product-architecture.md)                                                         |
-| 接手下一项开发                                | **[任务总表与依赖](roadmap/README.md)**，按任务 ID 领取一个切片                                        |
-| 查看实测数据与旧报告                          | [本轮验证](evidence/validation-baseline.md) / [历史数据索引](evidence/historical-results.md)           |
-| 查资料与旧设计来由                            | [研究资料](research/agent-evolution.md) / [历史档案](archive/README.md)                                |
+| 我想做什么                                    | 从这里开始                                                                                                                                                            |
+| --------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 运行当前项目                                  | [安装与启动](guides/getting-started.md) → [运行 / UI / Replay](guides/running-and-ui.md)                                                                              |
+| 接入自己的 Agent                              | [适配器与环境](guides/adapters-and-environment.md) → [评估与覆盖率](guides/evaluation-and-coverage.md)                                                                |
+| 使用已有改进建议                              | [当前 improvement 流程](guides/improvement.md)，不是自动进化                                                                                                          |
+| 理解实际实现                                  | [当前架构](current/architecture.md) → [源码核对与缺口](evidence/code-audit.md)                                                                                        |
+| 理解理想 Agent 自循环                         | [理想自循环](design/agent-loop.md) → [硬规范与软 / 硬进化](design/evolution-policy.md)                                                                                |
+| 理解全局安装、Dashboard、Skill/MCP 的产品目标 | [产品目标架构](design/product-architecture.md)                                                                                                                        |
+| 接手下一项开发                                | **[任务总表与依赖](roadmap/README.md)**，按任务 ID 领取一个切片                                                                                                       |
+| 查看实测数据与旧报告                          | [本轮验证](evidence/validation-baseline.md) / [R0](evidence/r0-execution.md) / [R1](evidence/r1-execution-record.md) / [历史数据索引](evidence/historical-results.md) |
+| 查资料与旧设计来由                            | [研究资料](research/agent-evolution.md) / [历史档案](archive/README.md)                                                                                               |
 
 ## 目录职责
 
