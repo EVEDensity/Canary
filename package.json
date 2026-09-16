@@ -23,6 +23,7 @@
     "check:demo": "pnpm demo:headless",
     "install:global": "node scripts/install-global.mjs",
     "canary": "pnpm --filter @canary/cli canary",
+    "verify:r0": "node scripts/verify-r0.mjs",
     "verify:distribution": "node scripts/verify-distribution.mjs"
   },
   "devDependencies": {
