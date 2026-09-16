@@ -44,3 +44,5 @@ export {
   reportFormatSchema,
   runSnapshotSchema,
 } from "./schema.js";
+
+export * from "./cli-contracts.js";

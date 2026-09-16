@@ -12,9 +12,10 @@ export const CORE_CONTRACTS = {
   activation: { v: 1, wired: true as const },
 } as const;
 
+// "install" is retained for historical consumers only; new resolvers never emit it.
 export type ProjectContextSource = "config" | "walk" | "install" | "cwd";
 
-/** Roots used by every CLI command. artifactRoot always follows projectRoot. */
+/** R0 roots. artifactRoot is the project artifact collection; runId selects one run directory. */
 export interface ProjectContext {
   v: 1;
   invocationRoot: string;
