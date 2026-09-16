@@ -1,6 +1,6 @@
 import { existsSync, readFileSync, realpathSync } from "node:fs";
 import { homedir } from "node:os";
-import { dirname, resolve, isAbsolute } from "node:path";
+import { dirname, relative, resolve, isAbsolute } from "node:path";
 import { fileURLToPath } from "node:url";
 import { projectContextSchema, type ProjectContext } from "@canary/core";
 
@@ -22,6 +22,15 @@ export function canonicalPath(path: string): string {
   } catch {
     return absolute;
   }
+}
+
+/** True when child is the parent or a descendant. Uses canonical existing paths; missing paths stay resolved. */
+export function isInsideRoot(child: string, parent: string): boolean {
+  const c = canonicalPath(child);
+  const p = canonicalPath(parent);
+  if (c === p) return true;
+  const rel = relative(p, c);
+  return rel !== "" && !rel.startsWith("..") && !isAbsolute(rel);
 }
 export function installationMetadata(file = CANARY_HOME_FILE): {
   status: "valid" | "missing" | "invalid";
