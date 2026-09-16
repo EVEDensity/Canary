@@ -299,6 +299,7 @@ export type FailureKind =
   | "loop"
   | "timeout"
   | "cancelled"
+  | "budget_exceeded"
   | "state_mismatch"
   | "coverage_gap"
   | "policy_violation"
@@ -368,6 +369,7 @@ export function attributeFailure(result: EvalResult): FailureAttribution {
   const termination = result.trajectory?.termination;
   if (result.failureCategory === "timeout" || termination === "timeout") return rationaleOf("timeout", "Execution timed out", 0.9);
   if (result.failureCategory === "cancelled" || termination === "cancelled") return rationaleOf("cancelled", "Execution cancelled", 0.9);
+  if (result.failureCategory === "budget_exceeded" || termination === "budget_exceeded") return rationaleOf("budget_exceeded", "Execution exceeded budget", 0.9);
   if (trajectoryEvents(result).some((event) => isPolicyEvent(event.type)) && !expectsEvent(result, "policy.violation")) {
     return rationaleOf("policy_violation", "Unexpected policy violation", 0.9);
   }

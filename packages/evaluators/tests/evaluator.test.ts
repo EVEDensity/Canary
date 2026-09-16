@@ -165,6 +165,17 @@ describe("coverage / feature gates", () => {
     });
     expect(attributed.kind).toBe("wrong_output");
     expect(attributed.category).toBe("prompt");
+    expect(
+      attributeFailure({
+        runId: "r",
+        executionId: "e",
+        caseId: "c",
+        passed: false,
+        assertions: [{ id: "agent.completed", passed: false, message: "budget" }],
+        coverage: coverage("partial", 10),
+        trajectory: trajectory([], "budget_exceeded"),
+      }).kind,
+    ).toBe("budget_exceeded");
   });
 });
 
