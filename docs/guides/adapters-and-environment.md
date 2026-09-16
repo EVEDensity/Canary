@@ -19,7 +19,7 @@ Function Agent 的 context 提供 emit、tools、state、model 等由 Runner 组
 - `tools.adapter` 可选 mock / mcp-stdio / mcp-http；Agent 通过 `ctx.tools.call` 使用，配置与 Agent adapter 独立。
 - MemoryStateStore 支持 get/set/snapshot/restore/reset；snapshot 仅覆盖它管理的内存值，不能撤销真实 HTTP 写入、文件修改或生产数据库操作。
 - Case 的 environment.state 可作为初始状态；不把类型里的所有可选字段都当成 Runner 已消费，接入前核对具体路径。
-- Function 执行有子进程生命周期控制，但不是沙箱；配置、用例与断言仍可能在宿主执行。不要在当前实现中运行不可信仓库或生产凭据。
+- Function 执行有统一的超时/取消/预算终止和进程树清理，并为每次运行隔离 tmp/work/env/port/lock；这仍不是文件或网络安全沙箱。配置、用例与断言仍可能在宿主执行。不要在当前实现中运行不可信仓库或生产凭据。
 
 ## MCP 的准确边界
 

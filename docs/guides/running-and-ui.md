@@ -31,6 +31,7 @@ repetitions 运行 case × N；用例自身 options.repetitions 优先于 CLI/�
 当前写入**项目根（配置文件所在目录）**的 `.canary/artifacts/<runId>/`：
 
 - run.json、coverage.json、coverage-manifest.json；
+- checkpoint.json、run.lock、tmp/、work/（运行隔离与崩溃收尾；不是签名证据）；
 - trajectory.json、trace.jsonl、evaluator.json；
 - gate.json、improvement.json；
 - 按 reporters 配置写 report.json / report.md / report.xml / report.console.txt；比较另写 comparison.json。
