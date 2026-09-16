@@ -1,4 +1,4 @@
-﻿import { spawn } from "node:child_process";
+﻿import { spawn, spawnSync } from "node:child_process";
 import type { AgentAdapterKind } from "@canary/core";
 
 export interface AgentInput { value: unknown }
@@ -137,8 +137,16 @@ export class McpStdioToolAdapter implements ToolAdapter {
 
   async close(): Promise<void> {
     if (!this.child) return;
+    const pid = this.child.pid;
     this.child.stdin?.end();
-    this.child.kill();
+    if (pid) {
+      if (process.platform === "win32") spawnSync("taskkill", ["/PID", String(pid), "/T", "/F"], { stdio: "ignore", windowsHide: true });
+      else {
+        try { process.kill(-pid, "SIGKILL"); } catch { try { this.child.kill("SIGKILL"); } catch { /* already exited */ } }
+      }
+    } else {
+      this.child.kill();
+    }
     this.child = undefined;
   }
 }
