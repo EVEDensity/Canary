@@ -320,6 +320,7 @@ export interface RunSnapshot {
   gate?: CoverageGateResult;
   replayOf?: string;
   candidateOf?: string;
+  recoveryOf?: string;
 }
 
 /** A small registry intentionally kept in core so config, runner and UI share one identity source. */

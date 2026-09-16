@@ -200,6 +200,7 @@ export const runSnapshotSchema = z.object({
   experiences: z.array(z.object({ id: z.string().min(1), key: z.string().min(1), version: z.number().int().positive(), contentHash: z.string().min(1), loadedAt: z.string().min(1) }).strict()).optional(),
   gate: z.unknown().optional(),
   replayOf: z.string().optional(),
+  recoveryOf: z.string().optional(),
 }).passthrough();
 
 export const replayRequestSchema = z.object({
