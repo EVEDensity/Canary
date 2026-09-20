@@ -1,0 +1,87 @@
+{
+  "version": 1,
+  "kind": "canary.r6.acceptance",
+  "date": "2026-09-20T07:39:05.070Z",
+  "platform": "linux",
+  "osRelease": "6.18.33.1-microsoft-standard-WSL2",
+  "node": "v24.15.0",
+  "executionContext": "ubuntu22.04-docker-nonroot",
+  "commit": "",
+  "checks": [
+    {
+      "name": "deterministic-agent",
+      "status": "verified",
+      "runId": "run_93077710-e379-4bcf-a93e-61a44474de46",
+      "manifest": "111c6cbe86a274fe37074e3f80b1989752377865aa4af07b7822bdb5c0a494f7",
+      "fixtureHash": "0bfe671d7bd0b3834e347a61ca8cbe03b8df99961bc177e218571fd4e313a174"
+    },
+    {
+      "name": "tool-calling-agent",
+      "status": "verified",
+      "runId": "run_eb16e993-35d6-426d-8272-a984ad9e1b96",
+      "manifest": "6420905d759a55b31d22f04e3ba0913ccf18cabc8c6afc64c478ccc26d1f8407",
+      "fixtureHash": "c23afdb5e714c923a2ae768b9013f2f33cca4980bc91066de06e32237f214750"
+    },
+    {
+      "name": "mcp-agent",
+      "status": "verified",
+      "runId": "run_0625fbf8-5380-465c-a587-9be01b90e65f",
+      "manifest": "51b43be4e472e0c7ba74b8b74cc29b84e338f2b68e56806b7281e39837b66665",
+      "fixtureHash": "3e500ad7c205ce21e377dfc29f814b52845d2ef82916ee4ed8a867020be10bc1"
+    },
+    {
+      "name": "http-agent",
+      "status": "verified",
+      "runId": "run_b5493217-a3ef-428e-a3ba-e94eaedd451a",
+      "manifest": "ed59cab980b25b863e209638e803ba01df849614075c25fe4f4f6c8efee5acd4",
+      "fixtureHash": "1d4de5cc011f2be2a791e3a61f100f0d733784f49e24b97003b4ffeba56a5d8e"
+    },
+    {
+      "name": "non-default-root-spaces",
+      "status": "verified",
+      "runId": "run_6e7163ef-1bb1-41c1-8cfa-3cdad12eb1c6"
+    },
+    {
+      "name": "long-path",
+      "status": "verified",
+      "pathLength": 317,
+      "runId": "run_4315757a-19ae-4f19-9be7-b9c66e01a6c5"
+    },
+    {
+      "name": "same-project-concurrent-runs",
+      "status": "verified",
+      "runIds": [
+        "run_14796190-87c5-4dd2-909f-6e8e47188e79",
+        "run_4595c632-f017-42c1-8468-5f571f24c1ad"
+      ]
+    },
+    {
+      "name": "artifact-root-unwritable-file",
+      "status": "verified",
+      "exitCode": 5
+    },
+    {
+      "name": "filesystem-permission-denied",
+      "status": "verified",
+      "exitCode": 5
+    },
+    {
+      "name": "pi-agent",
+      "status": "blocked",
+      "reason": "Pi model inference requires an explicitly selected and authorized provider/model. Separate pinned runtime probes do not satisfy inference acceptance."
+    },
+    {
+      "name": "fixture-sources-unchanged",
+      "status": "verified",
+      "hash": "de59c2833db39eae30a34f548a6ac71add0b1264406878b97f8f5dc15f7fcf23"
+    }
+  ],
+  "artifactBase": "/tmp/Canary R6 projects vyGbdO",
+  "sourceFiles": {
+    "packages/cli/src/check-executor.ts": "5e08238e870c013be0a32ed13cdbad9950179c743ddec09ad03d842f7b29a672",
+    "scripts/verify-r6.mjs": "b320a875a1e4fa75f8ffd62d20ffdbea30d1255bd020db962e0bb787ed46d583"
+  },
+  "sourceTreeHash": "6507e270f76af0e89faecbce1442bf68abef5d865c031371a4595effd249d8c9",
+  "localGate": "passed",
+  "stageComplete": false
+}
