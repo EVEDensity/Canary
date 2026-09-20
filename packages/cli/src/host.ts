@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import type { ProjectContext, RunSnapshot } from "@canary/core";
+import { FileArtifactRepository } from "@canary/trace";
 
 export const HOST_PROTOCOL_VERSION = 1 as const;
 
@@ -274,6 +275,6 @@ export function validateHostProposalFile(proposalPath: string, run: RunSnapshot,
       approval: validation.approval,
     },
   };
-  writeFileSync(artifactPath, JSON.stringify(record, null, 2), "utf8");
+  new FileArtifactRepository(artifactRoot).writeJson(run.runId, "host-proposal.json", record);
   return { ...validation, artifactPath };
 }
