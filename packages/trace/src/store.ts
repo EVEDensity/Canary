@@ -1,28 +1,13 @@
-import { appendFileSync, existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
+import { appendFileSync, existsSync, readFileSync, readdirSync } from "node:fs";
 import { appendFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { ArtifactRepository, CoverageSummary, EvalResult, EventSink, RunSnapshot, Trajectory, TrajectoryEvent } from "@canary/core";
 import { parseCoverageSummary, parseRunSnapshot } from "@canary/core";
+import { redactValue, type RedactionOptions } from "./privacy.js";
+import { ArtifactIntegrityError, safeArtifactPath, updateArtifact, verifyArtifacts } from "./artifacts.js";
+export { redactValue, type RedactionOptions } from "./privacy.js";
 
 export const TRACE_SCHEMA_VERSION = 1;
-const SECRET = /api[_-]?key|token|password|secret|authorization|cookie/i;
-
-export interface RedactionOptions { maxStringLength?: number; replacement?: string }
-
-export function redactValue(value: unknown, options: RedactionOptions = {}, key?: string): unknown {
-  const replacement = options.replacement ?? "[redacted]";
-  const max = options.maxStringLength ?? 2048;
-  if (key && SECRET.test(key)) return replacement;
-  if (typeof value === "string") {
-    if (SECRET.test(value)) return replacement;
-    return value.length > max ? `${value.slice(0, max)}…` : value;
-  }
-  if (Array.isArray(value)) return value.map((item) => redactValue(item, options));
-  if (value && typeof value === "object") {
-    return Object.fromEntries(Object.entries(value as Record<string, unknown>).map(([name, item]) => [name, redactValue(item, options, name)]));
-  }
-  return value;
-}
 
 export function redactEvent(event: TrajectoryEvent, options: RedactionOptions = {}): TrajectoryEvent {
   return redactValue(event, options) as TrajectoryEvent;
@@ -42,11 +27,7 @@ export function redactEvalResult(result: EvalResult, options: RedactionOptions =
 }
 
 export function redactRunSnapshot(snapshot: RunSnapshot, options: RedactionOptions = {}): RunSnapshot {
-  return {
-    ...snapshot,
-    results: snapshot.results.map((result) => redactEvalResult(result, options)),
-    events: snapshot.events.map((event) => redactValue(event, options) as typeof event),
-  };
+  return redactValue(snapshot, options) as RunSnapshot;
 }
 
 export function queryEvents(events: TrajectoryEvent[], filter: { type?: string; featureId?: string } = {}): TrajectoryEvent[] {
@@ -122,6 +103,13 @@ export class AsyncJsonlTraceStore implements EventSink {
 
 export class FileArtifactRepository implements ArtifactRepository {
   constructor(public readonly rootDir: string) {}
+  verify(runId: string) { return verifyArtifacts(safeArtifactPath(this.rootDir, runId)); }
+  private checkedDir(runId: string): string {
+    const dir = safeArtifactPath(this.rootDir, runId);
+    const result = verifyArtifacts(dir);
+    if (result.status === "invalid") throw new ArtifactIntegrityError(result);
+    return dir;
+  }
   listRuns(): RunSnapshot[] {
     if (!existsSync(this.rootDir)) return [];
     return readdirSync(this.rootDir, { withFileTypes: true }).filter((entry) => entry.isDirectory()).map((entry) => {
@@ -130,30 +118,28 @@ export class FileArtifactRepository implements ArtifactRepository {
     }).filter((run): run is RunSnapshot => Boolean(run)).sort((a, b) => b.startedAt.localeCompare(a.startedAt));
   }
   readRun(runId: string): RunSnapshot | undefined {
-    const file = join(this.rootDir, runId, "run.json");
+    const file = safeArtifactPath(this.checkedDir(runId), "run.json");
     if (!existsSync(file)) return undefined;
     let raw: unknown;
     try { raw = JSON.parse(readFileSync(file, "utf8")); }
     catch (error) { throw new Error(`run.json (${runId}): ${error instanceof Error ? error.message : String(error)}`); }
-    return parseRunSnapshot(raw, `run.json (${runId})`) as RunSnapshot;
+    return redactRunSnapshot(parseRunSnapshot(raw, `run.json (${runId})`) as RunSnapshot);
   }
   readCoverage(runId: string): CoverageSummary | undefined {
-    const file = join(this.rootDir, runId, "coverage.json");
+    const file = safeArtifactPath(this.checkedDir(runId), "coverage.json");
     if (!existsSync(file)) return undefined;
     let raw: unknown;
     try { raw = JSON.parse(readFileSync(file, "utf8")); }
     catch (error) { throw new Error(`coverage.json (${runId}): ${error instanceof Error ? error.message : String(error)}`); }
-    return parseCoverageSummary(raw, `coverage.json (${runId})`) as CoverageSummary;
+    return redactValue(parseCoverageSummary(raw, `coverage.json (${runId})`)) as CoverageSummary;
   }
   readJson<T>(runId: string, name: string): T | undefined {
-    const file = join(this.rootDir, runId, name);
+    const file = safeArtifactPath(this.checkedDir(runId), name);
     if (!existsSync(file)) return undefined;
-    try { return JSON.parse(readFileSync(file, "utf8")) as T; } catch { return undefined; }
+    try { return redactValue(JSON.parse(readFileSync(file, "utf8"))) as T; } catch { return undefined; }
   }
   writeJson(runId: string, name: string, value: unknown): void {
-    const dir = join(this.rootDir, runId);
-    mkdirSync(dir, { recursive: true });
-    writeFileSync(join(dir, name), JSON.stringify(value, null, 2), "utf8");
+    updateArtifact(safeArtifactPath(this.rootDir, runId), name, value);
   }
 }
 

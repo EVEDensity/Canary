@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type { ArtifactRepository, CoverageGateResult, CoverageSummary, RunnerEvent, RunSnapshot } from "@canary/core";
-import { redactValue } from "./store.js";
+import { redactValue, type RedactionOptions } from "./store.js";
 
 export interface SseEvent {
   id: number;
@@ -17,14 +17,31 @@ type Subscriber = ServerResponse<IncomingMessage>;
 
 /** In-memory run session. SSE cursor is process-local; artifacts hydrate snapshots, not the same event ids after restart. */
 export class RunStore {
+  private privacy: RedactionOptions = {};
+  setPrivacy(options: RedactionOptions): void { this.privacy = options; }
+  sanitize<T>(value: T): T { return redactValue(value, this.privacy) as T; }
   private readonly runs = new Map<string, RunSnapshot>();
   private readonly subscribers = new Map<string, Set<Subscriber>>();
   private readonly coverageFingerprints = new Map<string, string>();
   private readonly sseLog = new Map<string, SseEvent[]>();
   private readonly sseSeq = new Map<string, number>();
 
-  hydrate(repository: ArtifactRepository): void {
+  hydrateRun(repository: ArtifactRepository, runId: string): RunSnapshot | undefined {
+    if (this.runs.has(runId)) return this.runs.get(runId);
+    const run = repository.readRun(runId);
+    if (!run) return undefined;
+    const coverage = run.coverage ?? repository.readCoverage(runId);
+    const improvements = repository.readJson<unknown[]>(runId, "improvement.json");
+    const gate = repository.readJson<CoverageGateResult>(runId, "gate.json");
+    const snapshot = { ...run, ...(coverage ? { coverage } : {}), ...(Array.isArray(improvements) ? { improvements } : {}), ...(gate ? { gate } : {}) };
+    this.runs.set(runId, snapshot);
+    this.rebuildSseLog(snapshot);
+    return snapshot;
+  }
+
+  hydrate(repository: ArtifactRepository, include: (run: RunSnapshot) => boolean = () => true): void {
     for (const run of repository.listRuns()) {
+      if (!include(run)) continue;
       if (!this.runs.has(run.runId)) {
         const coverage = run.coverage ?? repository.readCoverage(run.runId);
         const improvements = repository.readJson<unknown[]>(run.runId, "improvement.json");
@@ -176,7 +193,7 @@ export class RunStore {
     if (response.writableEnded || response.destroyed) return;
     try {
       const idLine = event.id > 0 ? `id: ${event.id}\n` : "";
-      response.write(`${idLine}event: ${event.type}\ndata: ${JSON.stringify(redactValue(event.payload))}\n\n`);
+      response.write(`${idLine}event: ${event.type}\ndata: ${JSON.stringify(this.sanitize(event.payload))}\n\n`);
     } catch { /* client disconnected */ }
   }
 }
