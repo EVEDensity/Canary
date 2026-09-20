@@ -18,13 +18,18 @@
     "format:check": "prettier --check README.md CHANGELOG.md CONTRIBUTING.md SECURITY.md docs .github .changeset .prettierrc.json eslint.config.mjs",
     "changeset": "changeset",
     "dev": "pnpm --filter @canary/cli dev",
-    "demo": "pnpm --filter @canary/cli canary run",
-    "demo:headless": "pnpm --filter @canary/cli canary run --headless --no-open",
+    "demo": "pnpm --filter @canary/cli canary run --config canary.config.ts",
+    "demo:headless": "pnpm --filter @canary/cli canary run --headless --no-open --config canary.config.ts",
     "check:demo": "pnpm demo:headless",
     "install:global": "node scripts/install-global.mjs",
     "canary": "pnpm --filter @canary/cli canary",
     "verify:r0": "node scripts/verify-r0.mjs",
-    "verify:distribution": "node scripts/verify-distribution.mjs"
+    "verify:r3": "node scripts/verify-r3.mjs",
+    "verify:r4": "node scripts/verify-r4.mjs",
+    "verify:distribution": "node scripts/verify-distribution.mjs",
+    "verify:r5": "node scripts/verify-r5.mjs",
+    "verify:r6": "node scripts/verify-r6.mjs",
+    "verify:entry": "node scripts/verify-entry.mjs"
   },
   "devDependencies": {
     "@changesets/cli": "^3.0.2",

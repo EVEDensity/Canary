@@ -276,6 +276,9 @@ importers:
       '@canary/policy':
         specifier: workspace:*
         version: link:../policy
+      '@canary/trace':
+        specifier: workspace:*
+        version: link:../trace
       tsx:
         specifier: ^4.19.0
         version: 4.23.13

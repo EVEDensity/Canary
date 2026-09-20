@@ -1,0 +1,78 @@
+{
+  "kind": "canary.project",
+  "version": 1,
+  "budgetMs": 900000,
+  "checks": [
+    {
+      "id": "workspace.build",
+      "type": "command",
+      "command": "node",
+      "args": [
+        "--run",
+        "build"
+      ],
+      "timeoutMs": 180000
+    },
+    {
+      "id": "workspace.typecheck",
+      "type": "command",
+      "command": "node",
+      "args": [
+        "--run",
+        "typecheck"
+      ],
+      "timeoutMs": 180000,
+      "dependsOn": [
+        "workspace.build"
+      ]
+    },
+    {
+      "id": "workspace.lint",
+      "type": "command",
+      "command": "node",
+      "args": [
+        "--run",
+        "lint"
+      ],
+      "timeoutMs": 180000,
+      "dependsOn": [
+        "workspace.build"
+      ]
+    },
+    {
+      "id": "workspace.format.check",
+      "type": "command",
+      "command": "node",
+      "args": [
+        "--run",
+        "format:check"
+      ],
+      "timeoutMs": 180000,
+      "dependsOn": [
+        "workspace.build"
+      ]
+    },
+    {
+      "id": "workspace.test",
+      "type": "command",
+      "command": "node",
+      "args": [
+        "--run",
+        "test"
+      ],
+      "timeoutMs": 240000,
+      "dependsOn": [
+        "workspace.build"
+      ]
+    },
+    {
+      "id": "agent.regression",
+      "type": "agent",
+      "config": "canary.config.ts",
+      "timeoutMs": 90000,
+      "dependsOn": [
+        "workspace.build"
+      ]
+    }
+  ]
+}
