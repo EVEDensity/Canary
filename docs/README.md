@@ -1,7 +1,7 @@
 # Canary 文档导航
 
 > **代码与可复现结果决定现状；设计描述目标；任务文件描述未完成工作。** 不以历史 RFC、测试数量或模型总结替代源码核对。
-> 本轮代码基线：`30f11cf4a303ab8616fb702bad8348bba4955466`。验证日期按 UTC 记为 2026-09-12，详细环境见验证记录。
+> 当前代码以 Git 工作区为准；阶段状态以 [R0–R8 总表](roadmap/README.md)及对应执行记录为准，历史验证日期不代表当前全部能力。
 
 ## 按目的阅读
 
@@ -17,7 +17,15 @@
 | 查看实测数据与旧报告                          | [本轮验证](evidence/validation-baseline.md) / [R0](evidence/r0-execution.md) / [R1](evidence/r1-execution-record.md) / [R2](evidence/r2-execution-record.md) / [历史数据索引](evidence/historical-results.md) |
 | 查资料与旧设计来由                            | [研究资料](research/agent-evolution.md) / [历史档案](archive/README.md)                                                                                                                                       |
 
+R6 平台与 Agent fixture 见 [指南](guides/r6-platform-fixtures.md)和 [实际执行记录](evidence/r6-execution-record.md)，macOS/Pi 仍有阻塞。
+
+R4/R5 默认入口、完整项目门禁与真实全局启动验收见 [入口收尾记录](evidence/entry-execution-record.md)。
+
+项目检查与 Agent 评估已合并为[统一验证工作台](guides/unified-workspace.md)，包含覆盖率来源、用例轨迹和证据比较。
+
 ## 目录职责
+
+artifact 校验、脱敏、恢复谱系和历史清理见 [R3 使用说明](guides/r3-artifact-evidence.md)与 [R3 执行记录](evidence/r3-execution-record.md)。
 
 ```text
 docs/
@@ -34,7 +42,11 @@ docs/
 
 ## 当前与目标的关键区别
 
-当前是本地测试、轨迹、覆盖率和改进建议工作台。**没有**已接线的 `/canary` Skill、Canary MCP Server、经验加载闭环、自循环调度、软/硬进化开关或自动代码发布器。默认运行不调用 Judge 模型，但也不能把内置确定性 Judge 的输出存在检查称为语义评审。
+普通项目运行页面见 [R5 使用说明](guides/r5-local-report.md)与 [R5 执行记录](evidence/r5-execution-record.md)。
+
+项目级检查接入见 [R4 使用说明](guides/r4-project-checks.md)，实施与验收见 [R4 执行记录](evidence/r4-execution-record.md)。
+
+当前是本地测试、轨迹、覆盖率和改进建议工作台。旧 S/H/L 阶段已有宿主、MCP、经验和控制器实现，其历史验收不能代替 R0–R8 的新阶段验收；实际接线与可信边界见 [当前架构](current/architecture.md)。
 
 “默认软进化”只描述未来授权上限；安装不等于启动后台任务。硬进化只有在未来权限、隔离和门禁完成并获授权后才可用。
 
