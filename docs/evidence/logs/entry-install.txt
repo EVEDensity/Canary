@@ -1,0 +1,56 @@
+Installing Canary from source checkout: C:\Users\temp-admin\Desktop\Canary
+Scope: all 21 workspace projects
+Lockfile is up to date, resolution step is skipped
+Already up to date
+
+Done in 477ms using pnpm v10.15.0
+
+> canary@0.1.0 build C:\Users\temp-admin\Desktop\Canary
+> pnpm -r --if-present build
+
+Scope: 20 of 21 workspace projects
+packages/mcp-server build$ tsc -p tsconfig.json
+packages/core build$ tsc -p tsconfig.json
+packages/exporter-core build$ tsc -p tsconfig.json
+packages/mcp-server build: Done
+packages/exporter-core build: Done
+packages/core build: Done
+packages/adapters build$ tsc -p tsconfig.json
+packages/coverage build$ tsc -p tsconfig.json
+packages/environment build$ tsc -p tsconfig.json
+packages/evaluators build$ tsc -p tsconfig.json
+packages/environment build: Done
+packages/experience build$ tsc -p tsconfig.json
+packages/adapters build: Done
+packages/policy build$ tsc -p tsconfig.json
+packages/evaluators build: Done
+packages/reporters build$ tsc -p tsconfig.json
+packages/coverage build: Done
+packages/trace build$ tsc -p tsconfig.json
+packages/experience build: Done
+packages/policy build: Done
+packages/reporters build: Done
+packages/trace build: Done
+packages/isolation build$ tsc -p tsconfig.json
+examples/local-agent build$ tsc -p tsconfig.json
+packages/improvement build$ tsc -p tsconfig.json
+examples/local-agent build: Done
+packages/isolation build: Done
+packages/improvement build: Done
+packages/hard-evolution build$ tsc -p tsconfig.json
+packages/runner build$ tsc -p tsconfig.json
+packages/hard-evolution build: Done
+packages/runner build: Done
+packages/loop build$ tsc -p tsconfig.json
+packages/loop build: Done
+packages/control-plane build$ tsc -p tsconfig.json
+packages/control-plane build: Done
+apps/web build$ tsc -p tsconfig.json
+apps/web build: Done
+packages/cli build$ tsc -p tsconfig.json
+packages/cli build: Done
+Restart the terminal to refresh PATH. Launcher: C:\Users\temp-admin\AppData\Local\canary\bin\canary.cmd
+Installation backup: C:\Users\temp-admin\.canary\backups\2026-09-20T07-01-39-843Z
+Canary installed. Project root remains the caller's current directory; installation root is C:\Users\temp-admin\Desktop\Canary.
+(node:45608) [DEP0190] DeprecationWarning: Passing args to a child process with shell option true can lead to security vulnerabilities, as the arguments are not escaped, only concatenated.
+(Use `node --trace-deprecation ...` to show where the warning was created)

@@ -1,0 +1,51 @@
+
+> canary@0.1.0 verify:entry C:\Users\temp-admin\Desktop\Canary
+> node scripts/verify-entry.mjs "--self"
+
+{
+  "kind": "canary.entry.acceptance",
+  "date": "2026-09-20T06:43:52.669Z",
+  "node": "v24.18.0",
+  "platform": "win32",
+  "installedRoot": "C:\\Users\\temp-admin\\Desktop\\Canary",
+  "binDir": "C:\\Users\\temp-admin\\AppData\\Local\\canary\\bin",
+  "sourceDirty": true,
+  "fixtureRoot": "C:\\Users\\temp-admin\\AppData\\Local\\Temp\\Canary global entry gmULER",
+  "checks": [
+    {
+      "name": "installed-command-on-user-path",
+      "status": "verified",
+      "launcher": "C:\\Users\\temp-admin\\AppData\\Local\\canary\\bin\\canary.cmd"
+    },
+    {
+      "name": "nested-default-project-config-and-two-project-isolation",
+      "status": "verified",
+      "runs": [
+        "run_4736b04c-8548-4520-8bc1-d6d6f5800dc1",
+        "run_ded57738-99f5-4197-9d12-b7fed413f4e7"
+      ]
+    },
+    {
+      "name": "global-cli-project-report",
+      "status": "verified"
+    },
+    {
+      "name": "explicit-legacy-agent-config",
+      "status": "verified",
+      "runId": "run_879e2199-b678-4c0b-8c45-3e230e03603c"
+    },
+    {
+      "name": "bad-or-missing-config-never-falls-back-to-demo",
+      "status": "verified"
+    },
+    {
+      "name": "installed-command-explicit-port-live-page-and-evidence-after-close",
+      "status": "verified",
+      "port": 54972,
+      "runId": "run_17ef5acb-99c1-41ad-a329-cba904c6d781"
+    }
+  ],
+  "status": "failed",
+  "error": "{\"v\":1,\"kind\":\"canary.ci\",\"mode\":\"ci\",\"context\":{\"v\":1,\"invocationRoot\":\"C:\\\\Users\\\\temp-admin\\\\Desktop\\\\Canary\\\\packages\\\\cli\",\"projectRoot\":\"C:\\\\Users\\\\temp-admin\\\\Desktop\\\\Canary\",\"configRoot\":\"C:\\\\Users\\\\temp-admin\\\\Desktop\\\\Canary\",\"configFile\":\"C:\\\\Users\\\\temp-admin\\\\Desktop\\\\Canary\\\\canary.project.json\",\"installRoot\":\"C:\\\\Users\\\\temp-admin\\\\Desktop\\\\Canary\",\"artifactRoot\":\"C:\\\\Users\\\\temp-admin\\\\Desktop\\\\Canary\\\\.canary\\\\artifacts\",\"source\":\"walk\"},\"exitCode\":1,\"outcome\":\"failed\",\"runId\":\"run_9333727b-c13f-4bfc-afa5-3bd45c25249c\",\"artifactPath\":\"C:\\\\Users\\\\temp-admin\\\\Desktop\\\\Canary\\\\.canary\\\\artifacts\\\\run_9333727b-c13f-4bfc-afa5-3bd45c25249c\\\\run.json\",\"summary\":{\"total\":6,\"passed\":0,\"failed\":6},\"issues\":[{\"code\":\"CHECK_FAILED\",\"severity\":\"error\",\"message\":\"The configured run did not pass.\",\"suggestion\":\"Inspect the local run.json and report.xml; correct the failing case or environment before re-running.\"}],\"runtime\":{\"v\":1,\"kind\":\"canary.version\",\"canaryVersion\":\"0.1.0\",\"nodeVersion\":\"24.18.0\"},\"capabilities\":{\"scope\":\"project-checks\",\"web\":false,\"automaticExport\":false}}\n\n\n1 !== 0\n"
+}
+ ELIFECYCLE  Command failed with exit code 1.
