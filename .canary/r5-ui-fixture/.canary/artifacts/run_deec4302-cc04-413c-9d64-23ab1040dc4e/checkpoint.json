@@ -1,0 +1,23 @@
+{
+  "v": 1,
+  "kind": "canary.checkpoint",
+  "runId": "run_deec4302-cc04-413c-9d64-23ab1040dc4e",
+  "pid": 13432,
+  "status": "failed",
+  "startedAt": "2026-09-19T10:28:33.346Z",
+  "updatedAt": "2026-09-19T10:28:35.650Z",
+  "artifactDir": "C:\\Users\\temp-admin\\Desktop\\Canary\\.canary\\r5-ui-fixture\\.canary\\artifacts\\run_deec4302-cc04-413c-9d64-23ab1040dc4e",
+  "tmpDir": "C:\\Users\\temp-admin\\Desktop\\Canary\\.canary\\r5-ui-fixture\\.canary\\artifacts\\run_deec4302-cc04-413c-9d64-23ab1040dc4e\\tmp",
+  "workDir": "C:\\Users\\temp-admin\\Desktop\\Canary\\.canary\\r5-ui-fixture\\.canary\\artifacts\\run_deec4302-cc04-413c-9d64-23ab1040dc4e\\work",
+  "lockPath": "C:\\Users\\temp-admin\\Desktop\\Canary\\.canary\\r5-ui-fixture\\.canary\\artifacts\\run_deec4302-cc04-413c-9d64-23ab1040dc4e\\run.lock",
+  "ports": [],
+  "childPids": [
+    23768
+  ],
+  "completedCaseKeys": [
+    "resources.local",
+    "application.smoke",
+    "release.ready"
+  ],
+  "pendingCaseKeys": []
+}

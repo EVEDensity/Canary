@@ -1,0 +1,62 @@
+{
+  "v": 1,
+  "kind": "canary.artifact-manifest",
+  "runId": "run_deec4302-cc04-413c-9d64-23ab1040dc4e",
+  "state": "sealed",
+  "revision": 2,
+  "createdAt": "2026-09-19T10:28:33.436Z",
+  "updatedAt": "2026-09-19T10:28:35.867Z",
+  "previousManifestHash": "e70dc811a5612d630a07e7fb7e8c0f29f1a5cc3045fa227b25a8cca69eb6ac0a",
+  "lineage": {},
+  "files": [
+    {
+      "path": "check-plan.json",
+      "bytes": 994,
+      "sha256": "d3a58a3ce439fe853fd78408af1412105d2f7af988e715c285053f488a06f357"
+    },
+    {
+      "path": "checkpoint.json",
+      "bytes": 981,
+      "sha256": "a66fd76780f9676eb5d5a639c15a4aad457f0c6f23a4cfbbd3c37922a812d355"
+    },
+    {
+      "path": "checks.json",
+      "bytes": 2271,
+      "sha256": "fec70bc5dd7327f6e9d2a353d1c1a39530b6aaa4ab4f7bacf33f82b2023bf451"
+    },
+    {
+      "path": "discovery.json",
+      "bytes": 397,
+      "sha256": "00407a1eceb92fa69c047706ea20c7a5886354d181ed6a6f3aa8f8c2b53c20d0"
+    },
+    {
+      "path": "report.json",
+      "bytes": 2356,
+      "sha256": "b803686155bcbc05020ee3980e7cc47654d30e00f7e371b42ed038c4f724faca"
+    },
+    {
+      "path": "report.md",
+      "bytes": 231,
+      "sha256": "ffcac928be3957172eefd86687def7d02349c3a9fc3ae0a8357676eb6f0ac0b6"
+    },
+    {
+      "path": "report.xml",
+      "bytes": 428,
+      "sha256": "7fd8d3a128d8d57ed3f836739ee2ca7982748e3ff22be36a7ab8d3640e782355"
+    },
+    {
+      "path": "run.json",
+      "bytes": 3233,
+      "sha256": "a38b6dc751fdf7e15273dc44470066b5ab34e89c32602a29e28c96040750fe29"
+    },
+    {
+      "path": "source-inventory.json",
+      "bytes": 572,
+      "sha256": "d1970115c00554b4cc2ab12e6d960cd69cac6a8e46b8c1bc6eb4ed836a73eb29"
+    }
+  ],
+  "privacy": {
+    "policy": "redact-v1",
+    "scanned": true
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "v": 1,
+  "kind": "canary.artifact-manifest",
+  "runId": "run_33f037c7-0d36-4549-a0bf-4a78efba8f99",
+  "state": "partial",
+  "revision": 1,
+  "createdAt": "2026-09-19T10:32:58.061Z",
+  "updatedAt": "2026-09-19T10:32:58.061Z",
+  "lineage": {
+    "retryOf": "run_deec4302-cc04-413c-9d64-23ab1040dc4e",
+    "parentManifestHash": "b48290642b258993c4e8f5410d7d698b5336bbfa500b135997e8fffa7bebe2bf"
+  },
+  "files": [],
+  "privacy": {
+    "policy": "redact-v1",
+    "scanned": false
+  }
+}

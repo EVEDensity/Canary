@@ -1,0 +1,40 @@
+{
+  "kind": "canary.project",
+  "version": 1,
+  "budgetMs": 600000,
+  "checks": [
+    {
+      "id": "application.smoke",
+      "version": 1,
+      "required": true,
+      "dependsOn": [],
+      "cwd": ".",
+      "timeoutMs": 60000,
+      "envAllowlist": [],
+      "type": "command",
+      "command": "node",
+      "args": [
+        "-e",
+        "setTimeout(()=>console.log('Local smoke check complete'),1800)"
+      ],
+      "expectedExit": 0
+    },
+    {
+      "id": "release.ready",
+      "version": 1,
+      "required": true,
+      "dependsOn": [
+        "application.smoke"
+      ],
+      "cwd": ".",
+      "timeoutMs": 60000,
+      "envAllowlist": [],
+      "type": "filesystem",
+      "path": "ready.txt",
+      "expectation": "file"
+    }
+  ],
+  "web": {
+    "open": false
+  }
+}

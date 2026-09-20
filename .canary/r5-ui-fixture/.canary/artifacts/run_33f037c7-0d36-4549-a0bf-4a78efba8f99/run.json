@@ -1,0 +1,97 @@
+{
+  "runId": "run_33f037c7-0d36-4549-a0bf-4a78efba8f99",
+  "status": "completed",
+  "startedAt": "2026-09-19T10:32:57.975Z",
+  "totalCases": 2,
+  "completedCases": 2,
+  "passedCases": 2,
+  "results": [],
+  "events": [],
+  "evidence": {
+    "v": 1,
+    "lineage": {
+      "retryOf": "run_deec4302-cc04-413c-9d64-23ab1040dc4e",
+      "parentManifestHash": "b48290642b258993c4e8f5410d7d698b5336bbfa500b135997e8fffa7bebe2bf"
+    },
+    "reproduction": {
+      "configHash": "8c708d98fb5152748891d5c10bf8db785e5da22e096f012ab4c01063ebbffafc",
+      "casesHash": "f17818f187c676d421a7b879be8d4fd72157d59a10a97633c98ef74d490462c7",
+      "sourceHash": "6c21fc1eaf05183566bd17dbe749ebbc77be6a16025b3d17a8e1950077bec74f",
+      "node": "24.18.0",
+      "platform": "win32",
+      "arch": "x64",
+      "gitCommit": "c0cceda9aa775e4960757c68687760da4a52b487",
+      "lockfiles": {},
+      "environmentNames": [],
+      "environmentHash": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+      "mode": "recorded"
+    },
+    "conclusionHash": "5c985983eb88e7def68605aada7257fccaa403ed706be6b8875add8c9b733bf1"
+  },
+  "checks": [
+    {
+      "status": "passed",
+      "exitCode": 0,
+      "category": "none",
+      "processExit": 0,
+      "command": "node",
+      "args": [
+        "-e",
+        "setTimeout(()=>console.log('Local smoke check complete'),1800)"
+      ],
+      "stdout": "Local smoke check complete\n",
+      "stderr": "",
+      "outputTruncated": false,
+      "id": "application.smoke",
+      "type": "command",
+      "version": 1,
+      "required": true,
+      "evidence": "verified",
+      "retryable": false,
+      "durationMs": 2243,
+      "cwd": "C:\\Users\\temp-admin\\Desktop\\Canary\\.canary\\r5-ui-fixture",
+      "envAllowlist": [
+        "CANARY_RUN_ID",
+        "CANARY_TMPDIR",
+        "CANARY_WORKDIR",
+        "ComSpec",
+        "PATHEXT",
+        "Path",
+        "SystemRoot",
+        "TEMP",
+        "TMP",
+        "TMPDIR",
+        "windir"
+      ]
+    },
+    {
+      "status": "passed",
+      "exitCode": 0,
+      "category": "none",
+      "outputTruncated": false,
+      "id": "release.ready",
+      "type": "filesystem",
+      "version": 1,
+      "required": true,
+      "evidence": "verified",
+      "retryable": false,
+      "durationMs": 2,
+      "cwd": "C:\\Users\\temp-admin\\Desktop\\Canary\\.canary\\r5-ui-fixture",
+      "envAllowlist": [
+        "CANARY_RUN_ID",
+        "CANARY_TMPDIR",
+        "CANARY_WORKDIR",
+        "ComSpec",
+        "PATHEXT",
+        "Path",
+        "SystemRoot",
+        "TEMP",
+        "TMP",
+        "TMPDIR",
+        "windir"
+      ]
+    }
+  ],
+  "retryOf": "run_deec4302-cc04-413c-9d64-23ab1040dc4e",
+  "finishedAt": "2026-09-19T10:33:00.355Z"
+}

@@ -1,0 +1,16 @@
+{
+  "v": 1,
+  "kind": "canary.discovery",
+  "projectRoot": "C:\\Users\\temp-admin\\Desktop\\Canary\\.canary\\r5-ui-fixture",
+  "status": "declared",
+  "languages": [
+    {
+      "language": "node",
+      "evidence": "declared",
+      "marker": "package.json",
+      "suggestions": []
+    }
+  ],
+  "automaticExecution": false,
+  "reason": "Select required checks in canary.project configuration."
+}

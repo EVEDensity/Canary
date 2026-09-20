@@ -1,0 +1,29 @@
+{
+  "v": 1,
+  "scope": "recognized-source-and-config-files",
+  "excludedDirectories": [
+    ".git",
+    ".canary",
+    "node_modules",
+    "dist",
+    "build",
+    "__pycache__",
+    ".venv",
+    "venv",
+    "target",
+    ".tmp"
+  ],
+  "symlinks": "excluded",
+  "files": [
+    {
+      "path": "canary.config.ts",
+      "bytes": 358,
+      "sha256": "a27dd282b6a501d35939d360845fe820dadafb62e74ad2688172cda30e10014e"
+    },
+    {
+      "path": "package.json",
+      "bytes": 63,
+      "sha256": "21ea334ca31f01fe91095cbe015f2ee4da0ef5d6207603cb420d8e29425ddd95"
+    }
+  ]
+}
