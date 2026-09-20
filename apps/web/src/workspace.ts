@@ -15,6 +15,11 @@ function summary(run: RunSnapshot) {
     passed: run.passedCases,
     retryOf: run.retryOf,
     replayOf: run.replayOf,
+    checkIds: run.checks?.map((check) => check.id) ?? [],
+    caseIds: run.results?.map((result) => result.caseId) ?? [],
+    childRuns: (run.checks ?? []).flatMap((check) =>
+      check.childRun ? [{ runId: check.childRun.runId, checkId: check.id }] : [],
+    ),
   };
 }
 function compactCoverage(value?: CoverageSummary) {

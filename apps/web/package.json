@@ -31,7 +31,9 @@
   "homepage": "https://github.com/EVEDensity/Canary#readme",
   "files": [
     "dist",
-    "README.md"
+    "README.md",
+    "LUCIDE-LICENSE.txt",
+    "assets"
   ],
   "publishConfig": {
     "access": "public"

@@ -13,8 +13,20 @@ import {
   invalidInput,
 } from "@canary/core";
 import { renderReport } from "@canary/reporters";
-import { compareRuns, decideSuggestion, holdoutCaseIds, writeRegressionDrafts, type ImprovementSuggestion } from "@canary/improvement";
-import { ArtifactIntegrityError, FileArtifactRepository, redactRunSnapshot, redactValue, RunStore } from "@canary/trace";
+import {
+  compareRuns,
+  decideSuggestion,
+  holdoutCaseIds,
+  writeRegressionDrafts,
+  type ImprovementSuggestion,
+} from "@canary/improvement";
+import {
+  ArtifactIntegrityError,
+  FileArtifactRepository,
+  redactRunSnapshot,
+  redactValue,
+  RunStore,
+} from "@canary/trace";
 import { renderWorkspace } from "./workspace-ui.js";
 import { WorkspaceReader } from "./workspace.js";
 
@@ -38,11 +50,18 @@ export function replayCommand(runId: string): string {
 async function readJsonBody(request: IncomingMessage): Promise<unknown> {
   const chunks: Buffer[] = [];
   let bytes = 0;
-  for await (const chunk of request) { bytes += Buffer.byteLength(chunk); if (bytes > 65536) invalidInput("JSON body", "Request body exceeds 64 KiB"); chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)); }
+  for await (const chunk of request) {
+    bytes += Buffer.byteLength(chunk);
+    if (bytes > 65536) invalidInput("JSON body", "Request body exceeds 64 KiB");
+    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+  }
   const raw = Buffer.concat(chunks).toString("utf8").trim();
   if (!raw) return {};
-  try { return JSON.parse(raw); }
-  catch { invalidInput("JSON body", "Request body is not valid JSON"); }
+  try {
+    return JSON.parse(raw);
+  } catch {
+    invalidInput("JSON body", "Request body is not valid JSON");
+  }
 }
 
 function writeJson(response: ServerResponse<IncomingMessage>, status: number, payload: unknown): void {
@@ -72,7 +91,8 @@ function resolveProjectRootFromArtifacts(artifactRoot: string): string {
 
 function resolveRegressionDir(projectRoot: string): string {
   if (existsSync(resolve(projectRoot, "cases/regression"))) return resolve(projectRoot, "cases/regression");
-  if (existsSync(resolve(projectRoot, "examples/local-agent/cases"))) return resolve(projectRoot, "examples/local-agent/cases/regression");
+  if (existsSync(resolve(projectRoot, "examples/local-agent/cases")))
+    return resolve(projectRoot, "examples/local-agent/cases/regression");
   return resolve(projectRoot, "cases/regression");
 }
 
@@ -87,7 +107,13 @@ function allowWrite(request: IncomingMessage, url: URL, hooks?: WebServerHooks):
   return Boolean(hooks?.writeToken) && requestWriteToken(request, url) === hooks?.writeToken;
 }
 
-export function createWebServer(store: RunStore, host = "127.0.0.1", port = 0, artifactRoot?: string, hooks?: WebServerHooks) {
+export function createWebServer(
+  store: RunStore,
+  host = "127.0.0.1",
+  port = 0,
+  artifactRoot?: string,
+  hooks?: WebServerHooks,
+) {
   if (!["127.0.0.1", "::1", "localhost"].includes(host)) throw new Error("Report service requires a loopback host");
   if (!Number.isInteger(port) || port < 0 || port > 65535) throw new Error("Invalid report port");
   const artifacts = artifactRoot ? new FileArtifactRepository(resolve(artifactRoot)) : undefined;
@@ -97,40 +123,94 @@ export function createWebServer(store: RunStore, host = "127.0.0.1", port = 0, a
   });
   return {
     server,
-    listen: () => new Promise<{ url: string; port: number }>((resolveListen, rejectListen) => {
-      const onError = (error: NodeJS.ErrnoException): void => {
-        if (error.code === "EADDRINUSE") rejectListen(new Error(`Port ${port} is already in use`));
-        else rejectListen(error);
-      };
-      server.once("error", onError);
-      server.listen(port, host, () => {
-        server.off("error", onError);
-        const address = server.address();
-        const actualPort = typeof address === "object" && address ? address.port : port;
-        resolveListen({ url: `http://${host === "::1" ? "[::1]" : host}:${actualPort}`, port: actualPort });
-      });
-    }),
+    listen: () =>
+      new Promise<{ url: string; port: number }>((resolveListen, rejectListen) => {
+        const onError = (error: NodeJS.ErrnoException): void => {
+          if (error.code === "EADDRINUSE") rejectListen(new Error(`Port ${port} is already in use`));
+          else rejectListen(error);
+        };
+        server.once("error", onError);
+        server.listen(port, host, () => {
+          server.off("error", onError);
+          const address = server.address();
+          const actualPort = typeof address === "object" && address ? address.port : port;
+          resolveListen({ url: `http://${host === "::1" ? "[::1]" : host}:${actualPort}`, port: actualPort });
+        });
+      }),
   };
 }
 
-async function handleRequest(store: RunStore, request: IncomingMessage, response: ServerResponse<IncomingMessage>, hooks?: WebServerHooks, artifacts?: FileArtifactRepository, workspace?: WorkspaceReader): Promise<void> {
+async function handleRequest(
+  store: RunStore,
+  request: IncomingMessage,
+  response: ServerResponse<IncomingMessage>,
+  hooks?: WebServerHooks,
+  artifacts?: FileArtifactRepository,
+  workspace?: WorkspaceReader,
+): Promise<void> {
   try {
     const url = new URL(request.url ?? "/", "http://127.0.0.1");
     const parts = url.pathname.split("/").filter(Boolean);
     const origin = `http://${request.headers.host}`;
-    if (!["127.0.0.1", "[::1]", "localhost"].includes(new URL(origin).hostname)) { writeJson(response, 421, { error: "Loopback host required" }); return; }
-    if (request.headers.origin && request.headers.origin !== origin) { writeJson(response, 403, { error: "Same-origin request required" }); return; }
+    if (!["127.0.0.1", "[::1]", "localhost"].includes(new URL(origin).hostname)) {
+      writeJson(response, 421, { error: "Loopback host required" });
+      return;
+    }
+    if (request.headers.origin && request.headers.origin !== origin) {
+      writeJson(response, 403, { error: "Same-origin request required" });
+      return;
+    }
     response.setHeader("X-Content-Type-Options", "nosniff");
     response.setHeader("Referrer-Policy", "no-referrer");
+    if (url.pathname.startsWith("/assets/fonts/")) {
+      const name = url.pathname.slice("/assets/fonts/".length);
+      if (!/^(?:fonts\.css|[a-z0-9-]+\.woff2)$/.test(name)) {
+        response.writeHead(404);
+        response.end();
+        return;
+      }
+      if (request.method !== "GET" && request.method !== "HEAD") {
+        response.writeHead(405, { Allow: "GET, HEAD" });
+        response.end();
+        return;
+      }
+      const path = fileURLToPath(new URL(`../assets/fonts/${name}`, import.meta.url));
+      if (!existsSync(path)) {
+        response.writeHead(404);
+        response.end();
+        return;
+      }
+      const content = readFileSync(path);
+      response.writeHead(200, {
+        "Content-Type": name.endsWith(".css") ? "text/css; charset=utf-8" : "font/woff2",
+        "Content-Length": content.length,
+        "Cache-Control": "public, max-age=3600",
+      });
+      response.end(request.method === "HEAD" ? undefined : content);
+      return;
+    }
+
     if (parts[0] === "api" && parts[1] === "workspace" && parts[2] === "runs") {
-      if (request.method !== "GET") { writeJson(response, 405, { error: "GET required" }); return; }
+      if (request.method !== "GET") {
+        writeJson(response, 405, { error: "GET required" });
+        return;
+      }
       const value = parts[3] ? workspace?.read(parts[3]) : workspace?.list();
-      writeJson(response, value ? 200 : 404, value ?? { error: "Run not found" }); return;
+      writeJson(response, value ? 200 : 404, value ?? { error: "Run not found" });
+      return;
     }
     if (url.pathname === "/api/session/close") {
-      if (request.method !== "POST" || !allowWrite(request, url, hooks)) { writeJson(response, 403, { error: "Write token required" }); return; }
-      if (!hooks?.onClose) { writeJson(response, 409, { error: "Session close unavailable" }); return; }
-      writeJson(response, 200, { closed: true }); hooks.onClose(); return;
+      if (request.method !== "POST" || !allowWrite(request, url, hooks)) {
+        writeJson(response, 403, { error: "Write token required" });
+        return;
+      }
+      if (!hooks?.onClose) {
+        writeJson(response, 409, { error: "Session close unavailable" });
+        return;
+      }
+      writeJson(response, 200, { closed: true });
+      hooks.onClose();
+      return;
     }
     if (url.pathname === "/logo.png" || url.pathname === "/favicon.ico") {
       const logoPath = resolve(dirname(fileURLToPath(import.meta.url)), "../../../docs/images/logo.png");
@@ -140,27 +220,54 @@ async function handleRequest(store: RunStore, request: IncomingMessage, response
         response.end(buf);
         return;
       }
-      response.writeHead(404); response.end("Not found");
+      response.writeHead(404);
+      response.end("Not found");
       return;
     }
     if (url.pathname === "/" || url.pathname === "/index.html") {
       response.writeHead(200, { "content-type": "text/html; charset=utf-8" });
-      response.end(renderWorkspace(hooks?.writeToken, { retry: Boolean(hooks?.onRetry), replay: Boolean(hooks?.onReplay), close: Boolean(hooks?.onClose) }));
+      response.end(
+        renderWorkspace(hooks?.writeToken, {
+          retry: Boolean(hooks?.onRetry),
+          replay: Boolean(hooks?.onReplay),
+          close: Boolean(hooks?.onClose),
+        }),
+      );
       return;
     }
     if (parts[0] === "api" && parts[1] === "compare") {
       const baselineId = url.searchParams.get("baseline");
       const candidateId = url.searchParams.get("candidate");
-      if (!baselineId || !candidateId) { writeJson(response, 400, { error: "baseline and candidate query parameters are required" }); return; }
-      for (const id of [baselineId, candidateId]) if (artifacts?.verify(id).status === "invalid") throw new ArtifactIntegrityError(artifacts.verify(id));
+      if (!baselineId || !candidateId) {
+        writeJson(response, 400, { error: "baseline and candidate query parameters are required" });
+        return;
+      }
+      for (const id of [baselineId, candidateId])
+        if (artifacts?.verify(id).status === "invalid") throw new ArtifactIntegrityError(artifacts.verify(id));
       if (artifacts) for (const id of [baselineId, candidateId]) store.hydrateRun(artifacts, id);
       const baseline = store.sanitize(store.get(baselineId));
       const candidate = store.sanitize(store.get(candidateId));
-      if (!baseline || !candidate) { writeJson(response, 404, { error: "Both baseline and candidate runs must exist" }); return; }
+      if (!baseline || !candidate) {
+        writeJson(response, 404, { error: "Both baseline and candidate runs must exist" });
+        return;
+      }
       if (baseline.checks || candidate.checks) {
-        if (!baseline.checks || !candidate.checks) { writeJson(response, 400, { error: "Choose two project runs" }); return; }
+        if (!baseline.checks || !candidate.checks) {
+          writeJson(response, 400, { error: "Choose two project runs" });
+          return;
+        }
         const ids = [...new Set([...baseline.checks, ...candidate.checks].map((check) => check.id))];
-        writeJson(response, 200, { kind: "canary.project-comparison", baseline: baselineId, candidate: candidateId, checks: ids.map((id) => ({ id, before: baseline.checks!.find((check) => check.id === id)?.status ?? "not-run", after: candidate.checks!.find((check) => check.id === id)?.status ?? "not-run" })) }); return;
+        writeJson(response, 200, {
+          kind: "canary.project-comparison",
+          baseline: baselineId,
+          candidate: candidateId,
+          checks: ids.map((id) => ({
+            id,
+            before: baseline.checks!.find((check) => check.id === id)?.status ?? "not-run",
+            after: candidate.checks!.find((check) => check.id === id)?.status ?? "not-run",
+          })),
+        });
+        return;
       }
       const holdout = holdoutCaseIds([...baseline.results, ...candidate.results]);
       writeJson(response, 200, compareRuns(baseline, candidate, holdout));
@@ -175,28 +282,74 @@ async function handleRequest(store: RunStore, request: IncomingMessage, response
       // The project page consumes check runs only. Do not serialize unrelated Agent
       // trajectories into its frequently polled history response.
       const runs = store.list().filter((run) => !hooks?.projectPage || run.checks !== undefined);
-      writeJson(response, 200, runs.map((run) => ({ ...store.sanitize(parseRunSnapshot(run, "GET /api/runs")), integrity: artifacts?.verify(run.runId) })));
+      writeJson(
+        response,
+        200,
+        runs.map((run) => ({
+          ...store.sanitize(parseRunSnapshot(run, "GET /api/runs")),
+          integrity: artifacts?.verify(run.runId),
+        })),
+      );
       return;
     }
     if (parts[0] === "api" && parts[1] === "runs" && parts[2]) {
       const runId = parts[2];
-      if (parts[3] === "integrity" && artifacts) { writeJson(response, 200, artifacts.verify(runId)); return; }
+      if (parts[3] === "integrity" && artifacts) {
+        writeJson(response, 200, artifacts.verify(runId));
+        return;
+      }
       if (artifacts?.verify(runId).status === "invalid") throw new ArtifactIntegrityError(artifacts.verify(runId));
       if (artifacts) store.hydrateRun(artifacts, runId);
       const run = store.sanitize(store.get(runId));
-      if (!run) { response.writeHead(404); response.end("Not found"); return; }
+      if (!run) {
+        response.writeHead(404);
+        response.end("Not found");
+        return;
+      }
       if (parts[3] === "retry") {
-        if (request.method !== "POST") { writeJson(response, 405, { error: "POST required" }); return; }
-        if (!allowWrite(request, url, hooks)) { writeJson(response, 403, { error: "Write token required" }); return; }
+        if (request.method !== "POST") {
+          writeJson(response, 405, { error: "POST required" });
+          return;
+        }
+        if (!allowWrite(request, url, hooks)) {
+          writeJson(response, 403, { error: "Write token required" });
+          return;
+        }
         const body = await readJsonBody(request);
-        if (!body || typeof body !== "object" || Array.isArray(body) || Object.keys(body).some((key) => !["checkId", "failed"].includes(key))) { writeJson(response, 400, { error: "Invalid retry request" }); return; }
+        if (
+          !body ||
+          typeof body !== "object" ||
+          Array.isArray(body) ||
+          Object.keys(body).some((key) => !["checkId", "failed"].includes(key))
+        ) {
+          writeJson(response, 400, { error: "Invalid retry request" });
+          return;
+        }
         const retry = body as { checkId?: string; failed?: boolean };
-        if ((typeof retry.checkId !== "string" || !retry.checkId) && retry.failed !== true || retry.checkId && retry.failed !== undefined) { writeJson(response, 400, { error: "Choose checkId or failed:true" }); return; }
-        if (!hooks?.onRetry) { writeJson(response, 409, { error: "Retry unavailable in this session" }); return; }
-        try { writeJson(response, 202, await hooks.onRetry(runId, retry)); } catch (error) { writeJson(response, 409, { error: error instanceof Error ? error.message : "Retry rejected" }); } return;
+        if (
+          ((typeof retry.checkId !== "string" || !retry.checkId) && retry.failed !== true) ||
+          (retry.checkId && retry.failed !== undefined)
+        ) {
+          writeJson(response, 400, { error: "Choose checkId or failed:true" });
+          return;
+        }
+        if (!hooks?.onRetry) {
+          writeJson(response, 409, { error: "Retry unavailable in this session" });
+          return;
+        }
+        try {
+          writeJson(response, 202, await hooks.onRetry(runId, retry));
+        } catch (error) {
+          writeJson(response, 409, { error: error instanceof Error ? error.message : "Retry rejected" });
+        }
+        return;
       }
       if (parts[3] === "events") {
-        response.writeHead(200, { "content-type": "text/event-stream", "cache-control": "no-cache", connection: "keep-alive" });
+        response.writeHead(200, {
+          "content-type": "text/event-stream",
+          "cache-control": "no-cache",
+          connection: "keep-alive",
+        });
         response.write("retry: 2000\n\n");
         const rawId = request.headers["last-event-id"];
         const lastEventId = rawId === undefined || rawId === "" ? undefined : Number.parseInt(String(rawId), 10);
@@ -206,27 +359,44 @@ async function handleRequest(store: RunStore, request: IncomingMessage, response
         return;
       }
       if (parts[3] === "replay") {
-        if (request.method !== "POST") { response.writeHead(405); response.end("Method Not Allowed"); return; }
-        if (!allowWrite(request, url, hooks)) { writeJson(response, 403, { error: "Write API requires x-canary-write-token" }); return; }
+        if (request.method !== "POST") {
+          response.writeHead(405);
+          response.end("Method Not Allowed");
+          return;
+        }
+        if (!allowWrite(request, url, hooks)) {
+          writeJson(response, 403, { error: "Write API requires x-canary-write-token" });
+          return;
+        }
         const parsed = parseReplayRequest(await readJsonBody(request));
         store.replay(runId);
         const executed = hooks?.onReplay ? await hooks.onReplay(runId, parsed) : undefined;
-        writeJson(response, 200, parseReplayResponse({
-          sourceRunId: runId,
-          command: replayCommand(runId),
-          mode: executed?.replayRunId ? "execution" : "command",
-          replayRunId: executed?.replayRunId,
-          events: store.eventLog(runId).length,
-        }));
+        writeJson(
+          response,
+          200,
+          parseReplayResponse({
+            sourceRunId: runId,
+            command: replayCommand(runId),
+            mode: executed?.replayRunId ? "execution" : "command",
+            replayRunId: executed?.replayRunId,
+            events: store.eventLog(runId).length,
+          }),
+        );
         return;
       }
       if (parts[3] === "improvements") {
         if (request.method === "POST" && parts[4]) {
-          if (!allowWrite(request, url, hooks)) { writeJson(response, 403, { error: "Write API requires x-canary-write-token" }); return; }
+          if (!allowWrite(request, url, hooks)) {
+            writeJson(response, 403, { error: "Write API requires x-canary-write-token" });
+            return;
+          }
           const decision = parseSuggestionDecision(await readJsonBody(request));
           const list = [...((run.improvements ?? []) as ImprovementSuggestion[])];
           const index = list.findIndex((item) => item.id === parts[4]);
-          if (index < 0) { writeJson(response, 404, { error: "Suggestion not found" }); return; }
+          if (index < 0) {
+            writeJson(response, 404, { error: "Suggestion not found" });
+            return;
+          }
           list[index] = decideSuggestion(list[index]!, decision.status);
           artifacts?.writeJson(runId, "improvement.json", list);
           store.update(runId, { improvements: list });
@@ -246,25 +416,42 @@ async function handleRequest(store: RunStore, request: IncomingMessage, response
         writeJson(response, 200, run.coverage ? parseCoverageSummary(run.coverage, "GET coverage") : null);
         return;
       }
-      if (parts[3] === "cases") { writeJson(response, 200, redactValue(run.results)); return; }
+      if (parts[3] === "cases") {
+        writeJson(response, 200, redactValue(run.results));
+        return;
+      }
       if (parts[3] === "trajectory") {
         const trajectoryId = parts[4];
-        const payload = trajectoryId ? run.results.find((result) => result.trajectoryId === trajectoryId || result.trajectory?.id === trajectoryId)?.trajectory : run.results.map((result) => result.trajectory);
-        if (!payload) { writeJson(response, 404, { error: "Not found" }); return; }
+        const payload = trajectoryId
+          ? run.results.find((result) => result.trajectoryId === trajectoryId || result.trajectory?.id === trajectoryId)
+              ?.trajectory
+          : run.results.map((result) => result.trajectory);
+        if (!payload) {
+          writeJson(response, 404, { error: "Not found" });
+          return;
+        }
         writeJson(response, 200, redactValue(payload));
         return;
       }
       if (parts[3] === "report") {
         const format = parseReportFormat(parts[4] ?? "markdown");
         const body = renderReport(run, format);
-        response.writeHead(200, { "content-type": format === "junit" ? "application/xml; charset=utf-8" : format === "json" ? "application/json" : "text/markdown; charset=utf-8" });
+        response.writeHead(200, {
+          "content-type":
+            format === "junit"
+              ? "application/xml; charset=utf-8"
+              : format === "json"
+                ? "application/json"
+                : "text/markdown; charset=utf-8",
+        });
         response.end(body);
         return;
       }
       writeJson(response, 200, redactRunSnapshot(parseRunSnapshot(run, "GET /api/runs/:runId") as typeof run));
       return;
     }
-    response.writeHead(404); response.end("Not found");
+    response.writeHead(404);
+    response.end("Not found");
   } catch (error) {
     if (response.headersSent) response.destroy();
     else writeError(response, error);

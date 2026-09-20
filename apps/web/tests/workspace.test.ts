@@ -72,6 +72,11 @@ describe("unified verification workspace", () => {
     const f = fixture(),
       rows = f.reader.list();
     expect(rows.map((r) => r.kind).sort()).toEqual(["agent", "project"]);
+    expect(rows.find((row) => row.runId === f.parent.runId)?.checkIds).toEqual(["agent"]);
+    expect(rows.find((row) => row.runId === f.parent.runId)?.childRuns).toEqual([
+      { runId: f.child.runId, checkId: "agent" },
+    ]);
+    expect(rows.find((row) => row.runId === f.child.runId)?.childRuns).toEqual([]);
     expect(JSON.stringify(rows)).not.toContain("featureChains");
     expect(JSON.stringify(rows)).not.toContain("results");
     const detail = f.reader.read(f.parent.runId)!;
@@ -98,6 +103,28 @@ describe("unified verification workspace", () => {
       const page = await fetch(url).then((r) => r.text());
       expect(page).toContain("代码与功能覆盖率");
       expect(page).toContain("用例与轨迹");
+      const fonts = await fetch(url + "/assets/fonts/fonts.css");
+      expect(fonts.headers.get("content-type")).toContain("text/css");
+      const fontCss = await fonts.text();
+      const assets = [...new Set(fontCss.match(/\/assets\/fonts\/[a-z0-9-]+\.woff2/g))];
+      expect(assets.length).toBeGreaterThan(1);
+      for (const asset of assets) {
+        const head = await fetch(url + asset, { method: "HEAD" });
+        expect(head.status).toBe(200);
+        expect(head.headers.get("content-type")).toBe("font/woff2");
+        expect(Number(head.headers.get("content-length"))).toBeGreaterThan(0);
+        expect(await head.text()).toBe("");
+      }
+      const font = await fetch(url + assets[0]);
+      expect(
+        Buffer.from(await font.arrayBuffer())
+          .subarray(0, 4)
+          .toString(),
+      ).toBe("wOF2");
+      expect((await fetch(url + "/assets/fonts/not-present.woff2")).status).toBe(404);
+      expect((await fetch(url + "/assets/fonts/inter-OFL.txt")).status).toBe(404);
+      expect((await fetch(url + "/assets/fonts/fonts.css", { method: "POST" })).status).toBe(405);
+
       const rows = await fetch(url + "/api/workspace/runs").then((r) => r.json());
       expect(rows).toHaveLength(2);
       const detail = await fetch(url + "/api/workspace/runs/run_parent").then((r) => r.json());
