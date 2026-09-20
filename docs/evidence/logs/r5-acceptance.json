@@ -1,0 +1,25 @@
+{
+  "kind": "canary.r5.acceptance",
+  "date": "2026-09-19T10:39:25.270Z",
+  "platform": "win32",
+  "osRelease": "10.0.26200",
+  "node": "v24.18.0",
+  "checks": [
+    {
+      "name": "real-cli-live-page-and-failure",
+      "status": "verified"
+    },
+    {
+      "name": "failed-retry-dependencies-lineage-redaction-comparison",
+      "status": "verified"
+    },
+    {
+      "name": "single-retry-close-during-execution-seals-evidence",
+      "status": "verified"
+    },
+    {
+      "name": "ci-and-artifact-only-parity",
+      "status": "verified"
+    }
+  ]
+}
