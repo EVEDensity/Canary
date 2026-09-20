@@ -1,6 +1,6 @@
 import { existsSync, readFileSync, realpathSync } from "node:fs";
 import { homedir } from "node:os";
-import { dirname, relative, resolve, isAbsolute } from "node:path";
+import { dirname, basename, relative, resolve, isAbsolute } from "node:path";
 import { fileURLToPath } from "node:url";
 import { projectContextSchema, type ProjectContext } from "@canary/core";
 
@@ -61,7 +61,7 @@ export function readInstalledHome(): string | undefined {
   return typeof root === "string" ? canonicalPath(root) : undefined;
 }
 
-/** --config > nearest ancestor canary.config.ts > invocation (missing config).
+/** --config > nearest configured directory (project JSON before legacy TS) > invocation (missing config).
  * Installation metadata never selects the tested project. No config module is executed here.
  */
 export function resolveProjectContext(options: { cwd?: string; configPath?: string } = {}): ProjectContext {
@@ -74,8 +74,11 @@ export function resolveProjectContext(options: { cwd?: string; configPath?: stri
   if (!options.configPath) {
     let dir = invocation;
     while (true) {
-      if (existsSync(resolve(dir, "canary.config.ts"))) {
-        configFile = resolve(dir, "canary.config.ts");
+      // Artifact/tmp projects must never inherit the owning project's plan.
+      if (basename(dir).toLowerCase() === ".canary") break;
+      const selected = ["canary.project.json", "canary.config.ts"].find((name) => existsSync(resolve(dir, name)));
+      if (selected) {
+        configFile = resolve(dir, selected);
         source = "walk";
         break;
       }
@@ -104,5 +107,5 @@ export function resolveConfigFile(options: { cwd?: string; configPath?: string }
   return resolveProjectContext(options).configFile;
 }
 export function missingConfigMessage(configFile: string): string {
-  return `No Canary project configuration found at ${configFile}.\nRun from the tested project or pass --config <path-to-canary.config.ts>.\nInstalling Canary does not configure the tested project; the installation demo is never an implicit fallback.`;
+  return `No Canary project configuration found at ${configFile}.\nRun from the tested project or create canary.project.json / canary.config.ts, or pass --config <path>.\nInstalling Canary does not configure the tested project; the installation demo is never an implicit fallback.`;
 }

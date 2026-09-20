@@ -1,6 +1,6 @@
 import { existsSync, readFileSync, statSync, unlinkSync, writeFileSync } from "node:fs";
 import { homedir, platform } from "node:os";
-import { join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { randomUUID } from "node:crypto";
 import { spawnSync } from "node:child_process";
@@ -8,6 +8,8 @@ import {
   CLI_EXIT,
   doctorSnapshotSchema,
   parseCanaryConfig,
+  projectChecksConfigSchema,
+  type ProjectChecksConfig,
   pathsSnapshotSchema,
   versionSnapshotSchema,
   type CanaryConfig,
@@ -50,16 +52,21 @@ function defaultExport(module: Record<string, unknown>): unknown {
   return value && typeof value === "object" && "default" in value ? (value as Record<string, unknown>).default : value;
 }
 
-async function loadConfigFile(configFile: string): Promise<CanaryConfig> {
+async function loadConfigFile(configFile: string): Promise<CanaryConfig | ProjectChecksConfig> {
   const url = pathToFileURL(configFile).href;
   let mod: Record<string, unknown>;
-  if (/\.[cm]?tsx?$/.test(configFile)) {
+  if (configFile.endsWith(".json")) {
+    mod = { default: JSON.parse(readFileSync(configFile, "utf8").replace(/^\uFEFF/, "")) };
+  } else if (/\.[cm]?tsx?$/.test(configFile)) {
     const { tsImport } = await import("tsx/esm/api");
     mod = (await tsImport(url, { parentURL: import.meta.url })) as Record<string, unknown>;
   } else {
     mod = (await import(url)) as Record<string, unknown>;
   }
-  return parseCanaryConfig(defaultExport(mod)) as CanaryConfig;
+  const value = defaultExport(mod);
+  if (value && typeof value === "object" && "kind" in value && value.kind === "canary.project")
+    return projectChecksConfigSchema.parse(value);
+  return parseCanaryConfig(value) as CanaryConfig;
 }
 
 async function withSilencedConsole<T>(fn: () => Promise<T>): Promise<T> {
@@ -137,7 +144,7 @@ async function inspectTrustedConfig(context: ProjectContext, issues: CliIssue[])
   }
   try {
     const config = await withSilencedConsole(() => loadConfigFile(context.configFile));
-    if (config.agent.adapter === "function") {
+    if ("agent" in config && config.agent.adapter === "function") {
       const entry = resolve(context.projectRoot, config.agent.entry);
       if (!existsSync(entry) || !statSync(entry).isFile()) {
         issues.push({
@@ -167,7 +174,9 @@ export async function diagnosticSnapshot(cwd?: string, configPath?: string) {
   const pnpmProbe = spawnSync(
     platform() === "win32" ? "cmd.exe" : "pnpm",
     platform() === "win32" ? ["/d", "/s", "/c", "pnpm --version"] : ["--version"],
-    { encoding: "utf8", timeout: 3000, windowsHide: true },
+    // Probe the installed executable outside project discovery. A project packageManager
+    // pin can otherwise make pnpm download another version into an isolated user home.
+    { cwd: dirname(process.execPath), encoding: "utf8", timeout: 3000, windowsHide: true },
   );
   const pnpmVersion = pnpmProbe.status === 0 ? pnpmProbe.stdout?.trim() || null : null;
   const issues: CliIssue[] = [];

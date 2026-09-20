@@ -1,4 +1,4 @@
-import { mkdirSync, writeFileSync, renameSync } from "node:fs";
+import { mkdirSync, existsSync, lstatSync, rmSync } from "node:fs";
 import { resolve } from "node:path";
 import type { CanaryConfig, CoverageSummary, ProjectContext, RunSnapshot, TestCase } from "@canary/core";
 import { createCoverageManifest, mergeCoverageSummaries, preparingCoverage } from "@canary/coverage";
@@ -15,7 +15,8 @@ import {
   type RunnerPorts,
   type RunCheckpoint,
 } from "@canary/runner";
-import { AsyncJsonlTraceStore, FileArtifactRepository, redactRunSnapshot, type RunStore } from "@canary/trace";
+import { ArtifactIntegrityError, ArtifactPrivacyError, AsyncJsonlTraceStore, FileArtifactRepository, beginArtifacts, sealArtifacts, collectSecretValues, writePrivateJson, writePrivateText, type RunStore } from "@canary/trace";
+import { conclusionHash, recordEvidence } from "./evidence.js";
 
 type ReporterFormat = "json" | "markdown" | "junit" | "console";
 
@@ -24,7 +25,7 @@ function repetitionsFor(testCase: TestCase, fallback: number): number {
 }
 
 function diskSnapshot(store: RunStore, runId: string): RunSnapshot {
-  return redactRunSnapshot(store.get(runId)!);
+  return store.sanitize(store.get(runId)!);
 }
 
 function caseKey(testCase: TestCase, repetition: number, repetitionTotal: number): string {
@@ -39,7 +40,7 @@ function executionStatus(result: { failureCategory?: string; passed: boolean }):
   return result.passed ? "completed" : "failed";
 }
 
-function atomicWrite(file: string, value: string): void { const tmp = `${file}.${process.pid}.tmp`; writeFileSync(tmp, value, "utf8"); renameSync(tmp, file); }
+function atomicWrite(file: string, value: string): void { writePrivateJson(file, JSON.parse(value)); }
 function writeLiveArtifacts(artifactDir: string, snapshot: RunSnapshot): void {
   atomicWrite(resolve(artifactDir, "run.json"), JSON.stringify(snapshot, null, 2));
   if (snapshot.coverage) atomicWrite(resolve(artifactDir, "coverage.json"), JSON.stringify(snapshot.coverage, null, 2));
@@ -68,15 +69,15 @@ function writeFinalReports(artifactDir: string, snapshot: RunSnapshot, formats: 
     const body = renderReport(reportInput, format);
     if (format === "junit") junitXml = body;
     if (format === "console") {
-      writeFileSync(resolve(artifactDir, "report.console.txt"), body, "utf8");
+      writePrivateText(resolve(artifactDir, "report.console.txt"), body);
       continue;
     }
     const extension = format === "junit" ? "xml" : format === "markdown" ? "md" : "json";
-    writeFileSync(resolve(artifactDir, `report.${extension}`), body, "utf8");
+    writePrivateText(resolve(artifactDir, `report.${extension}`), body);
   }
   if (!junitXml) junitXml = renderReport(reportInput, "junit");
-  writeFileSync(resolve(artifactDir, "gate.json"), JSON.stringify(gate, null, 2), "utf8");
-  writeFileSync(resolve(artifactDir, "improvement.json"), JSON.stringify(suggestions, null, 2), "utf8");
+  writePrivateJson(resolve(artifactDir, "gate.json"), gate);
+  writePrivateJson(resolve(artifactDir, "improvement.json"), suggestions);
   return junitXml;
 }
 
@@ -87,6 +88,7 @@ export interface EvaluationInput {
   selected: TestCase[];
   replayOf?: string;
   candidateOf?: string;
+  retryOf?: string;
   repetitions?: number;
   signal?: AbortSignal;
   consoleReporter?: boolean;
@@ -107,6 +109,14 @@ export async function runEvaluation(input: EvaluationInput): Promise<{ runId: st
   });
   const repository = new FileArtifactRepository(input.context.artifactRoot);
   await recoverStaleRuns(input.context.artifactRoot, (runId) => repository.readRun(runId));
+  const privacy = { secretValues: collectSecretValues({ config: input.config, cases: input.selected }) };
+  input.store.setPrivacy(privacy);
+  const lineage = { replayOf: input.replayOf, candidateOf: input.candidateOf, retryOf: input.retryOf };
+  if (new Set(Object.values(lineage).filter(Boolean)).size > 1) throw new Error("An execution must reference one parent runId");
+  const parentId = input.retryOf ?? input.replayOf ?? input.candidateOf;
+  const parent = parentId ? repository.verify(parentId) : undefined;
+  if (parent && parent.status !== "verified" && parent.status !== "legacy") throw new ArtifactIntegrityError(parent);
+  const manifest = createCoverageManifest({ rootDir: cwd, include: input.config.coverage.include, exclude: input.config.coverage.exclude, features: input.config.features });
   const run = input.runId && input.store.get(input.runId)
     ? input.store.get(input.runId)!
     : input.store.create(plan.length, input.runId, input.replayOf);
@@ -119,10 +129,15 @@ export async function runEvaluation(input: EvaluationInput): Promise<{ runId: st
     for (const item of loaded.loaded) experienceRefs.set(item.id, { id: item.id, key: item.key, version: item.version, contentHash: item.contentHash, loadedAt: new Date().toISOString() });
   }
   if (input.candidateOf) input.store.update(run.runId, { candidateOf: input.candidateOf } as Partial<RunSnapshot>);
+  if (input.retryOf) input.store.update(run.runId, { retryOf: input.retryOf });
+  input.store.update(run.runId, { evidence: recordEvidence(input.config, input.context, input.selected, { ...lineage, parentManifestHash: parent?.manifestHash }, manifest.sourceHash) });
   input.store.update(run.runId, { experiences: [...experienceRefs.values()] });
   const artifactDir = resolve(input.context.artifactRoot, run.runId);
+  if (existsSync(resolve(artifactDir, "run.json")) || existsSync(resolve(artifactDir, "manifest.json"))) throw new Error("Run artifacts already exist; use a new runId");
   mkdirSync(artifactDir, { recursive: true });
   const workspace = createExecutionWorkspace({ artifactDir, runId: run.runId });
+  const trace = new AsyncJsonlTraceStore(resolve(artifactDir, "trace.jsonl"), { maxQueue: 256, ...privacy });
+  let traceError: unknown;
   const pendingCaseKeys = plan.map((item) => caseKey(item.testCase, item.repetition, item.repetitionTotal));
   const checkpoint = (): RunCheckpoint => ({
     v: 1,
@@ -143,13 +158,6 @@ export async function runEvaluation(input: EvaluationInput): Promise<{ runId: st
     ),
     pendingCaseKeys,
   });
-  writeCheckpoint(checkpoint());
-  const trace = new AsyncJsonlTraceStore(resolve(artifactDir, "trace.jsonl"), { maxQueue: 256 });
-  input.store.setCoverage(run.runId, preparingCoverage(run.runId));
-  writeLiveArtifacts(artifactDir, diskSnapshot(input.store, run.runId));
-  const manifest = createCoverageManifest({ rootDir: cwd, include: input.config.coverage.include, exclude: input.config.coverage.exclude, features: input.config.features });
-  writeFileSync(resolve(artifactDir, "coverage-manifest.json"), JSON.stringify(manifest, null, 2), "utf8");
-  writeLiveArtifacts(artifactDir, diskSnapshot(input.store, run.runId));
   const summaries: CoverageSummary[] = [];
   let cancelled = false;
   const concurrency = input.config.runtime?.concurrency ?? 1;
@@ -159,7 +167,43 @@ export async function runEvaluation(input: EvaluationInput): Promise<{ runId: st
     writeChain = next.then(() => undefined, () => undefined);
     return next;
   };
+  // Artifact finalization errors must reach the caller: a passing evaluation cannot mask incomplete evidence.
+  const finalize = async (): Promise<void> => {
+    try { await trace.close(); }
+    finally { await workspace.release(); }
+    if (traceError) throw traceError;
+    if (workspace.childPids.length) throw new Error("Worker processes remain; artifacts are partial");
+    // Ephemeral agent files may contain raw input/output; never retain them as historical evidence.
+    for (const name of ["tmp", "work"]) {
+      const target = resolve(artifactDir, name);
+      if (target !== resolve(workspace.tmpDir) && target !== resolve(workspace.workDir)) throw new Error("Unexpected workspace path");
+      if (existsSync(target)) {
+        if (lstatSync(target).isSymbolicLink()) throw new Error("Unsafe workspace path");
+        rmSync(target, { recursive: true, force: true });
+      }
+    }
+    try { sealArtifacts(artifactDir, { privacy }); }
+    catch (error) {
+      if (error instanceof ArtifactPrivacyError) {
+        const previousGate = input.store.get(run.runId)!.gate;
+        input.store.update(run.runId, { status: "failed", evidence: { ...input.store.get(run.runId)!.evidence!, conclusionHash: undefined, privacyFailure: true }, gate: {
+          ...previousGate, passed: false, reason: "hard_gate_failed", failureCategory: "policy_violation",
+          failures: [...(previousGate?.failures ?? []), { code: "policy_violation", target: "artifact-privacy", message: "Artifact privacy scan failed; detected content was sanitized." }],
+        } });
+        const failed = diskSnapshot(input.store, run.runId);
+        writeLiveArtifacts(artifactDir, failed);
+        writeFinalReports(artifactDir, failed, input.config.reporters?.length ? input.config.reporters : ["json", "markdown", "junit"], failed.gate!, failed.improvements ?? []);
+        writeCheckpoint({ ...checkpoint(), status: "failed", termination: "error" });
+      }
+      throw error;
+    }
+  };
   try {
+    beginArtifacts(artifactDir, input.store.get(run.runId)!.evidence!.lineage);
+    writeCheckpoint(checkpoint());
+    input.store.setCoverage(run.runId, preparingCoverage(run.runId));
+    writeLiveArtifacts(artifactDir, diskSnapshot(input.store, run.runId));
+    writePrivateJson(resolve(artifactDir, "coverage-manifest.json"), manifest, privacy);
     await mapLimit(plan, concurrency, async (item) => {
       if (input.signal?.aborted) { cancelled = true; return; }
       const result = await executor({
@@ -175,7 +219,7 @@ export async function runEvaluation(input: EvaluationInput): Promise<{ runId: st
         experiences: experienceByCase.get(item.testCase.id)?.loaded,
         onEvent: (event) => {
           input.store.appendEvent(run.runId, event);
-          void trace.append({ at: new Date().toISOString(), runId: run.runId, trialId: `${item.testCase.id}#${item.repetition}`, ...event });
+          void trace.append({ at: new Date().toISOString(), runId: run.runId, trialId: `${item.testCase.id}#${item.repetition}`, ...event }).catch((error) => { traceError = error; });
         },
         onCoverage: (coverage) => {
           input.store.setCoverage(run.runId, coverage);
@@ -188,7 +232,7 @@ export async function runEvaluation(input: EvaluationInput): Promise<{ runId: st
         if (input.consoleReporter && !input.silent) {
           const label = item.repetitionTotal > 1 ? `${item.testCase.id}#${item.repetition}` : item.testCase.id;
           const reason = result.passed ? "" : ` · ${result.assertions.filter((assertion) => !assertion.passed).map((assertion) => assertion.message ?? assertion.id).join("; ") || result.failureCategory || "failed"}`;
-          console.log(`${result.passed ? "PASS" : "FAIL"} ${label} (${result.metrics?.latencyMs ?? 0}ms)${reason}`);
+          console.log(input.store.sanitize(`${result.passed ? "PASS" : "FAIL"} ${label} (${result.metrics?.latencyMs ?? 0}ms)${reason}`));
         }
         writeLiveArtifacts(artifactDir, diskSnapshot(input.store, run.runId));
         const done = caseKey(item.testCase, item.repetition, item.repetitionTotal);
@@ -204,6 +248,8 @@ export async function runEvaluation(input: EvaluationInput): Promise<{ runId: st
       });
       if (result.failureCategory === "cancelled" || input.signal?.aborted) cancelled = true;
     });
+    await trace.flush();
+    if (traceError) throw traceError;
     if (summaries.length) input.store.setCoverage(run.runId, mergeCoverageSummaries(run.runId, summaries, input.config.features, cwd));
     const final = cancelled ? input.store.finish(run.runId, "cancelled") : input.store.finish(run.runId);
     const suggestions = proposeFromResults(final.runId, final.results);
@@ -215,14 +261,15 @@ export async function runEvaluation(input: EvaluationInput): Promise<{ runId: st
     });
     const gate = mergeQualityGates(coverageGate, hardGate);
     input.store.update(run.runId, { ...(!gate.passed && final.status !== "cancelled" ? { status: "failed" as const } : {}), improvements: suggestions, gate });
+    input.store.update(run.runId, { evidence: { ...input.store.get(run.runId)!.evidence!, conclusionHash: conclusionHash(diskSnapshot(input.store, run.runId)) } });
     const redacted = diskSnapshot(input.store, run.runId);
     const formats = (input.config.reporters?.length ? input.config.reporters : ["json", "markdown", "junit"]) as ReporterFormat[];
-    const junitXml = writeFinalReports(artifactDir, redacted, formats, gate, suggestions);
+    const junitXml = writeFinalReports(artifactDir, redacted, formats, input.store.sanitize(gate), input.store.sanitize(suggestions));
     writeLiveArtifacts(artifactDir, redacted);
     writeCheckpoint({
       ...checkpoint(),
       status: redacted.status === "cancelled" ? "cancelled" : redacted.status === "failed" ? "failed" : "completed",
-      pendingCaseKeys: [],
+      pendingCaseKeys: [...pendingCaseKeys],
     });
     const junitFailures = countJunitFailures(junitXml);
     const exitCode = exitCodeForRun({
@@ -232,17 +279,16 @@ export async function runEvaluation(input: EvaluationInput): Promise<{ runId: st
     });
     if (!gate.passed && !input.silent) {
       const label = gate.reason === "hard_gate_failed" ? "hard-gate" : "coverage-gate";
-      console.log(`${label}: fail · ${gate.reason} · ${gate.failures.map((item) => item.message).join("; ")}`);
+      console.log(input.store.sanitize(`${label}: fail · ${gate.reason} · ${gate.failures.map((item) => item.message).join("; ")}`));
     }
     return { runId: run.runId, exitCode, artifactPath: resolve(artifactDir, "run.json"), snapshot: redacted };
   } catch (error) {
     input.store.reportError(run.runId, error instanceof Error ? error.message : String(error));
-    input.store.update(run.runId, { status: "failed" });
+    input.store.finish(run.runId, "failed");
     writeLiveArtifacts(artifactDir, diskSnapshot(input.store, run.runId));
     writeCheckpoint({ ...checkpoint(), status: "failed", termination: "error" });
     throw error;
   } finally {
-    await trace.close();
-    await workspace.release();
+    await finalize();
   }
 }

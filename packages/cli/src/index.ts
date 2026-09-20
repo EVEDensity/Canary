@@ -4,9 +4,14 @@ import { createHash, randomUUID } from "node:crypto";
 import { missingConfigMessage, resolveProjectContext } from "./home.js";
 import { readdir } from "node:fs/promises";
 import { resolve } from "node:path";
-import { pathToFileURL } from "node:url";
+import { pathToFileURL, fileURLToPath } from "node:url";
+import { createRequire } from "node:module";
 import type { RunSnapshot } from "@canary/core";
-import { FileArtifactRepository, RunStore } from "@canary/trace";
+import { FileArtifactRepository, RunStore, applyRetention, planRetention, verifyArtifacts, redactValue } from "@canary/trace";
+import { projectChecksConfigSchema, ciResultSchema } from "@canary/core";
+import { runProjectSession } from "./project-session.js";
+import { discoverProject } from "./discovery.js";
+import { blocked, runCheckProcess } from "./check-executor.js";
 import { runEvaluation } from "./app.js";
 import { renderReport } from "@canary/reporters";
 import {
@@ -36,6 +41,8 @@ import { CliFailure, printCiResult } from "./ci.js";
 import { ciExitCodeForRun } from "@canary/core";
 
 export interface CliOptions {
+  /** Internal recursion guard for project agent subprocesses. */
+  agentCheck?: boolean;
   ci?: boolean;
   configPath?: string;
   cwd?: string;
@@ -48,13 +55,15 @@ export interface CliOptions {
   repetitions?: number;
   replayOf?: string;
   candidateOf?: string;
+  retryOf?: string;
   entry?: string;
   signal?: AbortSignal;
   json?: boolean;
   experiences?: ExperienceStore;
   suppressOutput?: boolean;
 }
-const USAGE = `Usage: canary run [--ci] [--headless] [--no-open] [--json] [--case <id>] [--tag <tag>] [--repetitions <n>] [--port <number>] [--config <path>] [--entry <path>]
+const USAGE = `Usage: canary run [--ci] [--headless|--artifacts-only] [--no-open] [--json] [--case <id>] [--tag <tag>] [--repetitions <n>] [--port <number>] [--config <path>] [--entry <path>] [--retry-of <runId>]
+       canary discover [--json] [--config <path>]
        canary runs
        canary show <runId>
        canary report <runId> [--format json|markdown|junit|console]
@@ -65,6 +74,8 @@ const USAGE = `Usage: canary run [--ci] [--headless] [--no-open] [--json] [--cas
        canary soft-trial prepare <baselineRunId> --experience <experienceId> --regression <caseId> --holdout <caseId>
        canary soft-trial validate|approve|run|rollback <trialId> [--actor <name>] [--reason <text>]
        canary replay <runId> [--headless] [--no-open]
+       canary verify <runId> [--json] [--config <path>]
+       canary prune [--apply] [--json] [--config <path>]
        canary host discover [--config <path>]
        canary host evidence <runId> [--case <id>] [--max-cases <n>] [--max-events <n>] [--config <path>]
        canary host validate-proposal <runId> --file <proposal.json> [--config <path>]
@@ -97,7 +108,10 @@ function defaultExport(module: Record<string, unknown>): unknown {
   return value && typeof value === "object" && "default" in value ? (value as Record<string, unknown>).default : value;
 }
 async function loadConfig(configPath: string): Promise<CanaryConfig> {
-  return parseCanaryConfig(defaultExport(await importModule(configPath))) as CanaryConfig;
+  return parseCanaryConfig(await loadRawConfig(configPath)) as CanaryConfig;
+}
+async function loadRawConfig(configPath: string): Promise<unknown> {
+  return configPath.endsWith(".json") ? JSON.parse(readFileSync(configPath, "utf8").replace(/^\uFEFF/, "")) : defaultExport(await importModule(configPath));
 }
 
 /** Double-star globs match zero or more directories: cases/smoke.ts and cases/a/b.ts both match. */
@@ -204,13 +218,13 @@ export function readRunArtifact(runId: string, cwd?: string, configPath?: string
 function openBrowser(url: string): void {
   if (process.platform === "win32")
     void import("node:child_process").then(({ spawn }) =>
-      spawn("cmd", ["/c", "start", "", url], { detached: true, stdio: "ignore" }),
+      spawn("cmd", ["/c", "start", "", url], { detached: true, stdio: "ignore", windowsHide: true }),
     );
   else if (process.platform === "darwin")
-    void import("node:child_process").then(({ spawn }) => spawn("open", [url], { detached: true, stdio: "ignore" }));
+    void import("node:child_process").then(({ spawn }) => spawn("open", [url], { detached: true, stdio: "ignore", windowsHide: true }));
   else
     void import("node:child_process").then(({ spawn }) =>
-      spawn("xdg-open", [url], { detached: true, stdio: "ignore" }),
+      spawn("xdg-open", [url], { detached: true, stdio: "ignore", windowsHide: true }),
     );
 }
 
@@ -294,12 +308,36 @@ function selectCases(cases: TestCase[], options: CliOptions): TestCase[] {
 export async function runCommandDetailed(options: CliOptions = {}): Promise<RunCommandResult> {
   if (options.ci) options = { ...options, headless: true, noOpen: true, suppressOutput: true };
   const context = resolveProjectContext(options);
+  let raw: unknown;
+  if (!existsSync(context.configFile)) throw new CliFailure(2, "CONFIG_NOT_FOUND", missingConfigMessage(context.configFile), "Use canary paths --json and pass --config <existing-canary.config.ts> from the tested project.");
+  try { raw = await loadRawConfig(context.configFile); } catch {
+    throw new CliFailure(2, "CONFIG_INVALID", "Cannot load project configuration.", missingConfigMessage(context.configFile));
+  }
+  if (raw && typeof raw === "object" && "kind" in raw && raw.kind === "canary.project") {
+    if (options.agentCheck) throw new CliFailure(2, "AGENT_CONFIG_REQUIRED", "An agent check cannot recursively run a project configuration.", "Point the agent check at an agent/cases/coverage configuration in the same project root.");
+    const parsed = projectChecksConfigSchema.safeParse(raw);
+    if (!parsed.success) throw new CliFailure(2, "PROJECT_CONFIG_INVALID", "Invalid project check schema or dependencies.", "Use version 1, unique IDs, preceding dependencies and at least one required check.");
+    return runProjectSession(parsed.data, context, options, async (configFile, signal, env, onPid) => {
+      if (resolve(configFile, "..") !== context.projectRoot) return blocked(2, "configuration");
+      // Import the trusted agent config only inside the cancellable child process.
+      const entry = fileURLToPath(import.meta.url);
+      const result = await runCheckProcess(process.execPath, [...(entry.endsWith(".ts") ? ["--import", pathToFileURL(createRequire(import.meta.url).resolve("tsx")).href] : []), entry, "run", "--ci", "--agent-check", "--config", configFile], context.projectRoot, env, signal, onPid);
+      if (result.exitCode !== 0) return result;
+      let ci;
+      try { ci = ciResultSchema.parse(JSON.parse(result.stdout ?? "")); } catch { return { ...result, ...blocked(10, "internal") }; }
+      if (result.processExit !== ci.exitCode) return { ...result, ...blocked(10, "internal") };
+      const categories = { 0: "none", 1: "assertion", 2: "configuration", 3: "timeout", 4: "environment", 5: "artifact", 6: "policy", 10: "internal" } as const;
+      const integrity = ci.artifactPath ? verifyArtifacts(resolve(ci.artifactPath, "..")) : undefined;
+      if (ci.artifactPath && integrity?.status !== "verified") return { ...result, ...blocked(5, "artifact") };
+      return { ...result, status: ci.exitCode === 0 ? "passed" : ci.exitCode === 1 ? "failed" : "blocked", exitCode: ci.exitCode, category: categories[ci.exitCode], ...(ci.runId && ci.artifactPath && integrity?.manifestHash ? { childRun: { runId: ci.runId, artifactPath: ci.artifactPath, manifestHash: integrity.manifestHash } } : {}) };
+    }, openBrowser);
+  }
   let config: CanaryConfig;
   let cases: TestCase[];
   let selected: TestCase[];
   try {
     if (!existsSync(context.configFile)) throw new CliFailure(2, "CONFIG_NOT_FOUND", missingConfigMessage(context.configFile), "Use canary paths --json and pass --config <existing-canary.config.ts> from the tested project.");
-    config = await loadConfig(context.configFile);
+    config = parseCanaryConfig(raw) as CanaryConfig;
     cases = await loadCases(config.cases, context.projectRoot, config.coverage.exclude);
     selected = selectCases(cases, options);
     if (options.ci && !selected.length) throw new CliFailure(2, "NO_CASES", "No cases selected; CI cannot pass an empty run.", "Check the cases glob and filters in the trusted project configuration.");
@@ -335,6 +373,7 @@ export async function runCommandDetailed(options: CliOptions = {}): Promise<RunC
     selected,
     replayOf: options.replayOf,
     candidateOf: options.candidateOf,
+    retryOf: options.retryOf,
     repetitions: options.repetitions,
     signal: options.signal,
     experiences: options.experiences,
@@ -1028,6 +1067,14 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
   const { command, rest } = parseArgv(argv);
   const configPath = flagValue(rest, "--config");
   if (command === "run" && rest.includes("--ci")) return printCiResult(rest, runCommandDetailed);
+  if (command === "discover") {
+    if (rest.some((flag, i) => flag !== "--json" && flag !== "--config" && rest[i - 1] !== "--config") || (rest.includes("--config") && !configPath)) return 2;
+    try {
+      const discovery = discoverProject(resolveProjectContext({ configPath }).projectRoot);
+      console.log(JSON.stringify(redactValue(discovery)));
+      return discovery.status === "blocked" ? 2 : 0;
+    } catch { console.error("Cannot read project discovery markers."); return 2; }
+  }
   if (command === "host") return hostCommand(rest, configPath);
   if (command === "soft-trial") return softTrialCommand(rest, configPath);
   if (command === "experience") return experienceCommand(rest, configPath);
@@ -1107,6 +1154,22 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
     console.log(USAGE);
     return 0;
   }
+  if (command === "verify") {
+    if (!rest[0] || rest[0].startsWith("--")) { console.error("Usage: canary verify <runId> [--json] [--config <path>]"); return 2; }
+    const result = new FileArtifactRepository(artifactRoot(undefined, configPath)).verify(rest[0]);
+    console.log(rest.includes("--json") ? JSON.stringify(result) : `${result.runId}: ${result.status}${result.issues.length ? ` (${result.issues.map((item) => `${item.code}: ${item.path}`).join("; ")})` : ""}`);
+    return result.status === "verified" ? 0 : 5;
+  }
+  if (command === "prune") {
+    const context = resolveProjectContext({ configPath });
+    const config = await loadConfig(context.configFile);
+    const policy = config.artifacts?.retention;
+    if (!policy || !Object.keys(policy).length) { console.error("Configure artifacts.retention before pruning historical runs."); return 2; }
+    const plan = planRetention(context.artifactRoot, policy);
+    const removed = rest.includes("--apply") ? applyRetention(context.artifactRoot, plan) : [];
+    console.log(JSON.stringify({ ...plan, mode: rest.includes("--apply") ? "apply" : "preview", removed }));
+    return 0;
+  }
   if (command === "runs") {
     printRunList(listRunArtifacts(undefined, configPath));
     return 0;
@@ -1141,21 +1204,7 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
     }
     const formatIndex = rest.indexOf("--format");
     const format = parseReportFormat(formatIndex >= 0 ? rest[formatIndex + 1] : "markdown");
-    console.log(
-      renderReport(
-        {
-          runId: snapshot.runId,
-          status: snapshot.status,
-          startedAt: snapshot.startedAt,
-          finishedAt: snapshot.finishedAt,
-          totalCases: snapshot.totalCases,
-          passedCases: snapshot.passedCases,
-          results: snapshot.results,
-          coverage: snapshot.coverage,
-        },
-        format,
-      ),
-    );
+    console.log(renderReport(snapshot, format));
     return snapshot.status === "completed" ? 0 : 1;
   }
   if (command === "improve") {
@@ -1175,11 +1224,7 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
       outIndex >= 0 && rest[outIndex + 1] ? rest[outIndex + 1]! : defaultRegressionDir(undefined, configPath),
     );
     const drafts = writeRegressionDrafts(suggestions, outDir);
-    writeFileSync(
-      resolve(artifactRoot(undefined, configPath), runId, "improvement.json"),
-      JSON.stringify(suggestions, null, 2),
-      "utf8",
-    );
+    new FileArtifactRepository(artifactRoot(undefined, configPath)).writeJson(runId, "improvement.json", suggestions);
     console.log(JSON.stringify({ suggestions, drafts }, null, 2));
     return 0;
   }
@@ -1210,11 +1255,7 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
       console.error(error instanceof Error ? error.message : String(error));
       return 1;
     }
-    writeFileSync(
-      resolve(artifactRoot(undefined, configPath), runId, "improvement.json"),
-      JSON.stringify(suggestions, null, 2),
-      "utf8",
-    );
+    new FileArtifactRepository(artifactRoot(undefined, configPath)).writeJson(runId, "improvement.json", suggestions);
     const outIndex = rest.indexOf("--out");
     const outDir = resolve(
       outIndex >= 0 && rest[outIndex + 1] ? rest[outIndex + 1]! : defaultRegressionDir(undefined, configPath),
@@ -1235,7 +1276,7 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
       return 1;
     }
     const options: CliOptions = {
-      headless: rest.includes("--headless"),
+      headless: rest.includes("--headless") || rest.includes("--artifacts-only"),
       noOpen: rest.includes("--no-open"),
       json: rest.includes("--json"),
       caseIds: [...new Set(baseline.results.map((result) => result.caseId))],
@@ -1253,11 +1294,7 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
     }
     const holdout = holdoutCaseIds([...baseline.results, ...candidate.results]);
     const comparison = compareRuns(baseline, candidate, holdout);
-    writeFileSync(
-      resolve(artifactRoot(undefined, configPath), executed.runId, "comparison.json"),
-      JSON.stringify(comparison, null, 2),
-      "utf8",
-    );
+    new FileArtifactRepository(artifactRoot(undefined, configPath)).writeJson(executed.runId, "comparison.json", comparison);
     console.log(JSON.stringify(comparison, null, 2));
     await executed.close();
     return exitCodeForComparison(comparison, executed.exitCode);
@@ -1277,11 +1314,7 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
     }
     const holdout = holdoutCaseIds([...baseline.results, ...candidate.results]);
     const comparison = compareRuns(baseline, candidate, holdout);
-    writeFileSync(
-      resolve(artifactRoot(undefined, configPath), candidateId, "comparison.json"),
-      JSON.stringify(comparison, null, 2),
-      "utf8",
-    );
+    new FileArtifactRepository(artifactRoot(undefined, configPath)).writeJson(candidateId, "comparison.json", comparison);
     console.log(JSON.stringify(comparison, null, 2));
     return exitCodeForComparison(comparison, candidate.status === "completed" ? 0 : 1);
   }
@@ -1297,7 +1330,7 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
       return 1;
     }
     const options: CliOptions = {
-      headless: rest.includes("--headless"),
+      headless: rest.includes("--headless") || rest.includes("--artifacts-only"),
       noOpen: rest.includes("--no-open"),
       json: rest.includes("--json"),
       caseIds: [...new Set(snapshot.results.map((result) => result.caseId))],
@@ -1313,13 +1346,14 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
     return 1;
   }
   const options: CliOptions = {
-    headless: rest.includes("--headless"),
+    headless: rest.includes("--headless") || rest.includes("--artifacts-only"),
     noOpen: rest.includes("--no-open"),
     json: rest.includes("--json"),
   };
   options.caseId = flagValue(rest, "--case");
   options.tags = flagValues(rest, "--tag");
   options.entry = flagValue(rest, "--entry");
+  options.retryOf = flagValue(rest, "--retry-of");
   try {
     options.repetitions = parseRepetitions(flagValue(rest, "--repetitions"));
   } catch (error) {
@@ -1336,6 +1370,10 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
   options.signal = options.signal ?? controller.signal;
   try {
     return await runCommand(options);
+  } catch (error) {
+    if (!(error instanceof CliFailure)) throw error;
+    console.error(`${error.code}: ${error.message}`);
+    return error.exitCode;
   } finally {
     process.off("SIGINT", stop);
     process.off("SIGTERM", stop);

@@ -1,9 +1,8 @@
-import { existsSync, renameSync, writeFileSync, unlinkSync } from "node:fs";
+import { existsSync } from "node:fs";
 import { relative, resolve, isAbsolute, join } from "node:path";
-import { randomUUID } from "node:crypto";
 import { CLI_EXIT, ciResultSchema, type CiResult, type CliExitCode, type ProjectContext, type RunSnapshot } from "@canary/core";
 import { findCheckpointForPid, recoverPartialRun, RunIsolationError } from "@canary/runner";
-import { FileArtifactRepository, redactValue } from "@canary/trace";
+import { ArtifactIntegrityError, ArtifactPrivacyError, FileArtifactRepository, redactValue } from "@canary/trace";
 import { resolveProjectContext } from "./home.js";
 import { versionSnapshot } from "./diagnostics.js";
 import type { CliOptions, RunCommandResult } from "./index.js";
@@ -20,6 +19,8 @@ export class CliFailure extends Error {
 }
 export function classifyCiError(error: unknown, context: ProjectContext): CliFailure {
   if (error instanceof CliFailure) return error;
+  if (error instanceof ArtifactIntegrityError) return new CliFailure(5, error.code, error.message, "Preserve the run directory and inspect canary verify <runId> --json; do not regenerate hashes over damaged evidence.");
+  if (error instanceof ArtifactPrivacyError) return new CliFailure(6, error.code, error.message, "Review the trusted fixture and redaction policy locally; preserve the partial-run status.");
   if (error instanceof RunIsolationError) {
     return new CliFailure(
       CLI_EXIT.environment,
@@ -52,14 +53,14 @@ export function classifyCiError(error: unknown, context: ProjectContext): CliFai
     "Preserve local artifacts and reproduce with a minimal trusted configuration; report the Canary and Node versions.",
   );
 }
-const valueFlags = new Set(["--config", "--case", "--tag", "--repetitions", "--entry"]);
-const booleanFlags = new Set(["--ci", "--json", "--headless", "--no-open"]);
+const valueFlags = new Set(["--config", "--case", "--tag", "--repetitions", "--entry", "--retry-of"]);
+const booleanFlags = new Set(["--ci", "--json", "--headless", "--no-open", "--agent-check"]);
 export function parseCiOptions(args: string[]): CliOptions {
   const options: CliOptions = { ci: true, headless: true, noOpen: true, suppressOutput: true };
   const seen = new Set<string>();
   for (let i = 0; i < args.length; i++) {
     const flag = args[i]!;
-    if (booleanFlags.has(flag)) continue;
+    if (booleanFlags.has(flag)) { if (flag === "--agent-check") options.agentCheck = true; continue; }
     if (!valueFlags.has(flag))
       throw new CliFailure(
         2,
@@ -80,6 +81,7 @@ export function parseCiOptions(args: string[]): CliOptions {
     if (flag === "--case") options.caseId = value;
     if (flag === "--tag") (options.tags ??= []).push(value);
     if (flag === "--entry") options.entry = value;
+    if (flag === "--retry-of") options.retryOf = value;
     if (flag === "--repetitions") {
       const count = Number(value);
       if (!Number.isSafeInteger(count) || count < 1)
@@ -125,7 +127,7 @@ export async function executeCi(
   } catch (error) {
     failure = classifyCiError(error, context);
     exitCode = failure.exitCode;
-    const found = findCheckpointForPid(context.artifactRoot, process.pid);
+    const found = findCheckpointForPid(context.artifactRoot, process.pid, false);
     if (found) {
       try {
         const repository = new FileArtifactRepository(context.artifactRoot);
@@ -160,7 +162,7 @@ export async function executeCi(
       summary: {
         total: result?.snapshot.totalCases ?? recoveredSnapshot?.totalCases ?? 0,
         passed: result?.snapshot.passedCases ?? recoveredSnapshot?.passedCases ?? 0,
-        failed: (result?.snapshot.results ?? recoveredSnapshot?.results ?? []).filter((r) => !r.passed).length,
+        failed: (result?.snapshot.checks ?? recoveredSnapshot?.checks)?.filter((check) => check.status === "failed" || check.status === "blocked").length ?? (result?.snapshot.results ?? recoveredSnapshot?.results ?? []).filter((r) => !r.passed).length,
       },
       issues: failure
         ? [{ code: failure.code, severity: "error", message: failure.message, suggestion: failure.suggestion }]
@@ -176,26 +178,16 @@ export async function executeCi(
               },
             ],
       runtime: versionSnapshot(),
-      capabilities: { scope: "configured-agent-cases", web: false, automaticExport: false },
+      capabilities: { scope: (result?.snapshot.checks ?? recoveredSnapshot?.checks) ? "project-checks" : "configured-agent-cases", web: false, automaticExport: false },
     });
   const envelopeRunId = result?.runId ?? recoveredRunId;
   if (envelopeRunId) {
-    const target = resolve(context.artifactRoot, envelopeRunId, "ci.json");
-    const temporary = `${target}.${randomUUID()}.tmp`;
     try {
-      writeFileSync(temporary, JSON.stringify(payload(), null, 2), { encoding: "utf8", flag: "wx" });
-      renameSync(temporary, target);
+      if (!existsSync(join(context.artifactRoot, envelopeRunId))) throw new CliFailure(5, "ARTIFACT_IO", "Run artifact directory is missing.", "Preserve partial evidence and inspect the reported artifactRoot.");
+      new FileArtifactRepository(context.artifactRoot).writeJson(envelopeRunId, "ci.json", payload());
     } catch (error) {
       failure = classifyCiError(error, context);
       exitCode = failure.exitCode;
-    } finally {
-      if (existsSync(temporary)) {
-        try {
-          unlinkSync(temporary);
-        } catch {
-          /* Retain inaccessible partial evidence. */
-        }
-      }
     }
   }
   return payload();
