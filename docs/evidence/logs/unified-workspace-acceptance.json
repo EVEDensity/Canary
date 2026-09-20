@@ -1,0 +1,22 @@
+{
+  "kind": "canary.unified-workspace-acceptance",
+  "runId": "run_780ede62-f129-4f1e-80eb-ae52b116a66c",
+  "status": "completed",
+  "completed": 6,
+  "passed": 6,
+  "integrity": "verified",
+  "manifestHash": "cb8d1789a7005081d523c1f8f3ffd02530fe86395a9517fa731227ab76850c15",
+  "childRunId": "run_70574a3e-f59c-4e28-8fac-7619c313b213",
+  "webTestsPassed": 20,
+  "sessionTestsPassed": 5,
+  "browser": [
+    "desktop overview",
+    "390px no horizontal overflow",
+    "coverage scope",
+    "case assertions",
+    "lazy trajectory",
+    "history search",
+    "missing coverage",
+    "comparison"
+  ]
+}

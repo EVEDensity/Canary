@@ -1,0 +1,27 @@
+
+ RUN  v3.2.7 C:/Users/temp-admin/Desktop/Canary/packages/cli
+
+ ✓ tests/r5-session.test.ts (5 tests) 12572ms
+   ✓ R5 live project sessions > serves progress before completion, closes SSE/page independently, and preserves CI-equivalent evidence  4574ms
+   ✓ R5 live project sessions > retries failed checks with fresh dependencies, keeps lineage, compares and gates writes  3246ms
+   ✓ R5 live project sessions > isolates two project histories, rejects foreign origins/hosts, and hydrates history  2808ms
+   ✓ R5 live project sessions > makes an explicit optional-check rerun a meaningful gate  1398ms
+   ✓ R5 live project sessions > honors headless and configured port, and provides explicit capacity diagnostics  456ms
+ ✓ tests/r2-doctor.test.ts (11 tests) 19802ms
+   ✓ R2 doctor fixtures > returns 2 for a missing config without creating .canary  2615ms
+   ✓ R2 doctor fixtures > returns 2 for a schema-invalid config without printing secrets  2118ms
+   ✓ R2 doctor fixtures > returns 2 when the trusted config module throws  1575ms
+   ✓ R2 doctor fixtures > returns 2 when the function agent entry is missing  1491ms
+   ✓ R2 doctor fixtures > diagnoses corrupt metadata and a missing launcher without rewriting user files  2879ms
+   ✓ R2 doctor fixtures > returns 5 when artifactRoot is a file and leaves the placeholder intact  1378ms
+   ✓ R2 doctor fixtures > warns when --config selects the install root from an outside invocation  1421ms
+   ✓ R2 doctor fixtures > returns 0 for a valid project on the frozen v1 doctor schema  1442ms
+   ✓ R2 doctor fixtures > does not treat Canary self-test inside the install checkout as a root conflict  1444ms
+   ✓ R2 doctor fixtures > warns about whitespace, a non-default user directory, and junction aliases  1372ms
+   ✓ R2 doctor fixtures > lets paths locate a throwing config without executing it, while doctor reports CONFIG_INVALID  2039ms
+
+ Test Files  2 passed (2)
+      Tests  16 passed (16)
+   Start at  14:17:29
+   Duration  21.06s (transform 907ms, setup 0ms, collect 1.74s, tests 32.37s, environment 0ms, prepare 329ms)
+
