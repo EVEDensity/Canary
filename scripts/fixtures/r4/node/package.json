@@ -1,0 +1,6 @@
+{
+  "name": "canary-r4-node-fixture",
+  "private": true,
+  "type": "module",
+  "scripts": { "test": "node --test math.test.mjs" }
+}
