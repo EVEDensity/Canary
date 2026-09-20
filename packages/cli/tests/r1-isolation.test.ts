@@ -5,7 +5,7 @@ import { join, resolve } from "node:path";
 import { runCommandDetailed } from "../src/index.js";
 import { executeCi } from "../src/ci.js";
 import { readCheckpoint, recoverStaleRuns, writeCheckpoint } from "@canary/runner";
-import { FileArtifactRepository } from "@canary/trace";
+import { beginArtifacts, FileArtifactRepository } from "@canary/trace";
 
 function writeProject(cwd: string, agent: string): void {
   writeFileSync(join(cwd, "agent.mjs"), agent, "utf8");
@@ -137,10 +137,15 @@ export default async (input) => {
   it("finalizes a stale running checkpoint on the next recover pass", async () => {
     const cwd = realpathSync.native(mkdtempSync(join(tmpdir(), "canary-r1-recover-")));
     writeProject(cwd, "export default async (input) => ({ value: input });");
-    const first = await runCommandDetailed({ cwd, headless: true, noOpen: true, caseId: "one" });
-    expect(first.exitCode).toBe(0);
+    const completed = await runCommandDetailed({ cwd, headless: true, noOpen: true, caseId: "one" });
+    expect(completed.exitCode).toBe(0);
+    // Model a genuinely partial run; mutating an already sealed run is now an integrity failure.
+    const first = { ...completed, runId: "run_interrupted", artifactPath: join(cwd, ".canary", "artifacts", "run_interrupted", "run.json") };
     const artifactDir = join(cwd, ".canary", "artifacts", first.runId);
-    const snapshot = JSON.parse(readFileSync(first.artifactPath, "utf8"));
+    beginArtifacts(artifactDir);
+    const snapshot = JSON.parse(readFileSync(completed.artifactPath, "utf8"));
+    snapshot.runId = first.runId;
+    snapshot.results = snapshot.results.map((result: Record<string, unknown>) => ({ ...result, runId: first.runId }));
     snapshot.status = "running";
     delete snapshot.finishedAt;
     writeFileSync(first.artifactPath, JSON.stringify(snapshot, null, 2), "utf8");

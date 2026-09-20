@@ -27,6 +27,40 @@ afterEach(() => {
 });
 
 describe("global canary home resolution", () => {
+  it("stops implicit discovery at the artifact boundary without blocking explicit configuration", () => {
+    const project = temporaryRoot("canary-artifact-boundary-");
+    writeFileSync(join(project, "canary.project.json"), "{}");
+    const fixture = join(project, ".canary", "artifacts", "run-fixture", "tmp", "unconfigured");
+    mkdirSync(fixture, { recursive: true });
+    expect(resolveProjectContext({ cwd: fixture })).toMatchObject({ projectRoot: fixture, source: "cwd" });
+    expect(resolveConfigFile({ cwd: fixture, configPath: join(project, "canary.project.json") })).toBe(
+      join(project, "canary.project.json"),
+    );
+    writeFileSync(join(fixture, "canary.config.ts"), "export default {};");
+    expect(resolveConfigFile({ cwd: fixture })).toBe(join(fixture, "canary.config.ts"));
+  });
+
+  it("prefers project JSON within the nearest configured directory and honors explicit legacy config", () => {
+    const project = temporaryRoot("canary-default-plan-");
+    const nested = join(project, "nested");
+    mkdirSync(nested);
+    writeFileSync(join(project, "canary.project.json"), "{}");
+    writeFileSync(join(project, "canary.config.ts"), "export default {};");
+    expect(resolveConfigFile({ cwd: nested })).toBe(join(project, "canary.project.json"));
+    expect(resolveConfigFile({ cwd: nested, configPath: "../canary.config.ts" })).toBe(
+      join(project, "canary.config.ts"),
+    );
+    writeFileSync(join(nested, "canary.config.ts"), "export default {};");
+    expect(resolveConfigFile({ cwd: nested })).toBe(join(nested, "canary.config.ts"));
+  });
+
+  it("does not silently fall back from an invalid project JSON to an agent config", () => {
+    const project = temporaryRoot("canary-bad-default-plan-");
+    writeFileSync(join(project, "canary.project.json"), "{invalid");
+    writeFileSync(join(project, "canary.config.ts"), "export default {};");
+    expect(resolveConfigFile({ cwd: project })).toBe(join(project, "canary.project.json"));
+  });
+
   it("walks up to find canary.config.ts before using CANARY_HOME", () => {
     const repo = temporaryRoot("canary-home-");
     const nested = join(repo, "apps", "demo");
