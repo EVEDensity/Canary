@@ -1,0 +1,1107 @@
+
+> canary@0.1.0 check C:\Users\temp-admin\Desktop\Canary
+> pnpm typecheck && pnpm test && pnpm lint && pnpm format:check
+
+
+> canary@0.1.0 typecheck C:\Users\temp-admin\Desktop\Canary
+> pnpm -r --if-present typecheck
+
+Scope: 20 of 21 workspace projects
+packages/exporter-core typecheck$ tsc -p tsconfig.json --pretty false
+packages/core typecheck$ tsc -p tsconfig.json --pretty false
+packages/mcp-server typecheck$ tsc -p tsconfig.json --pretty false
+packages/exporter-core typecheck: Done
+packages/mcp-server typecheck: Done
+packages/core typecheck: Done
+packages/adapters typecheck$ tsc -p tsconfig.json --pretty false
+packages/coverage typecheck$ tsc -p tsconfig.json --pretty false
+packages/evaluators typecheck$ tsc -p tsconfig.json --pretty false
+packages/environment typecheck$ tsc -p tsconfig.json --pretty false
+packages/environment typecheck: Done
+packages/experience typecheck$ tsc -p tsconfig.json --pretty false
+packages/adapters typecheck: Done
+packages/policy typecheck$ tsc -p tsconfig.json --pretty false
+packages/evaluators typecheck: Done
+packages/reporters typecheck$ tsc -p tsconfig.json --pretty false
+packages/coverage typecheck: Done
+packages/trace typecheck$ tsc -p tsconfig.json --pretty false
+packages/experience typecheck: Done
+packages/reporters typecheck: Done
+packages/policy typecheck: Done
+packages/trace typecheck: Done
+examples/local-agent typecheck$ tsc -p tsconfig.json --pretty false
+packages/improvement typecheck$ tsc -p tsconfig.json --pretty false
+packages/isolation typecheck$ tsc -p tsconfig.json --pretty false
+packages/improvement typecheck: Done
+examples/local-agent typecheck: Done
+packages/isolation typecheck: Done
+packages/hard-evolution typecheck$ tsc -p tsconfig.json --pretty false
+packages/runner typecheck$ tsc -p tsconfig.json --pretty false
+packages/hard-evolution typecheck: Done
+packages/runner typecheck: Done
+packages/loop typecheck$ tsc -p tsconfig.json --pretty false
+packages/loop typecheck: Done
+packages/control-plane typecheck$ tsc -p tsconfig.json --pretty false
+packages/control-plane typecheck: Done
+apps/web typecheck$ tsc -p tsconfig.json --pretty false
+apps/web typecheck: Done
+packages/cli typecheck$ tsc -p tsconfig.json --pretty false
+packages/cli typecheck: Done
+
+> canary@0.1.0 test C:\Users\temp-admin\Desktop\Canary
+> pnpm -r --if-present test
+
+Scope: 20 of 21 workspace projects
+packages/core test$ vitest run --passWithNoTests
+packages/exporter-core test$ vitest run
+packages/mcp-server test$ vitest run
+packages/mcp-server test:  RUN  v3.2.7 C:/Users/temp-admin/Desktop/Canary/packages/mcp-server
+packages/exporter-core test:  RUN  v3.2.7 C:/Users/temp-admin/Desktop/Canary/packages/exporter-core
+packages/core test:  RUN  v3.2.7 C:/Users/temp-admin/Desktop/Canary/packages/core
+packages/core test:  ✓ tests/contracts.test.ts (2 tests) 3ms
+packages/core test:  ✓ tests/schema.test.ts (5 tests) 18ms
+packages/mcp-server test:  ✓ tests/mcp-server.test.ts (9 tests) 100ms
+packages/core test:  Test Files  2 passed (2)
+packages/core test:       Tests  7 passed (7)
+packages/core test:    Start at  17:12:44
+packages/core test:    Duration  1.61s (transform 208ms, setup 0ms, collect 365ms, tests 21ms, environment 0ms, prepare 328ms)
+packages/exporter-core test:  ✓ tests/exporter-core.test.ts (15 tests) 167ms
+packages/mcp-server test:  Test Files  1 passed (1)
+packages/mcp-server test:       Tests  9 passed (9)
+packages/mcp-server test:    Start at  17:12:44
+packages/mcp-server test:    Duration  1.65s (transform 124ms, setup 0ms, collect 149ms, tests 100ms, environment 0ms, prepare 179ms)
+packages/exporter-core test:  Test Files  1 passed (1)
+packages/exporter-core test:       Tests  15 passed (15)
+packages/exporter-core test:    Start at  17:12:44
+packages/exporter-core test:    Duration  1.68s (transform 111ms, setup 0ms, collect 124ms, tests 167ms, environment 0ms, prepare 167ms)
+packages/core test: Done
+packages/mcp-server test: Done
+packages/exporter-core test: Done
+packages/adapters test$ vitest run
+packages/coverage test$ vitest run
+packages/evaluators test$ vitest run --passWithNoTests
+packages/environment test$ vitest run
+packages/adapters test:  RUN  v3.2.7 C:/Users/temp-admin/Desktop/Canary/packages/adapters
+packages/coverage test:  RUN  v3.2.7 C:/Users/temp-admin/Desktop/Canary/packages/coverage
+packages/environment test:  RUN  v3.2.7 C:/Users/temp-admin/Desktop/Canary/packages/environment
+packages/evaluators test:  RUN  v3.2.7 C:/Users/temp-admin/Desktop/Canary/packages/evaluators
+packages/environment test:  ✓ tests/environment.test.ts (2 tests) 3ms
+packages/environment test:  Test Files  1 passed (1)
+packages/environment test:       Tests  2 passed (2)
+packages/environment test:    Start at  17:12:46
+packages/environment test:    Duration  1.94s (transform 142ms, setup 0ms, collect 146ms, tests 3ms, environment 0ms, prepare 231ms)
+packages/evaluators test:  ✓ tests/evaluator.test.ts (15 tests) 134ms
+packages/environment test: Done
+packages/experience test$ vitest run
+packages/evaluators test:  Test Files  1 passed (1)
+packages/evaluators test:       Tests  15 passed (15)
+packages/evaluators test:    Start at  17:12:46
+packages/evaluators test:    Duration  2.19s (transform 167ms, setup 0ms, collect 196ms, tests 134ms, environment 0ms, prepare 227ms)
+packages/coverage test:  ✓ tests/coverage-contract.test.ts (1 test) 2ms
+packages/coverage test:  ✓ tests/coverage.test.ts (3 tests) 25ms
+packages/coverage test:  ✓ tests/coverage-summary.test.ts (11 tests) 16ms
+packages/coverage test:  ✓ tests/coverage-benchmark.test.ts (1 test) 70ms
+packages/coverage test:  ✓ tests/coverage-fixtures.test.ts (5 tests) 25ms
+packages/evaluators test: Done
+packages/policy test$ vitest run
+packages/coverage test:  ✓ tests/coverage-collector.test.ts (1 test) 131ms
+packages/coverage test:  Test Files  6 passed (6)
+packages/coverage test:       Tests  22 passed (22)
+packages/coverage test:    Start at  17:12:46
+packages/coverage test:    Duration  2.60s (transform 792ms, setup 0ms, collect 3.18s, tests 269ms, environment 1ms, prepare 1.35s)
+packages/coverage test: Done
+packages/reporters test$ vitest run
+packages/experience test:  RUN  v3.2.7 C:/Users/temp-admin/Desktop/Canary/packages/experience
+packages/adapters test:  ✓ tests/adapters.test.ts (7 tests) 1188ms
+packages/adapters test:    ✓ agent and tool adapters > calls mock tools and an MCP stdio tool adapter separately from AgentAdapter  519ms
+packages/adapters test:    ✓ agent and tool adapters > runs an MCP agent adapter over stdio tools/call run  498ms
+packages/policy test:  RUN  v3.2.7 C:/Users/temp-admin/Desktop/Canary/packages/policy
+packages/adapters test:  Test Files  1 passed (1)
+packages/adapters test:       Tests  7 passed (7)
+packages/adapters test:    Start at  17:12:46
+packages/adapters test:    Duration  3.16s (transform 146ms, setup 0ms, collect 157ms, tests 1.19s, environment 0ms, prepare 250ms)
+packages/adapters test: Done
+packages/trace test$ vitest run
+packages/reporters test:  RUN  v3.2.7 C:/Users/temp-admin/Desktop/Canary/packages/reporters
+packages/experience test:  ✓ tests/experience.test.ts (4 tests) 92ms
+packages/experience test:  Test Files  1 passed (1)
+packages/experience test:       Tests  4 passed (4)
+packages/experience test:    Start at  17:12:49
+packages/experience test:    Duration  1.45s (transform 178ms, setup 0ms, collect 196ms, tests 92ms, environment 0ms, prepare 232ms)
+packages/trace test:  RUN  v3.2.7 C:/Users/temp-admin/Desktop/Canary/packages/trace
+packages/experience test: Done
+packages/policy test:  ✓ tests/policy.test.ts (8 tests) 136ms
+packages/policy test:  Test Files  1 passed (1)
+packages/policy test:       Tests  8 passed (8)
+packages/policy test:    Start at  17:12:49
+packages/policy test:    Duration  1.62s (transform 163ms, setup 0ms, collect 204ms, tests 136ms, environment 0ms, prepare 196ms)
+packages/reporters test:  ✓ tests/reporters.test.ts (5 tests) 6ms
+packages/reporters test:  Test Files  1 passed (1)
+packages/reporters test:       Tests  5 passed (5)
+packages/reporters test:    Start at  17:12:50
+packages/reporters test:    Duration  1.27s (transform 133ms, setup 0ms, collect 146ms, tests 6ms, environment 0ms, prepare 169ms)
+packages/policy test: Done
+packages/reporters test: Done
+packages/trace test:  ✓ tests/trace.test.ts (5 tests) 16ms
+packages/trace test:  ✓ tests/artifacts.test.ts (14 tests) 536ms
+packages/trace test:  Test Files  2 passed (2)
+packages/trace test:       Tests  19 passed (19)
+packages/trace test:    Start at  17:12:51
+packages/trace test:    Duration  1.66s (transform 247ms, setup 0ms, collect 507ms, tests 552ms, environment 0ms, prepare 250ms)
+packages/trace test: Done
+examples/local-agent test$ vitest run --passWithNoTests
+packages/improvement test$ vitest run
+packages/isolation test$ vitest run
+examples/local-agent test:  RUN  v3.2.7 C:/Users/temp-admin/Desktop/Canary/examples/local-agent
+examples/local-agent test: No test files found, exiting with code 0
+examples/local-agent test: include: **/*.{test,spec}.?(c|m)[jt]s?(x)
+examples/local-agent test: exclude:  **/node_modules/**, **/dist/**, **/cypress/**, **/.{idea,git,cache,output,temp}/**, **/{karma,rollup,webpack,vite,vitest,jest,ava,babel,nyc,cypress,tsup,build,eslint,prettier}.config.*
+packages/improvement test:  RUN  v3.2.7 C:/Users/temp-admin/Desktop/Canary/packages/improvement
+packages/isolation test:  RUN  v3.2.7 C:/Users/temp-admin/Desktop/Canary/packages/isolation
+examples/local-agent test: Done
+packages/improvement test:  ✓ tests/improvement.test.ts (12 tests) 10ms
+packages/improvement test:  Test Files  1 passed (1)
+packages/improvement test:       Tests  12 passed (12)
+packages/improvement test:    Start at  17:12:53
+packages/improvement test:    Duration  1.34s (transform 187ms, setup 0ms, collect 271ms, tests 10ms, environment 0ms, prepare 140ms)
+packages/improvement test: Done
+packages/isolation test:  ✓ tests/process.test.ts (2 tests) 459ms
+packages/isolation test:    ✓ process tree adapter > kills a descendant worker and records the platform adapter  459ms
+packages/isolation test:  ✓ tests/isolation.test.ts (5 tests) 1004ms
+packages/isolation test:  Test Files  2 passed (2)
+packages/isolation test:       Tests  7 passed (7)
+packages/isolation test:    Start at  17:12:53
+packages/isolation test:    Duration  2.22s (transform 241ms, setup 0ms, collect 373ms, tests 1.46s, environment 0ms, prepare 297ms)
+packages/isolation test: Done
+packages/hard-evolution test$ vitest run
+packages/runner test$ vitest run
+packages/hard-evolution test:  RUN  v3.2.7 C:/Users/temp-admin/Desktop/Canary/packages/hard-evolution
+packages/runner test:  RUN  v3.2.7 C:/Users/temp-admin/Desktop/Canary/packages/runner
+packages/runner test:  ✓ tests/lifecycle.test.ts (3 tests) 2ms
+packages/hard-evolution test:  ✓ tests/hard-evolution.test.ts (6 tests) 574ms
+packages/hard-evolution test:    ✓ H-03 trusted applyer > auto-applies inside policy when isolation is satisfied and recovers a crash without double apply  345ms
+packages/hard-evolution test:  Test Files  1 passed (1)
+packages/hard-evolution test:       Tests  6 passed (6)
+packages/hard-evolution test:    Start at  17:12:56
+packages/hard-evolution test:    Duration  2.06s (transform 273ms, setup 0ms, collect 423ms, tests 574ms, environment 0ms, prepare 159ms)
+packages/hard-evolution test: Done
+packages/runner test:  ✓ tests/r1-stability.test.ts (12 tests) 2816ms
+packages/runner test:    ✓ R1 status, budget and non-zero exit > classifies a non-zero child exit as error without touching other dirs  366ms
+packages/runner test:    ✓ R1 status, budget and non-zero exit > stops on maxToolCalls and records budget_exceeded  331ms
+packages/runner test:    ✓ R1 status, budget and non-zero exit > passes when budget_exceeded is the expected termination  319ms
+packages/runner test:    ✓ R1 descendant termination > times out a hanging agent that spawned a grandchild and releases both pids  459ms
+packages/runner test:    ✓ R1 temp, env, port and lock isolation > gives concurrent workspaces distinct tmp, env and ports  436ms
+packages/runner test:    ✓ R1 temp, env, port and lock isolation > reclaims leftover child pids when the workspace is released  560ms
+packages/runner test:  ✓ tests/runner.test.ts (16 tests) 5156ms
+packages/runner test:    ✓ runner lifecycle > returns a result and performs child cleanup after a successful agent  405ms
+packages/runner test:    ✓ runner lifecycle > records an agent exception  353ms
+packages/runner test:    ✓ runner lifecycle > kills a detached busy-loop with killProcessTree  371ms
+packages/runner test:    ✓ runner evaluation matrix > passes when the agent completes and assertions succeed  335ms
+packages/runner test:    ✓ runner evaluation matrix > fails evaluation when output assertions fail after a completed execution  349ms
+packages/runner test:    ✓ runner evaluation matrix > fails when a required trajectory event is missing  360ms
+packages/runner test:    ✓ runner evaluation matrix > records state_mismatch when a state assertion fails after a completed agent  359ms
+packages/runner test:    ✓ provisional coverage sampling > emits provisional then final coverage and throttles duplicate samples  528ms
+packages/runner test:    ✓ provisional coverage sampling > collects exact istanbul coverage when the provider is opted in  782ms
+packages/runner test:    ✓ mcp agent adapter and process pool > marks coverage unavailable for an MCP stdio agent  722ms
+packages/runner test:  Test Files  3 passed (3)
+packages/runner test:       Tests  31 passed (31)
+packages/runner test:    Start at  17:12:56
+packages/runner test:    Duration  7.02s (transform 561ms, setup 0ms, collect 1.73s, tests 7.97s, environment 0ms, prepare 483ms)
+packages/runner test: Done
+packages/loop test$ vitest run
+packages/loop test:  RUN  v3.2.7 C:/Users/temp-admin/Desktop/Canary/packages/loop
+packages/loop test:  ✓ tests/loop.test.ts (6 tests) 193ms
+packages/loop test:  Test Files  1 passed (1)
+packages/loop test:       Tests  6 passed (6)
+packages/loop test:    Start at  17:13:04
+packages/loop test:    Duration  1.08s (transform 126ms, setup 0ms, collect 160ms, tests 193ms, environment 0ms, prepare 123ms)
+packages/loop test: Done
+packages/control-plane test$ vitest run
+packages/control-plane test:  RUN  v3.2.7 C:/Users/temp-admin/Desktop/Canary/packages/control-plane
+packages/control-plane test:  ✓ tests/storage.test.ts (3 tests) 2ms
+packages/control-plane test:  ✓ tests/control.test.ts (11 tests) 732ms
+packages/control-plane test:  ✓ tests/operations.test.ts (11 tests) 1293ms
+packages/control-plane test:    ✓ L02 protected operations > restores the exact previous experience pointer  306ms
+packages/control-plane test:  Test Files  3 passed (3)
+packages/control-plane test:       Tests  25 passed (25)
+packages/control-plane test:    Start at  17:13:05
+packages/control-plane test:    Duration  2.50s (transform 602ms, setup 0ms, collect 1.11s, tests 2.03s, environment 0ms, prepare 378ms)
+packages/control-plane test: Done
+apps/web test$ vitest run
+apps/web test:  RUN  v3.2.7 C:/Users/temp-admin/Desktop/Canary/apps/web
+apps/web test:  ✓ tests/control-server.test.ts (4 tests) 124ms
+apps/web test:  ✓ tests/web.test.ts (12 tests) 272ms
+apps/web test:  Test Files  2 passed (2)
+apps/web test:       Tests  16 passed (16)
+apps/web test:    Start at  17:13:09
+apps/web test:    Duration  1.52s (transform 531ms, setup 0ms, collect 1.05s, tests 397ms, environment 0ms, prepare 257ms)
+apps/web test: Done
+packages/cli test$ vitest run
+packages/cli test:  RUN  v3.2.7 C:/Users/temp-admin/Desktop/Canary/packages/cli
+packages/cli test:  ✓ tests/home.test.ts (7 tests) 73ms
+packages/cli test:  ✓ tests/export.test.ts (3 tests) 29ms
+packages/cli test:  ✓ tests/r0-contracts.test.ts (14 tests) 89ms
+packages/cli test:  ✓ tests/control.test.ts (1 test) 122ms
+packages/cli test: stdout | tests/r1-isolation.test.ts > R1 concurrent runs and persisted checkpoints > runs two projects concurrently without mixing tmp or artifacts
+packages/cli test: runId: run_601fc01b-e478-4cca-b1cd-878c6e2b0273
+packages/cli test: stdout | tests/cli.e2e.test.ts > canary run --headless > writes run.json and places coverage in the RunStore
+packages/cli test: runId: run_aa84cfed-4d7d-4ad3-803e-6f6e9f12713f
+packages/cli test: stdout | tests/r1-isolation.test.ts > R1 concurrent runs and persisted checkpoints > runs two projects concurrently without mixing tmp or artifacts
+packages/cli test: runId: run_c2ebd549-8e61-49b7-855f-7a7b04f9a2e4
+packages/cli test:  ✓ tests/diagnostics.test.ts (2 tests) 1443ms
+packages/cli test:    ✓ diagnostics > reports roots and local-first exporter state  1440ms
+packages/cli test: stdout | tests/cli.e2e.test.ts > canary run --headless > writes run.json and places coverage in the RunStore
+packages/cli test: runId: run_aa84cfed-4d7d-4ad3-803e-6f6e9f12713f
+packages/cli test: status: completed
+packages/cli test: cases: 1 passed / 0 failed / 1 total
+packages/cli test: coverage: final · lines 1/1 (100%) · functions 1/1 (100%) · branches 0/0 (0%) · statements 3/3 (100%)
+packages/cli test: evaluation: 1 passed / 0 failed assertions
+packages/cli test: artifact: C:\Users\temp-admin\AppData\Local\Temp\canary-cli-D36KrO\.canary\artifacts\run_aa84cfed-4d7d-4ad3-803e-6f6e9f12713f\run.json
+packages/cli test: exit: 0
+packages/cli test: stdout | tests/cli.e2e.test.ts > canary run --headless > writes artifacts to the --config project, not the invocation directory
+packages/cli test: runId: run_b4e479bb-f70f-4664-b65c-71f1a63a15e1
+packages/cli test: stdout | tests/r1-isolation.test.ts > R1 concurrent runs and persisted checkpoints > runs two projects concurrently without mixing tmp or artifacts
+packages/cli test: runId: run_601fc01b-e478-4cca-b1cd-878c6e2b0273
+packages/cli test: status: completed
+packages/cli test: cases: 2 passed / 0 failed / 2 total
+packages/cli test: coverage: final · lines 4/4 (100%) · functions 1/1 (100%) · branches 0/0 (0%) · statements 4/4 (100%)
+packages/cli test: evaluation: 2 passed / 0 failed assertions
+packages/cli test: artifact: C:\Users\temp-admin\AppData\Local\Temp\canary-r1-conc-a-EoCLxv\.canary\artifacts\run_601fc01b-e478-4cca-b1cd-878c6e2b0273\run.json
+packages/cli test: exit: 0
+packages/cli test: stdout | tests/r1-isolation.test.ts > R1 concurrent runs and persisted checkpoints > runs two projects concurrently without mixing tmp or artifacts
+packages/cli test: runId: run_c2ebd549-8e61-49b7-855f-7a7b04f9a2e4
+packages/cli test: status: completed
+packages/cli test: cases: 2 passed / 0 failed / 2 total
+packages/cli test: coverage: final · lines 4/4 (100%) · functions 1/1 (100%) · branches 0/0 (0%) · statements 4/4 (100%)
+packages/cli test: evaluation: 2 passed / 0 failed assertions
+packages/cli test: artifact: C:\Users\temp-admin\AppData\Local\Temp\canary-r1-conc-b-GAQ0Z6\.canary\artifacts\run_c2ebd549-8e61-49b7-855f-7a7b04f9a2e4\run.json
+packages/cli test: exit: 0
+packages/cli test: stdout | tests/r1-isolation.test.ts > R1 concurrent runs and persisted checkpoints > writes a checkpoint for a cancelled partial run and keeps finished cases
+packages/cli test: runId: run_7f953470-9ff1-4e6f-ad99-0568b95bc69a
+packages/cli test: stdout | tests/cli.e2e.test.ts > canary run --headless > writes artifacts to the --config project, not the invocation directory
+packages/cli test: runId: run_b4e479bb-f70f-4664-b65c-71f1a63a15e1
+packages/cli test: status: completed
+packages/cli test: cases: 1 passed / 0 failed / 1 total
+packages/cli test: coverage: final · lines 1/1 (100%) · functions 1/1 (100%) · branches 0/0 (0%) · statements 1/1 (100%)
+packages/cli test: evaluation: 1 passed / 0 failed assertions
+packages/cli test: artifact: C:\Users\temp-admin\AppData\Local\Temp\canary-target-run-235Rox\.canary\artifacts\run_b4e479bb-f70f-4664-b65c-71f1a63a15e1\run.json
+packages/cli test: exit: 0
+packages/cli test: stdout | tests/r1-isolation.test.ts > R1 concurrent runs and persisted checkpoints > writes a checkpoint for a cancelled partial run and keeps finished cases
+packages/cli test: runId: run_7f953470-9ff1-4e6f-ad99-0568b95bc69a
+packages/cli test: status: cancelled
+packages/cli test: cases: 1 passed / 1 failed / 2 total
+packages/cli test: coverage: partial · lines 4/4 (100%) · functions 1/2 (50%) · branches 1/2 (50%) · statements 4/5 (80%)
+packages/cli test: evaluation: 1 passed / 1 failed assertions
+packages/cli test: artifact: C:\Users\temp-admin\AppData\Local\Temp\canary-r1-partial-s921un\.canary\artifacts\run_7f953470-9ff1-4e6f-ad99-0568b95bc69a\run.json
+packages/cli test: exit: 1
+packages/cli test: stdout | tests/r1-isolation.test.ts > R1 concurrent runs and persisted checkpoints > runs the same project twice concurrently without sharing tmp or overwriting artifacts
+packages/cli test: runId: run_5996d889-d5da-4ca0-a9b4-fbdd2fc3471c
+packages/cli test: stdout | tests/r1-isolation.test.ts > R1 concurrent runs and persisted checkpoints > runs the same project twice concurrently without sharing tmp or overwriting artifacts
+packages/cli test: runId: run_fe18bd46-161b-4ce6-a1b8-a9b088aaed58
+packages/cli test: stdout | tests/cli.e2e.test.ts > canary run --headless > honors web.enabled: false without --headless
+packages/cli test: runId: run_22414eca-954b-4a73-bc5c-3626aeb876e2
+packages/cli test: stdout | tests/r1-isolation.test.ts > R1 concurrent runs and persisted checkpoints > runs the same project twice concurrently without sharing tmp or overwriting artifacts
+packages/cli test: runId: run_5996d889-d5da-4ca0-a9b4-fbdd2fc3471c
+packages/cli test: status: completed
+packages/cli test: cases: 2 passed / 0 failed / 2 total
+packages/cli test: coverage: final · lines 1/1 (100%) · functions 1/1 (100%) · branches 0/0 (0%) · statements 1/1 (100%)
+packages/cli test: evaluation: 2 passed / 0 failed assertions
+packages/cli test: artifact: C:\Users\temp-admin\AppData\Local\Temp\canary-r1-same-3RAxpJ\.canary\artifacts\run_5996d889-d5da-4ca0-a9b4-fbdd2fc3471c\run.json
+packages/cli test: exit: 0
+packages/cli test: stdout | tests/cli.e2e.test.ts > canary run --headless > honors web.enabled: false without --headless
+packages/cli test: runId: run_22414eca-954b-4a73-bc5c-3626aeb876e2
+packages/cli test: status: completed
+packages/cli test: cases: 1 passed / 0 failed / 1 total
+packages/cli test: coverage: final · lines 1/1 (100%) · functions 1/1 (100%) · branches 0/0 (0%) · statements 1/1 (100%)
+packages/cli test: evaluation: 1 passed / 0 failed assertions
+packages/cli test: artifact: C:\Users\temp-admin\AppData\Local\Temp\canary-cli-disabled-web-2JKyr0\.canary\artifacts\run_22414eca-954b-4a73-bc5c-3626aeb876e2\run.json
+packages/cli test: exit: 0
+packages/cli test: stdout | tests/r1-isolation.test.ts > R1 concurrent runs and persisted checkpoints > runs the same project twice concurrently without sharing tmp or overwriting artifacts
+packages/cli test: runId: run_fe18bd46-161b-4ce6-a1b8-a9b088aaed58
+packages/cli test: status: completed
+packages/cli test: cases: 2 passed / 0 failed / 2 total
+packages/cli test: coverage: final · lines 1/1 (100%) · functions 1/1 (100%) · branches 0/0 (0%) · statements 1/1 (100%)
+packages/cli test: evaluation: 2 passed / 0 failed assertions
+packages/cli test: artifact: C:\Users\temp-admin\AppData\Local\Temp\canary-r1-same-3RAxpJ\.canary\artifacts\run_fe18bd46-161b-4ce6-a1b8-a9b088aaed58\run.json
+packages/cli test: exit: 0
+packages/cli test: stdout | tests/r1-isolation.test.ts > R1 concurrent runs and persisted checkpoints > finalizes a stale running checkpoint on the next recover pass
+packages/cli test: runId: run_715f045b-4362-4813-930a-d5bd2cc2668f
+packages/cli test: stdout | tests/r1-isolation.test.ts > R1 concurrent runs and persisted checkpoints > finalizes a stale running checkpoint on the next recover pass
+packages/cli test: runId: run_715f045b-4362-4813-930a-d5bd2cc2668f
+packages/cli test: status: completed
+packages/cli test: cases: 1 passed / 0 failed / 1 total
+packages/cli test: coverage: final · lines 1/1 (100%) · functions 1/1 (100%) · branches 0/0 (0%) · statements 1/1 (100%)
+packages/cli test: evaluation: 1 passed / 0 failed assertions
+packages/cli test: artifact: C:\Users\temp-admin\AppData\Local\Temp\canary-r1-recover-VwuOol\.canary\artifacts\run_715f045b-4362-4813-930a-d5bd2cc2668f\run.json
+packages/cli test: exit: 0
+packages/cli test: stdout | tests/cli.e2e.test.ts > canary run --headless > prints the UI address before cases finish so SSE is reachable mid-run
+packages/cli test: runId: run_3826ba3e-aaaa-44e4-9baf-883521a2a065
+packages/cli test: status: completed
+packages/cli test: cases: 1 passed / 0 failed / 1 total
+packages/cli test: coverage: final · lines 1/1 (100%) · functions 0/2 (0%) · branches 0/0 (0%) · statements 2/3 (66.67%)
+packages/cli test: evaluation: 1 passed / 0 failed assertions
+packages/cli test: artifact: C:\Users\temp-admin\AppData\Local\Temp\canary-cli-live-ui-tzWhmL\.canary\artifacts\run_3826ba3e-aaaa-44e4-9baf-883521a2a065\run.json
+packages/cli test: ui: http://127.0.0.1:64688/?runId=run_3826ba3e-aaaa-44e4-9baf-883521a2a065&[redacted]
+packages/cli test: exit: 0
+packages/cli test: stdout | tests/cli.e2e.test.ts > canary run --headless > fails the shared coverage gate when required coverage is below threshold
+packages/cli test: runId: run_db1787c0-7d98-476d-a36d-a3c0c52432c1
+packages/cli test:  ✓ tests/r1-isolation.test.ts (6 tests) 6768ms
+packages/cli test:    ✓ R1 concurrent runs and persisted checkpoints > runs two projects concurrently without mixing tmp or artifacts  1785ms
+packages/cli test:    ✓ R1 concurrent runs and persisted checkpoints > writes a checkpoint for a cancelled partial run and keeps finished cases  1201ms
+packages/cli test:    ✓ R1 concurrent runs and persisted checkpoints > runs the same project twice concurrently without sharing tmp or overwriting artifacts  1416ms
+packages/cli test:    ✓ R1 concurrent runs and persisted checkpoints > maps an aborted CI run to exit 3 and keeps the partial checkpoint  798ms
+packages/cli test:    ✓ R1 concurrent runs and persisted checkpoints > finalizes a stale running checkpoint on the next recover pass  1301ms
+packages/cli test: stdout | tests/cli.e2e.test.ts > canary run --headless > fails the shared coverage gate when required coverage is below threshold
+packages/cli test: coverage-gate: fail · behavior_passed_coverage_insufficient · branches 0% < 100%
+packages/cli test: stdout | tests/cli.e2e.test.ts > canary run --headless > fails the shared coverage gate when required coverage is below threshold
+packages/cli test: runId: run_db1787c0-7d98-476d-a36d-a3c0c52432c1
+packages/cli test: status: failed
+packages/cli test: cases: 1 passed / 0 failed / 1 total
+packages/cli test: coverage: final · lines 1/2 (50%) · functions 1/2 (50%) · branches 0/2 (0%) · statements 1/4 (25%)
+packages/cli test: evaluation: 2 passed / 0 failed assertions
+packages/cli test: artifact: C:\Users\temp-admin\AppData\Local\Temp\canary-gate-kVhLp3\.canary\artifacts\run_db1787c0-7d98-476d-a36d-a3c0c52432c1\run.json
+packages/cli test: exit: 1
+packages/cli test: stdout | tests/cli.e2e.test.ts > canary run --headless > fails closed when judge.score is required and no provider is configured
+packages/cli test: runId: run_7a81f4de-2db2-4552-aba8-35816c6caa1c
+packages/cli test:  ✓ tests/r3-evidence.test.ts (5 tests) 7355ms
+packages/cli test:    ✓ R3 real local run evidence > seals CI only after trace/checkpoint/reports, and links equivalent replay/retry conclusions  3292ms
+packages/cli test:    ✓ R3 real local run evidence > sanitizes live/historical HTTP, reports and SSE, and rejects tampering after hydration  1412ms
+packages/cli test:    ✓ R3 real local run evidence > records partial recovery and tail hashes without rerunning a completed case  1372ms
+packages/cli test:    ✓ R3 real local run evidence > returns CI 6 and retains a failed, sanitized run when a writer bypasses output redaction  1272ms
+packages/cli test: stdout | tests/cli.e2e.test.ts > canary run --headless > fails closed when judge.score is required and no provider is configured
+packages/cli test: runId: run_7a81f4de-2db2-4552-aba8-35816c6caa1c
+packages/cli test: status: failed
+packages/cli test: cases: 0 passed / 1 failed / 1 total
+packages/cli test: coverage: final · lines 1/1 (100%) · functions 1/1 (100%) · branches 0/0 (0%) · statements 1/1 (100%)
+packages/cli test: evaluation: 1 passed / 1 failed assertions
+packages/cli test: artifact: C:\Users\temp-admin\AppData\Local\Temp\canary-judge-missing-4XANnE\.canary\artifacts\run_7a81f4de-2db2-4552-aba8-35816c6caa1c\run.json
+packages/cli test: exit: 1
+packages/cli test: stdout | tests/cli.e2e.test.ts > improvement CLI loop > exports regression drafts from a failed run and rejects a holdout regression on compare
+packages/cli test: runId: run_40c9fd8a-fd36-414a-9159-4a5daceb89f9
+packages/cli test: stdout | tests/cli.e2e.test.ts > improvement CLI loop > exports regression drafts from a failed run and rejects a holdout regression on compare
+packages/cli test: runId: run_40c9fd8a-fd36-414a-9159-4a5daceb89f9
+packages/cli test: status: failed
+packages/cli test: cases: 1 passed / 1 failed / 2 total
+packages/cli test: coverage: final · lines 1/1 (100%) · functions 1/1 (100%) · branches 2/2 (100%) · statements 1/1 (100%)
+packages/cli test: evaluation: 3 passed / 1 failed assertions
+packages/cli test: artifact: C:\Users\temp-admin\AppData\Local\Temp\canary-improve-4p9x7q\.canary\artifacts\run_40c9fd8a-fd36-414a-9159-4a5daceb89f9\run.json
+packages/cli test: exit: 1
+packages/cli test: stdout | tests/cli.e2e.test.ts > improvement CLI loop > exports regression drafts from a failed run and rejects a holdout regression on compare
+packages/cli test: {
+packages/cli test:   "suggestions": [
+packages/cli test:     {
+packages/cli test:       "id": "suggestion_run_40c9fd8a-fd36-414a-9159-4a5daceb89f9_broken_1",
+packages/cli test:       "runId": "run_40c9fd8a-fd36-414a-9159-4a5daceb89f9",
+packages/cli test:       "caseId": "broken",
+packages/cli test:       "kind": "wrong_output",
+packages/cli test:       "category": "prompt",
+packages/cli test:       "rationale": "Agent output is missing",
+packages/cli test:       "evidence": [
+packages/cli test:         {
+packages/cli test:           "type": "assertion",
+packages/cli test:           "ref": "output.exists#1"
+packages/cli test:         },
+packages/cli test:         {
+packages/cli test:           "type": "state",
+packages/cli test:           "ref": "(value)"
+packages/cli test:         },
+packages/cli test:         {
+packages/cli test:           "type": "coverage",
+packages/cli test:           "ref": "c:\\Users\\temp-admin\\AppData\\Local\\Temp\\canary-improve-4p9x7q\\agent.mjs:1"
+packages/cli test:         }
+packages/cli test:       ],
+packages/cli test:       "proposedCase": {
+packages/cli test:         "id": "broken.regression",
+packages/cli test:         "input": "x",
+packages/cli test:         "tags": [
+packages/cli test:           "regression"
+packages/cli test:         ],
+packages/cli test:         "assertions": [
+packages/cli test:           {
+packages/cli test:             "type": "output.exists"
+packages/cli test:           }
+packages/cli test:         ],
+packages/cli test:         "dataset": {
+packages/cli test:           "split": "regression"
+packages/cli test:         }
+packages/cli test:       },
+packages/cli test:       "generation": {
+packages/cli test:         "status": "ok"
+packages/cli test:       },
+packages/cli test:       "status": "proposed",
+packages/cli test:       "confidence": 0.65
+packages/cli test:     }
+packages/cli test:   ],
+packages/cli test:   "drafts": [
+packages/cli test:     "C:\\Users\\temp-admin\\AppData\\Local\\Temp\\canary-improve-4p9x7q\\cases\\regression\\broken.regression.ts"
+packages/cli test:   ]
+packages/cli test: }
+packages/cli test: stdout | tests/cli.e2e.test.ts > improvement CLI loop > exports regression drafts from a failed run and rejects a holdout regression on compare
+packages/cli test: runId: run_679ccbcc-e619-4820-8c01-3c36e0224bf3
+packages/cli test: stdout | tests/cli.e2e.test.ts > improvement CLI loop > exports regression drafts from a failed run and rejects a holdout regression on compare
+packages/cli test: runId: run_679ccbcc-e619-4820-8c01-3c36e0224bf3
+packages/cli test: status: completed
+packages/cli test: cases: 2 passed / 0 failed / 2 total
+packages/cli test: coverage: final · lines 1/1 (100%) · functions 1/1 (100%) · branches 0/0 (0%) · statements 1/1 (100%)
+packages/cli test: evaluation: 4 passed / 0 failed assertions
+packages/cli test: artifact: C:\Users\temp-admin\AppData\Local\Temp\canary-improve-4p9x7q\.canary\artifacts\run_679ccbcc-e619-4820-8c01-3c36e0224bf3\run.json
+packages/cli test: exit: 0
+packages/cli test: stdout | tests/cli.e2e.test.ts > improvement CLI loop > exports regression drafts from a failed run and rejects a holdout regression on compare
+packages/cli test: runId: run_0249e298-25e0-41a3-abaa-9cef1063a657
+packages/cli test: stdout | tests/cli.e2e.test.ts > improvement CLI loop > exports regression drafts from a failed run and rejects a holdout regression on compare
+packages/cli test: runId: run_0249e298-25e0-41a3-abaa-9cef1063a657
+packages/cli test: status: failed
+packages/cli test: cases: 1 passed / 1 failed / 2 total
+packages/cli test: coverage: final · lines 1/1 (100%) · functions 1/1 (100%) · branches 2/2 (100%) · statements 1/1 (100%)
+packages/cli test: evaluation: 3 passed / 1 failed assertions
+packages/cli test: artifact: C:\Users\temp-admin\AppData\Local\Temp\canary-improve-4p9x7q\.canary\artifacts\run_0249e298-25e0-41a3-abaa-9cef1063a657\run.json
+packages/cli test: exit: 1
+packages/cli test: stdout | tests/cli.e2e.test.ts > improvement CLI loop > exports regression drafts from a failed run and rejects a holdout regression on compare
+packages/cli test: {
+packages/cli test:   "v": 1,
+packages/cli test:   "baselineRunId": "run_679ccbcc-e619-4820-8c01-3c36e0224bf3",
+packages/cli test:   "candidateRunId": "run_0249e298-25e0-41a3-abaa-9cef1063a657",
+packages/cli test:   "verdict": "reject",
+packages/cli test:   "comparable": true,
+packages/cli test:   "completeness": {
+packages/cli test:     "passed": true,
+packages/cli test:     "missingBaselinePassing": [],
+packages/cli test:     "missingCandidate": [],
+packages/cli test:     "duplicateIds": [],
+packages/cli test:     "cancelledOrError": [],
+packages/cli test:     "datasetMismatch": false,
+packages/cli test:     "reasons": []
+packages/cli test:   },
+packages/cli test:   "regressions": [
+packages/cli test:     "holdout-planning",
+packages/cli test:     "holdout:holdout-planning"
+packages/cli test:   ],
+packages/cli test:   "improvements": [],
+packages/cli test:   "coverageDelta": {
+packages/cli test:     "comparable": false,
+packages/cli test:     "lines": 0,
+packages/cli test:     "reason": "coverage denominators differ; collectors are not ranked"
+packages/cli test:   },
+packages/cli test:   "admission": {
+packages/cli test:     "v": 1,
+packages/cli test:     "verdict": "reject",
+packages/cli test:     "reasons": [
+packages/cli test:       "regressions: holdout-planning, holdout:holdout-planning"
+packages/cli test:     ],
+packages/cli test:     "hardGatePassed": true,
+packages/cli test:     "completenessPassed": true,
+packages/cli test:     "quality": {
+packages/cli test:       "comparable": false,
+packages/cli test:       "uncertain": true,
+packages/cli test:       "metrics": [
+packages/cli test:         {
+packages/cli test:           "v": 1,
+packages/cli test:           "name": "lines",
+packages/cli test:           "value": 0,
+packages/cli test:           "status": "available",
+packages/cli test:           "precision": "exact",
+packages/cli test:           "provenance": "coverage-summary"
+packages/cli test:         },
+packages/cli test:         {
+packages/cli test:           "v": 1,
+packages/cli test:           "name": "branches",
+packages/cli test:           "status": "unavailable",
+packages/cli test:           "precision": "unknown",
+packages/cli test:           "provenance": "coverage-denominator-mismatch"
+packages/cli test:         },
+packages/cli test:         {
+packages/cli test:           "v": 1,
+packages/cli test:           "name": "functions",
+packages/cli test:           "value": 0,
+packages/cli test:           "status": "available",
+packages/cli test:           "precision": "exact",
+packages/cli test:           "provenance": "coverage-summary"
+packages/cli test:         }
+packages/cli test:       ]
+packages/cli test:     }
+packages/cli test:   }
+packages/cli test: }
+packages/cli test: stdout | tests/cli.e2e.test.ts > improvement CLI loop > accepts and verifies a suggestion then runs a one-click candidate pipeline
+packages/cli test: runId: run_0ccfb8f6-cb57-4b6f-98e1-efc63f666497
+packages/cli test: stdout | tests/cli.e2e.test.ts > improvement CLI loop > accepts and verifies a suggestion then runs a one-click candidate pipeline
+packages/cli test: runId: run_0ccfb8f6-cb57-4b6f-98e1-efc63f666497
+packages/cli test: status: failed
+packages/cli test: cases: 2 passed / 1 failed / 3 total
+packages/cli test: coverage: final · lines 1/2 (50%) · functions 1/2 (50%) · branches 2/2 (100%) · statements 1/2 (50%)
+packages/cli test: evaluation: 5 passed / 1 failed assertions
+packages/cli test: artifact: C:\Users\temp-admin\AppData\Local\Temp\canary-candidate-dOkGYz\.canary\artifacts\run_0ccfb8f6-cb57-4b6f-98e1-efc63f666497\run.json
+packages/cli test: exit: 1
+packages/cli test: stdout | tests/cli.e2e.test.ts > improvement CLI loop > accepts and verifies a suggestion then runs a one-click candidate pipeline
+packages/cli test: {
+packages/cli test:   "suggestions": [
+packages/cli test:     {
+packages/cli test:       "id": "suggestion_run_0ccfb8f6-cb57-4b6f-98e1-efc63f666497_broken_1",
+packages/cli test:       "runId": "run_0ccfb8f6-cb57-4b6f-98e1-efc63f666497",
+packages/cli test:       "caseId": "broken",
+packages/cli test:       "kind": "wrong_output",
+packages/cli test:       "category": "prompt",
+packages/cli test:       "rationale": "Agent output is missing",
+packages/cli test:       "evidence": [
+packages/cli test:         {
+packages/cli test:           "type": "assertion",
+packages/cli test:           "ref": "output.exists#1"
+packages/cli test:         },
+packages/cli test:         {
+packages/cli test:           "type": "state",
+packages/cli test:           "ref": "(value)"
+packages/cli test:         },
+packages/cli test:         {
+packages/cli test:           "type": "coverage",
+packages/cli test:           "ref": "c:\\Users\\temp-admin\\AppData\\Local\\Temp\\canary-candidate-dOkGYz\\broken.mjs:1"
+packages/cli test:         },
+packages/cli test:         {
+packages/cli test:           "type": "coverage",
+packages/cli test:           "ref": "c:\\Users\\temp-admin\\AppData\\Local\\Temp\\canary-candidate-dOkGYz\\fixed.mjs:1"
+packages/cli test:         },
+packages/cli test:         {
+packages/cli test:           "type": "coverage",
+packages/cli test:           "ref": "c:\\Users\\temp-admin\\AppData\\Local\\Temp\\canary-candidate-dOkGYz\\fixed.mjs:1"
+packages/cli test:         }
+packages/cli test:       ],
+packages/cli test:       "proposedCase": {
+packages/cli test:         "id": "broken.regression",
+packages/cli test:         "input": "broken",
+packages/cli test:         "tags": [
+packages/cli test:           "regression"
+packages/cli test:         ],
+packages/cli test:         "assertions": [
+packages/cli test:           {
+packages/cli test:             "type": "output.exists"
+packages/cli test:           }
+packages/cli test:         ],
+packages/cli test:         "dataset": {
+packages/cli test:           "split": "regression"
+packages/cli test:         }
+packages/cli test:       },
+packages/cli test:       "generation": {
+packages/cli test:         "status": "ok"
+packages/cli test:       },
+packages/cli test:       "status": "proposed",
+packages/cli test:       "confidence": 0.65
+packages/cli test:     }
+packages/cli test:   ],
+packages/cli test:   "drafts": [
+packages/cli test:     "C:\\Users\\temp-admin\\AppData\\Local\\Temp\\canary-candidate-dOkGYz\\cases\\drafts\\broken.regression.ts"
+packages/cli test:   ]
+packages/cli test: }
+packages/cli test: stdout | tests/cli.e2e.test.ts > improvement CLI loop > accepts and verifies a suggestion then runs a one-click candidate pipeline
+packages/cli test: {
+packages/cli test:   "suggestions": [
+packages/cli test:     {
+packages/cli test:       "id": "suggestion_run_0ccfb8f6-cb57-4b6f-98e1-efc63f666497_broken_1",
+packages/cli test:       "runId": "run_0ccfb8f6-cb57-4b6f-98e1-efc63f666497",
+packages/cli test:       "caseId": "broken",
+packages/cli test:       "kind": "wrong_output",
+packages/cli test:       "category": "prompt",
+packages/cli test:       "rationale": "Agent output is missing",
+packages/cli test:       "evidence": [
+packages/cli test:         {
+packages/cli test:           "type": "assertion",
+packages/cli test:           "ref": "output.exists#1"
+packages/cli test:         },
+packages/cli test:         {
+packages/cli test:           "type": "state",
+packages/cli test:           "ref": "(value)"
+packages/cli test:         },
+packages/cli test:         {
+packages/cli test:           "type": "coverage",
+packages/cli test:           "ref": "c:\\Users\\temp-admin\\AppData\\Local\\Temp\\canary-candidate-dOkGYz\\broken.mjs:1"
+packages/cli test:         },
+packages/cli test:         {
+packages/cli test:           "type": "coverage",
+packages/cli test:           "ref": "c:\\Users\\temp-admin\\AppData\\Local\\Temp\\canary-candidate-dOkGYz\\fixed.mjs:1"
+packages/cli test:         },
+packages/cli test:         {
+packages/cli test:           "type": "coverage",
+packages/cli test:           "ref": "c:\\Users\\temp-admin\\AppData\\Local\\Temp\\canary-candidate-dOkGYz\\fixed.mjs:1"
+packages/cli test:         }
+packages/cli test:       ],
+packages/cli test:       "proposedCase": {
+packages/cli test:         "id": "broken.regression",
+packages/cli test:         "input": "broken",
+packages/cli test:         "tags": [
+packages/cli test:           "regression"
+packages/cli test:         ],
+packages/cli test:         "assertions": [
+packages/cli test:           {
+packages/cli test:             "type": "output.exists"
+packages/cli test:           }
+packages/cli test:         ],
+packages/cli test:         "dataset": {
+packages/cli test:           "split": "regression"
+packages/cli test:         }
+packages/cli test:       },
+packages/cli test:       "generation": {
+packages/cli test:         "status": "ok"
+packages/cli test:       },
+packages/cli test:       "status": "accepted",
+packages/cli test:       "confidence": 0.65
+packages/cli test:     }
+packages/cli test:   ],
+packages/cli test:   "drafts": []
+packages/cli test: }
+packages/cli test: stdout | tests/cli.e2e.test.ts > improvement CLI loop > accepts and verifies a suggestion then runs a one-click candidate pipeline
+packages/cli test: {
+packages/cli test:   "suggestions": [
+packages/cli test:     {
+packages/cli test:       "id": "suggestion_run_0ccfb8f6-cb57-4b6f-98e1-efc63f666497_broken_1",
+packages/cli test:       "runId": "run_0ccfb8f6-cb57-4b6f-98e1-efc63f666497",
+packages/cli test:       "caseId": "broken",
+packages/cli test:       "kind": "wrong_output",
+packages/cli test:       "category": "prompt",
+packages/cli test:       "rationale": "Agent output is missing",
+packages/cli test:       "evidence": [
+packages/cli test:         {
+packages/cli test:           "type": "assertion",
+packages/cli test:           "ref": "output.exists#1"
+packages/cli test:         },
+packages/cli test:         {
+packages/cli test:           "type": "state",
+packages/cli test:           "ref": "(value)"
+packages/cli test:         },
+packages/cli test:         {
+packages/cli test:           "type": "coverage",
+packages/cli test:           "ref": "c:\\Users\\temp-admin\\AppData\\Local\\Temp\\canary-candidate-dOkGYz\\broken.mjs:1"
+packages/cli test:         },
+packages/cli test:         {
+packages/cli test:           "type": "coverage",
+packages/cli test:           "ref": "c:\\Users\\temp-admin\\AppData\\Local\\Temp\\canary-candidate-dOkGYz\\fixed.mjs:1"
+packages/cli test:         },
+packages/cli test:         {
+packages/cli test:           "type": "coverage",
+packages/cli test:           "ref": "c:\\Users\\temp-admin\\AppData\\Local\\Temp\\canary-candidate-dOkGYz\\fixed.mjs:1"
+packages/cli test:         }
+packages/cli test:       ],
+packages/cli test:       "proposedCase": {
+packages/cli test:         "id": "broken.regression",
+packages/cli test:         "input": "broken",
+packages/cli test:         "tags": [
+packages/cli test:           "regression"
+packages/cli test:         ],
+packages/cli test:         "assertions": [
+packages/cli test:           {
+packages/cli test:             "type": "output.exists"
+packages/cli test:           }
+packages/cli test:         ],
+packages/cli test:         "dataset": {
+packages/cli test:           "split": "regression"
+packages/cli test:         }
+packages/cli test:       },
+packages/cli test:       "generation": {
+packages/cli test:         "status": "ok"
+packages/cli test:       },
+packages/cli test:       "status": "verified",
+packages/cli test:       "confidence": 0.65
+packages/cli test:     }
+packages/cli test:   ],
+packages/cli test:   "drafts": [
+packages/cli test:     "C:\\Users\\temp-admin\\AppData\\Local\\Temp\\canary-candidate-dOkGYz\\cases\\regression\\broken.regression.ts"
+packages/cli test:   ]
+packages/cli test: }
+packages/cli test: stdout | tests/cli.e2e.test.ts > improvement CLI loop > accepts and verifies a suggestion then runs a one-click candidate pipeline
+packages/cli test: runId: run_f1713ba1-f94c-44f8-b963-3c55c8b3cc18
+packages/cli test: stdout | tests/cli.e2e.test.ts > improvement CLI loop > accepts and verifies a suggestion then runs a one-click candidate pipeline
+packages/cli test: runId: run_f1713ba1-f94c-44f8-b963-3c55c8b3cc18
+packages/cli test: status: completed
+packages/cli test: cases: 3 passed / 0 failed / 3 total
+packages/cli test: coverage: final · lines 1/2 (50%) · functions 1/2 (50%) · branches 0/2 (0%) · statements 1/2 (50%)
+packages/cli test: evaluation: 6 passed / 0 failed assertions
+packages/cli test: artifact: C:\Users\temp-admin\AppData\Local\Temp\canary-candidate-dOkGYz\.canary\artifacts\run_f1713ba1-f94c-44f8-b963-3c55c8b3cc18\run.json
+packages/cli test: exit: 0
+packages/cli test: stdout | tests/cli.e2e.test.ts > improvement CLI loop > accepts and verifies a suggestion then runs a one-click candidate pipeline
+packages/cli test: {
+packages/cli test:   "v": 1,
+packages/cli test:   "baselineRunId": "run_0ccfb8f6-cb57-4b6f-98e1-efc63f666497",
+packages/cli test:   "candidateRunId": "run_f1713ba1-f94c-44f8-b963-3c55c8b3cc18",
+packages/cli test:   "verdict": "improve",
+packages/cli test:   "comparable": true,
+packages/cli test:   "completeness": {
+packages/cli test:     "passed": true,
+packages/cli test:     "missingBaselinePassing": [],
+packages/cli test:     "missingCandidate": [],
+packages/cli test:     "duplicateIds": [],
+packages/cli test:     "cancelledOrError": [],
+packages/cli test:     "datasetMismatch": false,
+packages/cli test:     "reasons": []
+packages/cli test:   },
+packages/cli test:   "regressions": [],
+packages/cli test:   "improvements": [
+packages/cli test:     "broken"
+packages/cli test:   ],
+packages/cli test:   "coverageDelta": {
+packages/cli test:     "comparable": true,
+packages/cli test:     "lines": 0,
+packages/cli test:     "branches": -100,
+packages/cli test:     "functions": 0
+packages/cli test:   },
+packages/cli test:   "admission": {
+packages/cli test:     "v": 1,
+packages/cli test:     "verdict": "hold",
+packages/cli test:     "reasons": [
+packages/cli test:       "quality difference is uncertain; small samples and missing metrics are not an automatic admit"
+packages/cli test:     ],
+packages/cli test:     "hardGatePassed": true,
+packages/cli test:     "completenessPassed": true,
+packages/cli test:     "quality": {
+packages/cli test:       "comparable": false,
+packages/cli test:       "uncertain": true,
+packages/cli test:       "metrics": [
+packages/cli test:         {
+packages/cli test:           "v": 1,
+packages/cli test:           "name": "lines",
+packages/cli test:           "status": "unavailable",
+packages/cli test:           "precision": "unknown",
+packages/cli test:           "provenance": "coverage-precision-mismatch"
+packages/cli test:         },
+packages/cli test:         {
+packages/cli test:           "v": 1,
+packages/cli test:           "name": "branches",
+packages/cli test:           "status": "unavailable",
+packages/cli test:           "precision": "unknown",
+packages/cli test:           "provenance": "coverage-precision-mismatch"
+packages/cli test:         },
+packages/cli test:         {
+packages/cli test:           "v": 1,
+packages/cli test:           "name": "functions",
+packages/cli test:           "status": "unavailable",
+packages/cli test:           "precision": "unknown",
+packages/cli test:           "provenance": "coverage-precision-mismatch"
+packages/cli test:         }
+packages/cli test:       ]
+packages/cli test:     }
+packages/cli test:   }
+packages/cli test: }
+packages/cli test: stdout | tests/cli.e2e.test.ts > improvement CLI loop > runs an approved experience trial with regression, holdout, activation and rollback gates
+packages/cli test: runId: run_3da497db-f65b-48ab-a381-75f748294dd1
+packages/cli test: stdout | tests/cli.e2e.test.ts > improvement CLI loop > runs an approved experience trial with regression, holdout, activation and rollback gates
+packages/cli test: runId: run_3da497db-f65b-48ab-a381-75f748294dd1
+packages/cli test: status: failed
+packages/cli test: cases: 1 passed / 1 failed / 2 total
+packages/cli test: coverage: final · lines 1/1 (100%) · functions 1/2 (50%) · branches 3/4 (75%) · statements 1/1 (100%)
+packages/cli test: evaluation: 3 passed / 1 failed assertions
+packages/cli test: artifact: C:\Users\temp-admin\AppData\Local\Temp\canary-s04-IJ3kBr\.canary\artifacts\run_3da497db-f65b-48ab-a381-75f748294dd1\run.json
+packages/cli test: exit: 1
+packages/cli test: stdout | tests/cli.e2e.test.ts > improvement CLI loop > runs an approved experience trial with regression, holdout, activation and rollback gates
+packages/cli test: {
+packages/cli test:   "v": 1,
+packages/cli test:   "kind": "canary.experience.validate",
+packages/cli test:   "record": {
+packages/cli test:     "v": 1,
+packages/cli test:     "id": "experience_s04-recovery_1_e23a65f35e64",
+packages/cli test:     "key": "s04-recovery",
+packages/cli test:     "version": 1,
+packages/cli test:     "status": "validated",
+packages/cli test:     "projectRoot": "C:\\Users\\temp-admin\\AppData\\Local\\Temp\\canary-s04-IJ3kBr",
+packages/cli test:     "source": {
+packages/cli test:       "kind": "human",
+packages/cli test:       "ref": "s04-test"
+packages/cli test:     },
+packages/cli test:     "summary": "Use bounded advisory context to recover the known broken case.",
+packages/cli test:     "content": "When the bounded context is present, return a normal value for the known broken input.",
+packages/cli test:     "contentHash": "e23a65f35e6454543a21df8498f6b565c81a5d53c71b13ec0f524bf41fc4de94",
+packages/cli test:     "counterexamples": [],
+packages/cli test:     "scope": {
+packages/cli test:       "projectRoot": "C:\\Users\\temp-admin\\AppData\\Local\\Temp\\canary-s04-IJ3kBr",
+packages/cli test:       "caseIds": [
+packages/cli test:         "broken"
+packages/cli test:       ]
+packages/cli test:     },
+packages/cli test:     "createdAt": "2026-09-19T09:13:29.192Z",
+packages/cli test:     "updatedAt": "2026-09-19T09:13:29.196Z",
+packages/cli test:     "validation": {
+packages/cli test:       "validatedAt": "2026-09-19T09:13:29.196Z",
+packages/cli test:       "checks": [
+packages/cli test:         "human_or_explicit_cli_review",
+packages/cli test:         "content_hash",
+packages/cli test:         "sensitive_data",
+packages/cli test:         "injection",
+packages/cli test:         "project_scope"
+packages/cli test:       ]
+packages/cli test:     }
+packages/cli test:   },
+packages/cli test:   "approval": {
+packages/cli test:     "status": "not_approved"
+packages/cli test:   }
+packages/cli test: }
+packages/cli test: stdout | tests/cli.e2e.test.ts > improvement CLI loop > rejects a negative experience candidate and never approves it
+packages/cli test: runId: run_a41a8888-11b0-43e7-8d78-e507e0ad1ae6
+packages/cli test: stdout | tests/cli.e2e.test.ts > improvement CLI loop > rejects a negative experience candidate and never approves it
+packages/cli test: runId: run_a41a8888-11b0-43e7-8d78-e507e0ad1ae6
+packages/cli test: status: failed
+packages/cli test: cases: 1 passed / 1 failed / 2 total
+packages/cli test: coverage: final · lines 1/1 (100%) · functions 1/1 (100%) · branches 3/4 (75%) · statements 1/1 (100%)
+packages/cli test: evaluation: 3 passed / 1 failed assertions
+packages/cli test: artifact: C:\Users\temp-admin\AppData\Local\Temp\canary-s04-negative-xpJZg4\.canary\artifacts\run_a41a8888-11b0-43e7-8d78-e507e0ad1ae6\run.json
+packages/cli test: exit: 1
+packages/cli test: stdout | tests/cli.e2e.test.ts > improvement CLI loop > rejects a negative experience candidate and never approves it
+packages/cli test: {
+packages/cli test:   "v": 1,
+packages/cli test:   "kind": "canary.experience.validate",
+packages/cli test:   "record": {
+packages/cli test:     "v": 1,
+packages/cli test:     "id": "experience_s04-negative_1_fd6c5133989e",
+packages/cli test:     "key": "s04-negative",
+packages/cli test:     "version": 1,
+packages/cli test:     "status": "validated",
+packages/cli test:     "projectRoot": "C:\\Users\\temp-admin\\AppData\\Local\\Temp\\canary-s04-negative-xpJZg4",
+packages/cli test:     "source": {
+packages/cli test:       "kind": "human",
+packages/cli test:       "ref": "s04-negative"
+packages/cli test:     },
+packages/cli test:     "summary": "Mis-scoped candidate.",
+packages/cli test:     "content": "This experience is intentionally scoped away from the broken case.",
+packages/cli test:     "contentHash": "fd6c5133989e6a0072fbbf3fea0c59c620852e8e22be9aead6e59d8e5c6eeec8",
+packages/cli test:     "counterexamples": [],
+packages/cli test:     "scope": {
+packages/cli test:       "projectRoot": "C:\\Users\\temp-admin\\AppData\\Local\\Temp\\canary-s04-negative-xpJZg4",
+packages/cli test:       "caseIds": [
+packages/cli test:         "holdout"
+packages/cli test:       ]
+packages/cli test:     },
+packages/cli test:     "createdAt": "2026-09-19T09:13:32.537Z",
+packages/cli test:     "updatedAt": "2026-09-19T09:13:32.540Z",
+packages/cli test:     "validation": {
+packages/cli test:       "validatedAt": "2026-09-19T09:13:32.540Z",
+packages/cli test:       "checks": [
+packages/cli test:         "human_or_explicit_cli_review",
+packages/cli test:         "content_hash",
+packages/cli test:         "sensitive_data",
+packages/cli test:         "injection",
+packages/cli test:         "project_scope"
+packages/cli test:       ]
+packages/cli test:     }
+packages/cli test:   },
+packages/cli test:   "approval": {
+packages/cli test:     "status": "not_approved"
+packages/cli test:   }
+packages/cli test: }
+packages/cli test: stdout | tests/cli.e2e.test.ts > improvement CLI loop > does not activate a soft trial when required Judge evidence is missing
+packages/cli test: runId: run_3a4ad6d8-8c41-4515-9dc3-026f82f6ec4e
+packages/cli test:  ✓ tests/r2-doctor.test.ts (11 tests) 21825ms
+packages/cli test:    ✓ R2 doctor fixtures > returns 2 for a missing config without creating .canary  3285ms
+packages/cli test:    ✓ R2 doctor fixtures > returns 2 for a schema-invalid config without printing secrets  1830ms
+packages/cli test:    ✓ R2 doctor fixtures > returns 2 when the trusted config module throws  2018ms
+packages/cli test:    ✓ R2 doctor fixtures > returns 2 when the function agent entry is missing  1598ms
+packages/cli test:    ✓ R2 doctor fixtures > diagnoses corrupt metadata and a missing launcher without rewriting user files  3100ms
+packages/cli test:    ✓ R2 doctor fixtures > returns 5 when artifactRoot is a file and leaves the placeholder intact  1520ms
+packages/cli test:    ✓ R2 doctor fixtures > warns when --config selects the install root from an outside invocation  1577ms
+packages/cli test:    ✓ R2 doctor fixtures > returns 0 for a valid project on the frozen v1 doctor schema  1539ms
+packages/cli test:    ✓ R2 doctor fixtures > does not treat Canary self-test inside the install checkout as a root conflict  1537ms
+packages/cli test:    ✓ R2 doctor fixtures > warns about whitespace, a non-default user directory, and junction aliases  1532ms
+packages/cli test:    ✓ R2 doctor fixtures > lets paths locate a throwing config without executing it, while doctor reports CONFIG_INVALID  2261ms
+packages/cli test: stdout | tests/cli.e2e.test.ts > improvement CLI loop > does not activate a soft trial when required Judge evidence is missing
+packages/cli test: runId: run_3a4ad6d8-8c41-4515-9dc3-026f82f6ec4e
+packages/cli test: status: failed
+packages/cli test: cases: 0 passed / 2 failed / 2 total
+packages/cli test: coverage: final · lines 1/1 (100%) · functions 1/1 (100%) · branches 0/0 (0%) · statements 1/1 (100%)
+packages/cli test: evaluation: 2 passed / 2 failed assertions
+packages/cli test: artifact: C:\Users\temp-admin\AppData\Local\Temp\canary-s04-judge-51EZHG\.canary\artifacts\run_3a4ad6d8-8c41-4515-9dc3-026f82f6ec4e\run.json
+packages/cli test: exit: 1
+packages/cli test: stdout | tests/cli.e2e.test.ts > improvement CLI loop > fails the policy hard gate on unexpected violations even when output exists
+packages/cli test: runId: run_c3ba1214-81f1-4ec3-bf30-6602bd787af1
+packages/cli test: stdout | tests/cli.e2e.test.ts > improvement CLI loop > fails the policy hard gate on unexpected violations even when output exists
+packages/cli test: hard-gate: fail · hard_gate_failed · Case smoke had 1 unexpected policy violation(s)
+packages/cli test: stdout | tests/cli.e2e.test.ts > improvement CLI loop > fails the policy hard gate on unexpected violations even when output exists
+packages/cli test: runId: run_c3ba1214-81f1-4ec3-bf30-6602bd787af1
+packages/cli test: status: failed
+packages/cli test: cases: 1 passed / 0 failed / 1 total
+packages/cli test: coverage: final · lines 1/1 (100%) · functions 1/1 (100%) · branches 0/0 (0%) · statements 3/3 (100%)
+packages/cli test: evaluation: 2 passed / 0 failed assertions
+packages/cli test: artifact: C:\Users\temp-admin\AppData\Local\Temp\canary-policy-CDW8kG\.canary\artifacts\run_c3ba1214-81f1-4ec3-bf30-6602bd787af1\run.json
+packages/cli test: exit: 1
+packages/cli test: stdout | tests/cli.e2e.test.ts > canary replay > re-executes the source run cases into a new artifact tagged replayOf
+packages/cli test: runId: run_0ca01d92-746c-4265-94a7-7794e9d32223
+packages/cli test: stdout | tests/cli.e2e.test.ts > canary replay > re-executes the source run cases into a new artifact tagged replayOf
+packages/cli test: runId: run_0ca01d92-746c-4265-94a7-7794e9d32223
+packages/cli test: status: completed
+packages/cli test: cases: 1 passed / 0 failed / 1 total
+packages/cli test: coverage: final · lines 1/1 (100%) · functions 1/1 (100%) · branches 0/0 (0%) · statements 1/1 (100%)
+packages/cli test: evaluation: 2 passed / 0 failed assertions
+packages/cli test: artifact: C:\Users\temp-admin\AppData\Local\Temp\canary-replay-qzbL39\.canary\artifacts\run_0ca01d92-746c-4265-94a7-7794e9d32223\run.json
+packages/cli test: exit: 0
+packages/cli test: stdout | tests/cli.e2e.test.ts > canary replay > re-executes the source run cases into a new artifact tagged replayOf
+packages/cli test: runId: run_43cfde01-f4c0-4feb-b1d6-0bfaa899f20e
+packages/cli test: stdout | tests/cli.e2e.test.ts > canary replay > re-executes the source run cases into a new artifact tagged replayOf
+packages/cli test: runId: run_43cfde01-f4c0-4feb-b1d6-0bfaa899f20e
+packages/cli test: status: completed
+packages/cli test: cases: 1 passed / 0 failed / 1 total
+packages/cli test: coverage: final · lines 1/1 (100%) · functions 1/1 (100%) · branches 0/0 (0%) · statements 1/1 (100%)
+packages/cli test: evaluation: 2 passed / 0 failed assertions
+packages/cli test: artifact: C:\Users\temp-admin\AppData\Local\Temp\canary-replay-qzbL39\.canary\artifacts\run_43cfde01-f4c0-4feb-b1d6-0bfaa899f20e\run.json
+packages/cli test: exit: 0
+packages/cli test: stdout | tests/cli.e2e.test.ts > repetitions, tags, cancel and streaming artifacts > runs case × repetitions and filters --tag
+packages/cli test: runId: run_56d6d394-8a27-4b00-812e-62405fefcb52
+packages/cli test: stdout | tests/cli.e2e.test.ts > repetitions, tags, cancel and streaming artifacts > runs case × repetitions and filters --tag
+packages/cli test: PASS smoke#1 (346ms)
+packages/cli test: stdout | tests/cli.e2e.test.ts > repetitions, tags, cancel and streaming artifacts > runs case × repetitions and filters --tag
+packages/cli test: PASS smoke#2 (217ms)
+packages/cli test: stdout | tests/cli.e2e.test.ts > repetitions, tags, cancel and streaming artifacts > runs case × repetitions and filters --tag
+packages/cli test: runId: run_56d6d394-8a27-4b00-812e-62405fefcb52
+packages/cli test: status: completed
+packages/cli test: cases: 2 passed / 0 failed / 2 total
+packages/cli test: coverage: final · lines 1/1 (100%) · functions 1/1 (100%) · branches 0/0 (0%) · statements 1/1 (100%)
+packages/cli test: evaluation: 4 passed / 0 failed assertions
+packages/cli test: artifact: C:\Users\temp-admin\AppData\Local\Temp\canary-reps-8Nu2PZ\.canary\artifacts\run_56d6d394-8a27-4b00-812e-62405fefcb52\run.json
+packages/cli test: exit: 0
+packages/cli test: stdout | tests/cli.e2e.test.ts > repetitions, tags, cancel and streaming artifacts > writes a cancelled artifact when the run is aborted
+packages/cli test: runId: run_7f772ebb-e079-4cd3-990f-be01b31248cd
+packages/cli test: stdout | tests/cli.e2e.test.ts > repetitions, tags, cancel and streaming artifacts > writes a cancelled artifact when the run is aborted
+packages/cli test: runId: run_7f772ebb-e079-4cd3-990f-be01b31248cd
+packages/cli test: status: cancelled
+packages/cli test: cases: 0 passed / 0 failed / 1 total
+packages/cli test: coverage: preparing · lines 0/0 (0%) · functions 0/0 (0%) · branches 0/0 (0%) · statements 0/0 (0%)
+packages/cli test: evaluation: 0 passed / 0 failed assertions
+packages/cli test: artifact: C:\Users\temp-admin\AppData\Local\Temp\canary-cancel-zUfrBW\.canary\artifacts\run_7f772ebb-e079-4cd3-990f-be01b31248cd\run.json
+packages/cli test: exit: 1
+packages/cli test: stdout | tests/cli.e2e.test.ts > repetitions, tags, cancel and streaming artifacts > cancels an in-flight case and persists the partial run
+packages/cli test: runId: run_12ced7ae-7d14-48bd-887d-d1c162e0687c
+packages/cli test: stdout | tests/cli.e2e.test.ts > repetitions, tags, cancel and streaming artifacts > cancels an in-flight case and persists the partial run
+packages/cli test: runId: run_12ced7ae-7d14-48bd-887d-d1c162e0687c
+packages/cli test: status: cancelled
+packages/cli test: cases: 0 passed / 1 failed / 1 total
+packages/cli test: coverage: unavailable · lines 0/0 (0%) · functions 0/0 (0%) · branches 0/0 (0%) · statements 0/0 (0%)
+packages/cli test: evaluation: 0 passed / 1 failed assertions
+packages/cli test: artifact: C:\Users\temp-admin\AppData\Local\Temp\canary-cancel-live-SysRg3\.canary\artifacts\run_12ced7ae-7d14-48bd-887d-d1c162e0687c\run.json
+packages/cli test: exit: 1
+packages/cli test: stdout | tests/cli.e2e.test.ts > tool adapters, http black-box and concurrency > injects MockToolAdapter so the agent uses ctx.tools.call
+packages/cli test: runId: run_0f8ff0c4-8abf-412e-92d1-6c212da9e6df
+packages/cli test: stdout | tests/cli.e2e.test.ts > tool adapters, http black-box and concurrency > injects MockToolAdapter so the agent uses ctx.tools.call
+packages/cli test: runId: run_0f8ff0c4-8abf-412e-92d1-6c212da9e6df
+packages/cli test: status: completed
+packages/cli test: cases: 1 passed / 0 failed / 1 total
+packages/cli test: coverage: final · lines 2/2 (100%) · functions 2/2 (100%) · branches 0/0 (0%) · statements 8/8 (100%)
+packages/cli test: evaluation: 4 passed / 0 failed assertions
+packages/cli test: artifact: C:\Users\temp-admin\AppData\Local\Temp\canary-mock-tools-sQ2Ufe\.canary\artifacts\run_0f8ff0c4-8abf-412e-92d1-6c212da9e6df\run.json
+packages/cli test: exit: 0
+packages/cli test: stdout | tests/cli.e2e.test.ts > tool adapters, http black-box and concurrency > runs MCP stdio tools through the runner tool chain
+packages/cli test: runId: run_2376204a-ae12-462e-adbf-03ad9d7ff416
+packages/cli test: stdout | tests/cli.e2e.test.ts > tool adapters, http black-box and concurrency > runs MCP stdio tools through the runner tool chain
+packages/cli test: runId: run_2376204a-ae12-462e-adbf-03ad9d7ff416
+packages/cli test: status: completed
+packages/cli test: cases: 1 passed / 0 failed / 1 total
+packages/cli test: coverage: final · lines 1/1 (100%) · functions 1/1 (100%) · branches 0/0 (0%) · statements 4/4 (100%)
+packages/cli test: evaluation: 3 passed / 0 failed assertions
+packages/cli test: artifact: C:\Users\temp-admin\AppData\Local\Temp\canary-mcp-tools-UgXjII\.canary\artifacts\run_2376204a-ae12-462e-adbf-03ad9d7ff416\run.json
+packages/cli test: exit: 0
+packages/cli test: stdout | tests/cli.e2e.test.ts > tool adapters, http black-box and concurrency > runs MCP HTTP JSON-RPC tools (not full Streamable HTTP)
+packages/cli test: runId: run_7c4ba35f-7dc6-4900-a60f-3771d058a1a6
+packages/cli test: stdout | tests/cli.e2e.test.ts > tool adapters, http black-box and concurrency > runs MCP HTTP JSON-RPC tools (not full Streamable HTTP)
+packages/cli test: runId: run_7c4ba35f-7dc6-4900-a60f-3771d058a1a6
+packages/cli test: status: completed
+packages/cli test: cases: 1 passed / 0 failed / 1 total
+packages/cli test: coverage: final · lines 1/1 (100%) · functions 1/1 (100%) · branches 0/0 (0%) · statements 4/4 (100%)
+packages/cli test: evaluation: 2 passed / 0 failed assertions
+packages/cli test: artifact: C:\Users\temp-admin\AppData\Local\Temp\canary-mcp-http-nGeetk\.canary\artifacts\run_7c4ba35f-7dc6-4900-a60f-3771d058a1a6\run.json
+packages/cli test: exit: 0
+packages/cli test: stdout | tests/cli.e2e.test.ts > tool adapters, http black-box and concurrency > runs an HTTP black-box agent with unavailable coverage
+packages/cli test: runId: run_d7990a59-6499-49da-9567-80772133dd01
+packages/cli test: stdout | tests/cli.e2e.test.ts > tool adapters, http black-box and concurrency > runs an HTTP black-box agent with unavailable coverage
+packages/cli test: runId: run_d7990a59-6499-49da-9567-80772133dd01
+packages/cli test: status: completed
+packages/cli test: cases: 1 passed / 0 failed / 1 total
+packages/cli test: coverage: unavailable · lines 0/0 (0%) · functions 0/0 (0%) · branches 0/0 (0%) · statements 0/0 (0%)
+packages/cli test: evaluation: 3 passed / 0 failed assertions
+packages/cli test: artifact: C:\Users\temp-admin\AppData\Local\Temp\canary-http-demo-MdWXsL\.canary\artifacts\run_d7990a59-6499-49da-9567-80772133dd01\run.json
+packages/cli test: exit: 0
+packages/cli test: stdout | tests/cli.e2e.test.ts > tool adapters, http black-box and concurrency > runs cases on a concurrent process pool
+packages/cli test: runId: run_0b4c898d-af49-4b24-bf4e-f2f0c553ddf3
+packages/cli test: stdout | tests/cli.e2e.test.ts > tool adapters, http black-box and concurrency > runs cases on a concurrent process pool
+packages/cli test: runId: run_0b4c898d-af49-4b24-bf4e-f2f0c553ddf3
+packages/cli test: status: completed
+packages/cli test: cases: 2 passed / 0 failed / 2 total
+packages/cli test: coverage: final · lines 1/1 (100%) · functions 2/2 (100%) · branches 0/0 (0%) · statements 4/4 (100%)
+packages/cli test: evaluation: 4 passed / 0 failed assertions
+packages/cli test: artifact: C:\Users\temp-admin\AppData\Local\Temp\canary-pool-H6Tl4G\.canary\artifacts\run_0b4c898d-af49-4b24-bf4e-f2f0c553ddf3\run.json
+packages/cli test: exit: 0
+packages/cli test: stdout | tests/cli.e2e.test.ts > S-03 versioned experiences > requires proposal validation and activation, injects only active context, and records references
+packages/cli test: runId: run_c7accca8-8da7-400b-a8ff-d5e073e5d494
+packages/cli test: stdout | tests/cli.e2e.test.ts > S-03 versioned experiences > requires proposal validation and activation, injects only active context, and records references
+packages/cli test: runId: run_c7accca8-8da7-400b-a8ff-d5e073e5d494
+packages/cli test: status: completed
+packages/cli test: cases: 1 passed / 0 failed / 1 total
+packages/cli test: coverage: final · lines 1/1 (100%) · functions 3/3 (100%) · branches 0/0 (0%) · statements 1/1 (100%)
+packages/cli test: evaluation: 1 passed / 0 failed assertions
+packages/cli test: artifact: C:\Users\temp-admin\AppData\Local\Temp\canary-s03-cli-bXlK9o\.canary\artifacts\run_c7accca8-8da7-400b-a8ff-d5e073e5d494\run.json
+packages/cli test: exit: 0
+packages/cli test: stdout | tests/cli.e2e.test.ts > S-03 versioned experiences > requires proposal validation and activation, injects only active context, and records references
+packages/cli test: runId: run_5881a893-2208-4f92-a43f-f80bfb0934e7
+packages/cli test:  ✓ tests/r0-ci.test.ts (25 tests) 34139ms
+packages/cli test:    ✓ R0 executable CI contract > runs real cases from a nested path without UI, preserves source, writes CI/JSON/JUnit and keeps all roots separate  2291ms
+packages/cli test:    ✓ R0 executable CI contract > does not execute the installed demo when the project has no config  887ms
+packages/cli test:    ✓ R0 executable CI contract > honors relative explicit config over local discovery  2071ms
+packages/cli test:    ✓ R0 executable CI contract > classifies invalid schema as configuration error without exposing exceptions  1330ms
+packages/cli test:    ✓ R0 executable CI contract > classifies throwing config as configuration error without exposing exceptions  1002ms
+packages/cli test:    ✓ R0 executable CI contract > classifies invalid cases as configuration error without exposing exceptions  961ms
+packages/cli test:    ✓ R0 executable CI contract > classifies empty cases as configuration error without exposing exceptions  947ms
+packages/cli test:    ✓ R0 executable CI contract > classifies duplicate cases as configuration error without exposing exceptions  925ms
+packages/cli test:    ✓ R0 executable CI contract > rejects invalid arguments "--config" before running  792ms
+packages/cli test:    ✓ R0 executable CI contract > rejects invalid arguments "--config" before running  737ms
+packages/cli test:    ✓ R0 executable CI contract > rejects invalid arguments "--port" before running  727ms
+packages/cli test:    ✓ R0 executable CI contract > rejects invalid arguments "--repetitions" before running  747ms
+packages/cli test:    ✓ R0 executable CI contract > rejects invalid arguments "--repetitions" before running  768ms
+packages/cli test:    ✓ R0 executable CI contract > rejects invalid arguments "--unknown" before running  769ms
+packages/cli test:    ✓ R0 executable CI contract > rejects invalid arguments "--case" before running  743ms
+packages/cli test:    ✓ R0 executable CI contract > fails an unknown case selection, rather than passing zero tests  912ms
+packages/cli test:    ✓ R0 executable CI contract > rejects a missing agent entry as a configuration error  922ms
+packages/cli test:    ✓ R0 executable CI contract > diagnoses corrupt metadata and a missing launcher without rewriting user files  3082ms
+packages/cli test:    ✓ R0 executable CI contract > runs the generated global launcher from an independent project with spaces  1582ms
+packages/cli test:    ✓ R0 executable CI contract > returns 6 for a real policy violation even when output assertions pass  1685ms
+packages/cli test:    ✓ R0 executable CI contract > returns 1 for an actual failed agent  1685ms
+packages/cli test:    ✓ R0 executable CI contract > returns 3 for a real unexpected timeout  1684ms
+packages/cli test:    ✓ R0 executable CI contract > returns 5 when artifactRoot is a file, without touching it  880ms
+packages/cli test:    ✓ R0 executable CI contract > redirects and redacts config console logs without corrupting JSON stdout  1647ms
+packages/cli test:    ✓ R0 executable CI contract > paths and doctor share root resolution, version uses the executable package  4256ms
+packages/cli test: stdout | tests/cli.e2e.test.ts > S-03 versioned experiences > requires proposal validation and activation, injects only active context, and records references
+packages/cli test: runId: run_5881a893-2208-4f92-a43f-f80bfb0934e7
+packages/cli test: status: completed
+packages/cli test: cases: 1 passed / 0 failed / 1 total
+packages/cli test: coverage: final · lines 1/1 (100%) · functions 1/3 (33.33%) · branches 0/0 (0%) · statements 1/1 (100%)
+packages/cli test: evaluation: 1 passed / 0 failed assertions
+packages/cli test: artifact: C:\Users\temp-admin\AppData\Local\Temp\canary-s03-cli-bXlK9o\.canary\artifacts\run_5881a893-2208-4f92-a43f-f80bfb0934e7\run.json
+packages/cli test: exit: 0
+packages/cli test:  ✓ tests/cli.e2e.test.ts (29 tests) 34073ms
+packages/cli test:    ✓ case discovery > discovers nested and flat case files and rejects invalid or duplicate cases  336ms
+packages/cli test:    ✓ canary run --headless > writes run.json and places coverage in the RunStore  1116ms
+packages/cli test:    ✓ canary run --headless > writes artifacts to the --config project, not the invocation directory  973ms
+packages/cli test:    ✓ canary run --headless > does not bind a UI port in headless mode  895ms
+packages/cli test:    ✓ canary run --headless > honors web.enabled: false without --headless  924ms
+packages/cli test:    ✓ canary run --headless > prints the UI address before cases finish so SSE is reachable mid-run  2270ms
+packages/cli test:    ✓ canary run --headless > fails the shared coverage gate when required coverage is below threshold  858ms
+packages/cli test:    ✓ canary run --headless > fails closed when judge.score is required and no provider is configured  844ms
+packages/cli test:    ✓ improvement CLI loop > exports regression drafts from a failed run and rejects a holdout regression on compare  3494ms
+packages/cli test:    ✓ improvement CLI loop > accepts and verifies a suggestion then runs a one-click candidate pipeline  3244ms
+packages/cli test:    ✓ improvement CLI loop > runs an approved experience trial with regression, holdout, activation and rollback gates  3348ms
+packages/cli test:    ✓ improvement CLI loop > rejects a negative experience candidate and never approves it  2232ms
+packages/cli test:    ✓ improvement CLI loop > does not activate a soft trial when required Judge evidence is missing  2166ms
+packages/cli test:    ✓ improvement CLI loop > fails the policy hard gate on unexpected violations even when output exists  788ms
+packages/cli test:    ✓ canary replay > re-executes the source run cases into a new artifact tagged replayOf  1662ms
+packages/cli test:    ✓ repetitions, tags, cancel and streaming artifacts > runs case × repetitions and filters --tag  1035ms
+packages/cli test:    ✓ repetitions, tags, cancel and streaming artifacts > writes a cancelled artifact when the run is aborted  419ms
+packages/cli test:    ✓ repetitions, tags, cancel and streaming artifacts > cancels an in-flight case and persists the partial run  564ms
+packages/cli test:    ✓ tool adapters, http black-box and concurrency > injects MockToolAdapter so the agent uses ctx.tools.call  790ms
+packages/cli test:    ✓ tool adapters, http black-box and concurrency > runs MCP stdio tools through the runner tool chain  1145ms
+packages/cli test:    ✓ tool adapters, http black-box and concurrency > runs MCP HTTP JSON-RPC tools (not full Streamable HTTP)  889ms
+packages/cli test:    ✓ tool adapters, http black-box and concurrency > runs an HTTP black-box agent with unavailable coverage  451ms
+packages/cli test:    ✓ tool adapters, http black-box and concurrency > runs cases on a concurrent process pool  972ms
+packages/cli test:    ✓ tool adapters, http black-box and concurrency > emits bounded structured host output and records only an unapproved proposal  913ms
+packages/cli test:    ✓ S-03 versioned experiences > requires proposal validation and activation, injects only active context, and records references  1599ms
+packages/cli test:  Test Files  10 passed (10)
+packages/cli test:       Tests  103 passed (103)
+packages/cli test:    Start at  17:13:11
+packages/cli test:    Duration  35.88s (transform 2.38s, setup 0ms, collect 7.19s, tests 105.92s, environment 2ms, prepare 1.79s)
+packages/cli test: Done
+
+> canary@0.1.0 lint C:\Users\temp-admin\Desktop\Canary
+> eslint .
+
+
+> canary@0.1.0 format:check C:\Users\temp-admin\Desktop\Canary
+> prettier --check README.md CHANGELOG.md CONTRIBUTING.md SECURITY.md docs .github .changeset .prettierrc.json eslint.config.mjs
+
+Checking formatting...
+All matched files use Prettier code style!
