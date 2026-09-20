@@ -1,0 +1,46 @@
+name: R6 platform evidence
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      [
+        "packages/**",
+        "apps/**",
+        "integrations/fixtures/**",
+        "scripts/verify-r6.mjs",
+        ".github/workflows/r6.yml",
+        "pnpm-lock.yaml",
+      ]
+permissions:
+  contents: read
+jobs:
+  verify:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest, macos-latest]
+        node: [24, 22]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.15.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - run: pnpm verify:r6
+        env:
+          CANARY_R6_CONTEXT: github-actions-${{ matrix.os }}
+          CANARY_R6_EXPORT: "1"
+          CANARY_R6_OUTPUT: r6-evidence/result.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: r6-${{ matrix.os }}-node${{ matrix.node }}
+          path: r6-evidence/
+          if-no-files-found: error
