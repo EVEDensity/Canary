@@ -74,7 +74,9 @@ try {
   const env = { ...cleanEnv, PATH: temporary + (process.platform === "win32" ? ";" : ":") + process.env.PATH };
   const child = command(
     process.platform === "win32" ? "cmd.exe" : "/bin/sh",
-    process.platform === "win32" ? ["/d", "/c", "canary run --ci"] : ["-c", "canary run --ci"],
+    process.platform === "win32"
+      ? ["/d", "/c", "canary run --ci --config canary.config.ts"]
+      : ["-c", "canary run --ci --config canary.config.ts"],
     root,
     env,
   );
@@ -90,7 +92,7 @@ try {
     artifactHashes[name] = createHash("sha256").update(readFileSync(path)).digest("hex");
   }
   evidence.checks.push({
-    command: "canary run --ci",
+    command: "canary run --ci --config canary.config.ts",
     status: "verified",
     exitCode: child.status,
     launcher,
@@ -125,13 +127,15 @@ try {
   });
   const pnpmRun = command(
     process.platform === "win32" ? "cmd.exe" : "pnpm",
-    process.platform === "win32" ? ["/d", "/c", "pnpm canary run --ci"] : ["canary", "run", "--ci"],
+    process.platform === "win32"
+      ? ["/d", "/c", "pnpm canary run --ci --config canary.config.ts"]
+      : ["canary", "run", "--ci", "--config", "canary.config.ts"],
   );
   assert.equal(pnpmRun.status, 0, pnpmRun.stderr);
   const pnpmResult = ciResultSchema.parse(JSON.parse(pnpmRun.stdout.trim().split(/\r?\n/).at(-1)));
   assert.equal(pnpmResult.context.projectRoot, root);
   evidence.checks.push({
-    command: "pnpm canary run --ci",
+    command: "pnpm canary run --ci --config canary.config.ts",
     status: "verified",
     exitCode: pnpmRun.status,
     result: pnpmResult,
