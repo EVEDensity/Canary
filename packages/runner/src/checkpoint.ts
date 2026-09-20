@@ -1,8 +1,9 @@
-import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
+import { existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, rmSync } from "node:fs";
 import { join, resolve } from "node:path";
 import type { RunSnapshot } from "@canary/core";
 import { pidAlive, reclaimOrphans } from "@canary/isolation";
 import { releaseRunLock, type IsolationFaultCode } from "./workspace.js";
+import { ArtifactIntegrityError, readArtifactManifest, recoverTraceTail, redactRunSnapshot, reviseArtifacts, verifyArtifacts, writePrivateJson } from "@canary/trace";
 
 export interface RunCheckpoint {
   v: 1;
@@ -32,9 +33,7 @@ export function checkpointPath(artifactDir: string): string {
 export function writeCheckpoint(checkpoint: RunCheckpoint): void {
   mkdirSync(checkpoint.artifactDir, { recursive: true });
   const file = checkpointPath(checkpoint.artifactDir);
-  const tmp = `${file}.${process.pid}.tmp`;
-  writeFileSync(tmp, JSON.stringify({ ...checkpoint, updatedAt: new Date().toISOString() }, null, 2), "utf8");
-  renameSync(tmp, file);
+  writePrivateJson(file, { ...checkpoint, updatedAt: new Date().toISOString() });
 }
 
 export function readCheckpoint(artifactDir: string): RunCheckpoint | undefined {
@@ -61,8 +60,9 @@ export function listCheckpoints(artifactRoot: string): RunCheckpoint[] {
   }
 }
 
-export function findCheckpointForPid(artifactRoot: string, pid: number): RunCheckpoint | undefined {
-  return listCheckpoints(artifactRoot).find((item) => item.pid === pid || item.childPids.includes(pid));
+export function findCheckpointForPid(artifactRoot: string, pid: number, includeChildren = true): RunCheckpoint | undefined {
+  const checkpoints = listCheckpoints(artifactRoot);
+  return checkpoints.find((item) => item.pid === pid) ?? (includeChildren ? checkpoints.find((item) => item.childPids.includes(pid)) : undefined);
 }
 
 function caseKey(result: { caseId: string; repetition?: number }): string {
@@ -79,6 +79,9 @@ export interface RecoveredRun {
 /** Finish a crashed/stale run without re-executing completed cases or overwriting their results. */
 export async function recoverPartialRun(artifactDir: string, snapshot?: RunSnapshot): Promise<RecoveredRun> {
   const dir = resolve(artifactDir);
+  const integrity = verifyArtifacts(dir);
+  if (integrity.status === "invalid") throw new ArtifactIntegrityError(integrity);
+  const previousLineage = readArtifactManifest(dir)?.lineage;
   const current = readCheckpoint(dir);
   const startedAt = current?.startedAt ?? snapshot?.startedAt ?? new Date().toISOString();
   const runId = current?.runId ?? snapshot?.runId ?? dir.split(/[/\\]/).pop() ?? "unknown";
@@ -86,17 +89,14 @@ export async function recoverPartialRun(artifactDir: string, snapshot?: RunSnaps
   const leftoverPids = await reclaimOrphans(childPids);
   const killedPids = childPids.filter((pid) => !leftoverPids.includes(pid));
   if (snapshot) {
-    const file = join(dir, "run.json");
     const recovered: RunSnapshot = {
       ...snapshot,
       status: snapshot.status === "running" || snapshot.status === "idle" ? "cancelled" : snapshot.status,
       finishedAt: snapshot.finishedAt ?? new Date().toISOString(),
-      recoveryOf: snapshot.recoveryOf ?? (snapshot.status === "running" ? runId : snapshot.recoveryOf),
+      recoveryOf: runId,
+      ...(snapshot.evidence ? { evidence: { ...snapshot.evidence, conclusionHash: undefined, lineage: { ...snapshot.evidence.lineage, ...previousLineage, recoveryOf: runId } } } : {}),
     } as RunSnapshot;
-    const tmp = `${file}.${process.pid}.tmp`;
-    writeFileSync(tmp, JSON.stringify(recovered, null, 2), "utf8");
-    renameSync(tmp, file);
-    snapshot = recovered;
+    snapshot = redactRunSnapshot(recovered);
   }
   const checkpoint: RunCheckpoint = {
     v: 1,
@@ -118,7 +118,21 @@ export async function recoverPartialRun(artifactDir: string, snapshot?: RunSnaps
     recoveryOf: runId,
     fault: current?.fault,
   };
-  writeCheckpoint(checkpoint);
+  if (leftoverPids.length) throw new Error("Worker processes remain; recovery is incomplete");
+  for (const name of ["tmp", "work"]) {
+    const target = resolve(dir, name);
+    if (resolve(target, "..") !== dir) throw new Error("Unexpected recovery workspace path");
+    if (existsSync(target)) {
+      if (lstatSync(target).isSymbolicLink()) throw new Error("Unsafe recovery workspace path");
+      rmSync(target, { recursive: true, force: true });
+    }
+  }
+  reviseArtifacts(dir, () => {
+    if (snapshot) writePrivateJson(join(dir, "run.json"), snapshot);
+    const traceRepair = recoverTraceTail(dir);
+    writePrivateJson(join(dir, "recovery.json"), { v: 1, kind: "canary.recovery", runId, recoveredAt: new Date().toISOString(), priorIntegrity: integrity.status, priorManifestHash: integrity.manifestHash, traceRepair, completedCaseKeys: checkpoint.completedCaseKeys, pendingCaseKeys: checkpoint.pendingCaseKeys, killedPids, leftoverPids });
+    writeCheckpoint(checkpoint);
+  }, { allowPartial: true, state: "recovered", lineage: snapshot?.evidence?.lineage ?? { recoveryOf: runId } });
   releaseRunLock(checkpoint.lockPath, current?.pid);
   return { checkpoint, snapshot, killedPids, leftoverPids };
 }
@@ -127,7 +141,7 @@ export async function recoverStaleRuns(artifactRoot: string, readSnapshot: (runI
   const recovered: RecoveredRun[] = [];
   for (const checkpoint of listCheckpoints(artifactRoot)) {
     const liveOwner = checkpoint.pid > 0 && pidAlive(checkpoint.pid);
-    const open = checkpoint.status === "running" || checkpoint.status === "finalizing" || checkpoint.status === "interrupted";
+    const open = checkpoint.status === "running" || checkpoint.status === "finalizing" || checkpoint.status === "interrupted" || verifyArtifacts(checkpoint.artifactDir).status === "partial";
     if (liveOwner || !open) continue;
     let snapshot: RunSnapshot | undefined;
     try {

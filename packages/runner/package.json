@@ -12,6 +12,7 @@
     }
   },
   "dependencies": {
+    "@canary/trace": "workspace:*",
     "@canary/core": "workspace:*",
     "@canary/coverage": "workspace:*",
     "tsx": "^4.19.0",

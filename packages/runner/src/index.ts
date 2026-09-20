@@ -28,6 +28,7 @@ export const DEFAULT_SAMPLE_INTERVAL_MS = 1000;
 export const DEFAULT_KILL_GRACE_MS = 500;
 
 export interface ExecutionOptions {
+  reproducibility?: { clock?: string; seed?: number };
   cwd?: string;
   timeoutMs?: number;
   maxSteps?: number;
@@ -107,6 +108,7 @@ function spawnExecution(options: ExecutionOptions, executionId: string): { child
     model: options.model,
     initialState: options.initialState ?? options.testCase?.environment?.state ?? {},
     experiences: options.experiences ?? [],
+    reproducibility: options.reproducibility,
   });
   const args = ["--enable-source-maps", "--import", tsxLoader, "-e", createChildScript()];
   const env = isolatedEnv(
@@ -360,6 +362,7 @@ export async function mapLimit<T, R>(items: readonly T[], limit: number, mapper:
 
 export async function runConfiguredCase(options: RunOptions, testCase: TestCase): Promise<EvalResult> {
   const shared: ExecutionOptions = {
+    reproducibility: options.config.artifacts?.reproducibility,
     cwd: options.cwd,
     entry: options.config.agent.entry,
     exportName: options.config.agent.export,

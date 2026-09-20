@@ -79,7 +79,13 @@ const send = (message) => new Promise((resolve) => {
         await send(Object.assign({ type: "coverage", scripts: init.result || [], phase: "init" }, coverageMeta()));
       } catch {}
     }
-    await send({ type: "ready" }); const value = await agent(payload.input, { executionId: payload.executionId, emit, tools, state, model, experiences: Array.isArray(payload.experiences) ? payload.experiences : [] }); await send({ type: "result", value });
+    let seed = payload.reproducibility && payload.reproducibility.seed;
+    const random = seed === undefined ? Math.random : () => {
+      seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
+      return seed / 4294967296;
+    };
+    const now = () => payload.reproducibility && payload.reproducibility.clock || new Date().toISOString();
+    await send({ type: "ready" }); const value = await agent(payload.input, { executionId: payload.executionId, emit, tools, state, model, random, now, experiences: Array.isArray(payload.experiences) ? payload.experiences : [] }); await send({ type: "result", value });
   } catch (error) { partial = true; await send({ type: "error", error: error && (error.stack || error.message) || String(error) }); }
   finally {
     if (tools) try { await tools.close(); } catch {}

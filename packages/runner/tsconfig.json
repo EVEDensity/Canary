@@ -9,6 +9,7 @@
                     "src/**/*.ts"
                 ],
     "references":  [
+                       { "path": "../trace" },
                        {
                            "path":  "../core"
                        },
