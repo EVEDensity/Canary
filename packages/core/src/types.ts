@@ -1,4 +1,6 @@
 import type { ExperienceLoadRecord } from "./contracts.js";
+import type { ArtifactOptions, RunEvidence } from "./evidence.js";
+import type { ProjectCheckResult } from "./checks.js";
 /** Domain types shared by config, runner, storage, and UI. Mechanical split from the former barrel. */
 
 export type AgentAdapterKind = "function" | "http" | "mcp";
@@ -102,6 +104,7 @@ export interface CaseDataset {
 export type CoverageProviderKind = "v8" | "istanbul";
 
 export interface CanaryConfig {
+  artifacts?: ArtifactOptions;
   agent: { adapter: AgentAdapterKind; entry: string; export?: string };
   cases: string | string[];
   coverage: { include: string[]; exclude?: string[]; sampleIntervalMs?: number; provider?: CoverageProviderKind } & CoverageThresholds;
@@ -305,6 +308,9 @@ export type RunnerEvent =
   | { type: "execution.failed"; executionId: string; error: string };
 
 export interface RunSnapshot {
+  activeCheck?: { id: string; startedAt: string };
+  checks?: ProjectCheckResult[];
+  evidence?: RunEvidence;
   runId: string;
   status: RunStatus;
   startedAt: string;
@@ -321,6 +327,7 @@ export interface RunSnapshot {
   replayOf?: string;
   candidateOf?: string;
   recoveryOf?: string;
+  retryOf?: string;
 }
 
 /** A small registry intentionally kept in core so config, runner and UI share one identity source. */

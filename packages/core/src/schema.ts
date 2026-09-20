@@ -30,6 +30,10 @@ export const coverageMetricSchema = z.object({
 });
 
 export const canaryConfigSchema = z.object({
+  artifacts: z.object({
+    reproducibility: z.object({ clock: z.string().datetime().optional(), seed: z.number().int().min(0).max(4294967295).optional(), envAllowlist: z.array(z.string().regex(/^[A-Za-z_][A-Za-z0-9_]*$/)).optional() }).strict().optional(),
+    retention: z.object({ maxRuns: z.number().int().positive().optional(), maxAgeDays: z.number().positive().optional(), maxBytes: z.number().int().positive().optional() }).strict().optional(),
+  }).strict().optional(),
   agent: z.object({
     adapter: adapterSchema,
     entry: z.string().min(1),

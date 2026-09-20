@@ -91,7 +91,7 @@ export const ciResultSchema = z
     issues: z.array(cliIssueSchema),
     runtime: versionSnapshotSchema,
     capabilities: z
-      .object({ scope: z.literal("configured-agent-cases"), web: z.literal(false), automaticExport: z.literal(false) })
+      .object({ scope: z.enum(["configured-agent-cases", "project-checks"]), web: z.literal(false), automaticExport: z.literal(false) })
       .strict(),
   })
   .strict()
@@ -114,6 +114,7 @@ export type CiResult = z.infer<typeof ciResultSchema>;
 /** Deterministic precedence; expected timeout assertions can still pass. */
 export function ciExitCodeForRun(snapshot: RunSnapshot, legacyExitCode: number): CliExitCode {
   if (
+    snapshot.evidence?.privacyFailure ||
     (snapshot.gate?.hardGate?.policyViolations ?? 0) > 0 ||
     snapshot.gate?.failureCategory === "policy_violation" ||
     snapshot.results.some((r) => !r.passed && r.failureCategory === "policy_violation")

@@ -46,3 +46,5 @@ export {
 } from "./schema.js";
 
 export * from "./cli-contracts.js";
+export * from "./evidence.js";
+export * from "./checks.js";
