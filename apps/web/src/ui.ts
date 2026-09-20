@@ -133,6 +133,8 @@ const page = `
   </div>
 </header>
 <div id="live-banner" class="banner status-partial" hidden></div>
+<div id="artifact-evidence" class="muted"></div>
+<div id="artifact-lineage" class="muted"></div>
 <!--NOSCRIPT-->
 <nav class="tabs" id="tabs" aria-label="Views">
 <button data-view="overview" class="active">Overview</button>
@@ -584,6 +586,17 @@ if(runId){
     };
   }
   connectEvents();
+  function refreshIntegrity(){
+    fetch('/api/runs/'+runId+'/integrity').then(function(r){if(!r.ok)throw new Error('unavailable');return r.json();}).then(function(v){
+      if(v.kind!=='canary.artifact-integrity')return;
+      $('artifact-evidence').textContent='Artifact integrity: '+v.status+(v.revision?' · revision '+v.revision:'')+(v.issues&&v.issues.length?' · '+v.issues.map(function(i){return i.code+': '+i.path;}).join('; '):'');
+      if(v.status==='partial')setTimeout(refreshIntegrity,1000);
+    }).catch(function(){});
+  }
+  refreshIntegrity();
+  fetch('/api/runs/'+runId).then(function(r){return r.json();}).then(function(r){
+    if(r.evidence&&r.evidence.lineage) $('artifact-lineage').textContent='Run lineage: '+JSON.stringify(r.evidence.lineage);
+  }).catch(function(){});
   fetch('/api/runs/'+runId).then(function(r){return r.json();}).then(render);
   fetch('/api/runs/'+runId+'/improvements').then(function(r){return r.json();}).then(improvements).catch(function(){});
 }else{

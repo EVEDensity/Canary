@@ -2,6 +2,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 import { randomBytes, timingSafeEqual } from "node:crypto";
 import { ControlPlane, ControlError, type Command } from "@canary/control-plane";
 import { renderControlPage, controlScript, controlStyles } from "./control-ui.js";
+import { redactValue } from "@canary/trace";
 
 export function createControlServer(plane: ControlPlane, options: { port?: number; writeToken?: string } = {}) {
   if (options.writeToken !== undefined && options.writeToken.length < 32)
@@ -9,7 +10,7 @@ export function createControlServer(plane: ControlPlane, options: { port?: numbe
   let origin = "";
   const json = (res: ServerResponse, status: number, value: unknown) => {
     res.writeHead(status, { "content-type": "application/json; charset=utf-8" });
-    res.end(JSON.stringify(value));
+    res.end(JSON.stringify(redactValue(value)));
   };
   const server = createServer((req, res) => {
     void handle(req, res);

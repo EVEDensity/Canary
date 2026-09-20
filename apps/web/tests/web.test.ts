@@ -1,4 +1,4 @@
-﻿import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -29,6 +29,31 @@ function coverage(runId: string, status: "provisional" | "final" = "final", cove
 }
 
 describe("web run store and HTTP/SSE", () => {
+  it("keeps unrelated Agent histories out of the project page polling response", async () => {
+    const store = new RunStore();
+    store.create(1, "run_agent_history");
+    store.create(2, "run_project_history");
+    store.update("run_project_history", { checks: [] });
+    const artifacts = mkdtempSync(join(tmpdir(), "canary-project-history-"));
+    const historical = new RunStore();
+    historical.create(1, "run_persisted_agent");
+    historical.create(1, "run_persisted_project");
+    historical.update("run_persisted_project", { checks: [] });
+    for (const run of historical.list()) {
+      mkdirSync(join(artifacts, run.runId));
+      writeFileSync(join(artifacts, run.runId, "run.json"), JSON.stringify(run));
+    }
+    const web = createWebServer(store, "127.0.0.1", 0, artifacts, { projectPage: true });
+    const listening = await web.listen();
+    try {
+      const response = await get(`${listening.url}/api/runs`);
+      expect(response.status).toBe(200);
+      expect(JSON.parse(response.body).map((run: { runId: string }) => run.runId).sort()).toEqual(["run_persisted_project", "run_project_history"]);
+      expect(store.get("run_persisted_agent")).toBeUndefined();
+      expect((await get(`${listening.url}/api/runs/run_agent_history`)).status).toBe(200);
+    } finally { await close(web.server); }
+  });
+
   it("serves coverage through HTTP and renders a coverage-capable page", async () => {
     const store = new RunStore(); const run = store.create(1, "run_web_coverage");
     store.setCoverage(run.runId, coverage(run.runId));
@@ -38,12 +63,12 @@ describe("web run store and HTTP/SSE", () => {
       expect(payload.status).toBe(200); expect(JSON.parse(payload.body).lines.pct).toBe(50);
       expect(JSON.parse(payload.body).featureChains).toEqual([]);
       const page = await get(`${listening.url}/?runId=${run.runId}`);
-      expect(page.body).toContain("Coverage"); expect(page.body).toContain("coverage.updated");
+      expect(page.body).toContain("Coverage"); expect(page.body).toContain("/api/workspace/runs");
       expect(page.body).toContain("history");
-      expect(page.body).toContain("Snapshot (no JavaScript)");
-      expect(page.body).toContain("status-running");
-      expect(page.body).toContain("Live stream disconnected. Polling snapshot");
-      expect(page.body).toContain("EventSource unavailable");
+      expect(page.body).toContain("此工作台需要 JavaScript");
+      expect(page.body).toContain("正在处理运行数据");
+      expect(page.body).toContain("连接中断");
+      expect(page.body).toContain("/api/workspace/runs");
     } finally { await close(web.server); }
   });
 
@@ -80,17 +105,17 @@ describe("web run store and HTTP/SSE", () => {
       expect(new FileArtifactRepository(dir).readRun("run_hist")?.runId).toBe("run_hist");
       const home = await get(`${listening.url}/`);
       expect(home.body).toContain("/api/runs");
-      expect(home.body).toContain("Improvement Queue");
-      expect(home.body).toContain("Overview");
-      expect(home.body).toContain("Run Timeline");
-      expect(home.body).toContain("Feature Coverage");
-      expect(home.body).toContain("Case Detail");
-      expect(home.body).toContain("canary replay");
-      expect(home.body).toContain("/report/json");
-      expect(home.body).toContain("/report/junit");
-      expect(home.body).toContain("Compare");
-      expect(home.body).toContain("case.started");
-      expect(home.body).toContain("preparing");
+      expect(home.body).toContain("改进建议");
+      expect(home.body).toContain("检查通过率趋势");
+      expect(home.body).toContain("运行时间线");
+      expect(home.body).toContain("代码与功能覆盖率");
+      expect(home.body).toContain("Agent 用例与轨迹");
+      expect(home.body).toContain("canary report");
+      expect(home.body).toContain("JSON 报告");
+      expect(home.body).toContain("JUnit 报告");
+      expect(home.body).toContain("与历史运行比较");
+      expect(home.body).toContain("运行时间线");
+      expect(home.body).toContain("准备中");
       expect(home.body).toContain("state diff");
       const report = await get(`${listening.url}/api/runs/run_hist/report/markdown`);
       expect(report.status).toBe(200);
@@ -169,8 +194,8 @@ describe("web run store and HTTP/SSE", () => {
       expect(payload.status).toBe(200);
       expect(JSON.parse(payload.body)[0].caseId).toBe("broken");
       const page = await get(`${listening.url}/?runId=run_imp`);
-      expect(page.body).toContain("Improvement Queue");
-      expect(page.body).toContain("/api/runs/'+runId+'/improvements");
+      expect(page.body).toContain("改进建议");
+      expect(page.body).toContain("/improvements/");
       const denied = await post(`${listening.url}/api/runs/run_imp/improvements/s1`, { status: "accepted" });
       expect(denied.status).toBe(403);
       const accepted = await post(`${listening.url}/api/runs/run_imp/improvements/s1`, { status: "accepted" }, WRITE);
@@ -253,7 +278,7 @@ describe("web run store and HTTP/SSE", () => {
       expect(bad.status).toBe(400);
       expect(bad.body).toContain("report format");
       const page = await get(`${listening.url}/?runId=${run.runId}`);
-      expect(page.body).toContain("/api/runs/'+runId+'/replay");
+      expect(page.body).toContain("重新评估");
     } finally { await close(web.server); }
   });
 
@@ -296,11 +321,11 @@ describe("web run store and HTTP/SSE", () => {
     const listening = await web.listen();
     try {
       const page = await get(`${listening.url}/?runId=${run.runId}`);
-      expect(page.body).toContain("trace.event");
-      expect(page.body).toContain("Snapshot (no JavaScript)");
-      expect(page.body).toContain("Live stream disconnected. Polling snapshot");
-      expect(page.body).toContain("Cannot reach canary UI. Showing last known snapshot.");
-      expect(page.body).toContain("EventSource unavailable");
+      expect(page.body).toContain("加载轨迹 / state diff");
+      expect(page.body).toContain("此工作台需要 JavaScript");
+      expect(page.body).toContain("连接中断");
+      expect(page.body).toContain("读取失败");
+      expect(page.body).toContain("/api/workspace/runs");
       const streamed = await new Promise<string>((resolvePromise, reject) => {
         const req = request(`${listening.url}/api/runs/${run.runId}/events`);
         req.on("response", (res) => {
