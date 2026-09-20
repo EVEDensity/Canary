@@ -233,6 +233,8 @@ projectRoot 优先级是显式 --config > 最近祖先配置 > 调用目录（�
 
 ### R3：artifact 完整性、可复现和隐私
 
+状态：**已完成（Windows Node 24 范围）**。见 [R3 执行记录](../evidence/r3-execution-record.md)和 [使用说明](../guides/r3-artifact-evidence.md)。历史清理由配置和显式命令启用；运行时配额/长跑仍属 R7，三平台证据仍属 R6。
+
 目标：让结果可以被重新检查，而不是只能看一次终端输出。
 
 交付：manifest、schema version、内容 hash 和运行谱系；脱敏、内容扫描和 secret/token 保护；固定时钟/随机源/环境摘要的可选录制；失败 artifact、重试 artifact 和恢复 artifact 的关联；本地保留策略和容量上限。
@@ -240,6 +242,8 @@ projectRoot 优先级是显式 --config > 最近祖先配置 > 调用目录（�
 验收：相同 fixture 在固定输入下得到等价结论；修改 artifact 可被完整性检查发现；敏感字段不会出现在页面、摘要或默认长期存储中。
 
 ### R4：canary run --ci 全局门禁
+
+状态：**已完成（Windows Node 24 / Python 3.12 范围）**。见 [R4 执行记录](../evidence/r4-execution-record.md)和 [使用说明](../guides/r4-project-checks.md)。Docker daemon 成功路径及其他平台不由本次结果推导为 verified。
 
 目标：提供无需人工干预的项目级自检。
 
@@ -249,6 +253,8 @@ projectRoot 优先级是显式 --config > 最近祖先配置 > 调用目录（�
 
 ### R5：全面 canary run 与本地控制面
 
+状态：**已完成（Windows Node 24 范围）**。见 [R5 执行记录](../evidence/r5-execution-record.md)和 [使用说明](../guides/r5-local-report.md)。日志按完成项脱敏更新，资源诊断是快照；三平台/长跑仍属 R6/R7。
+
 目标：为个人开发者提供一次命令完成的全量排查。
 
 交付：本地回环报告服务和页面；实时进度、日志、错误、建议、历史和比较；可选服务健康、Docker、资源和容量检查；失败项重试和单项重跑；--no-open、指定端口、只写 artifact 等开关。
@@ -256,6 +262,8 @@ projectRoot 优先级是显式 --config > 最近祖先配置 > 调用目录（�
 验收：页面可在运行中访问；停止页面不丢失证据；多个项目之间不会串读数据；CI 与普通运行的结论一致，只是诊断深度不同。
 
 ### R6：真实三平台验证与 Agent fixture
+
+状态：**部分完成，仍有阻塞**。Windows 与 Ubuntu 容器的 Node 24/22 已有真实证据；macOS、原生 Ubuntu 主机与 Pi 模型执行未验收。六组合 CI 与固定 fixture 已建立，见 [R6 执行记录](../evidence/r6-execution-record.md)。
 
 目标：以真实项目和真实系统边界证明支持，而不是以静态声明代替。
 
@@ -281,21 +289,22 @@ projectRoot 优先级是显式 --config > 最近祖先配置 > 调用目录（�
 
 ## 10. 当前状态与首批执行顺序
 
-截至 2026-09-17：
+截至 2026-09-19：
 
-| 能力                                                           | 当前状态                                                        | 说明                                                                               |
-| -------------------------------------------------------------- | --------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
-| Canary 本地评估、trace、artifact、Web 控制面                   | verified（仓库内）                                              | 已有历史证据，但仍需按新 schema 收敛                                               |
-| 运行器超时/取消/预算、进程树、锁/tmp/port、checkpoint 恢复     | verified（Windows Node 24）                                     | Ubuntu/macOS 与 Node 22 仍为 declared；见 [R1](../evidence/r1-execution-record.md) |
-| 配置发现、doctor/paths/version 诊断                            | verified（Windows Node 24）                                     | Ubuntu/macOS 与 Node 22 仍为 declared；见 [R2](../evidence/r2-execution-record.md) |
-| 基础 CLI version/paths/doctor/run                              | doctor/paths/version 已按 R2 验收；run --ci 全局产品契约仍属 R4 | 普通 run 与跨语言检查编排尚未按 R4/R5 完成                                         |
-| 三平台                                                         | declared                                                        | 当前本地 Windows 证据不能代表 Ubuntu/macOS                                         |
-| Node 24                                                        | verified（本地基线）                                            | 需绑定实际命令和日期                                                               |
-| Node 22                                                        | declared                                                        | 尚未作为新路线图的完整兼容证据                                                     |
-| AgentHub 适配                                                  | excluded（写死适配）/blocked（当前样本运行）                    | AgentHub 是样本，不是 Canary 架构要求；其测试存在收集阻塞和失败                    |
-| pi 等开源 Agent fixture                                        | declared                                                        | 需建立固定来源和离线/凭证边界                                                      |
-| npm、独立 registry package、平台二进制、签名、SBOM、provenance | excluded                                                        | 用户明确暂不考虑，不作为本路线图缺口                                               |
-| 自动外发、云端观测、完整 Phoenix/Langfuse 生态适配             | excluded                                                        | 不属于个人本地优先核心                                                             |
+| 能力                                                           | 当前状态                                     | 说明                                                                                 |
+| -------------------------------------------------------------- | -------------------------------------------- | ------------------------------------------------------------------------------------ |
+| Canary 本地评估、trace、artifact、Web 控制面                   | verified（仓库内）                           | 已有历史证据，但仍需按新 schema 收敛                                                 |
+| 运行器超时/取消/预算、进程树、锁/tmp/port、checkpoint 恢复     | verified（Windows Node 24）                  | Ubuntu/macOS 与 Node 22 仍为 declared；见 [R1](../evidence/r1-execution-record.md)   |
+| 配置发现、doctor/paths/version 诊断                            | verified（Windows Node 24）                  | Ubuntu/macOS 与 Node 22 仍为 declared；见 [R2](../evidence/r2-execution-record.md)   |
+| artifact manifest、哈希链、谱系、脱敏、可复现元数据和历史清理  | verified（Windows Node 24）                  | 含损坏、半写入、敏感信息和真实 CLI 验收；见 [R3](../evidence/r3-execution-record.md) |
+| 基础 CLI version/paths/doctor/run                              | R2 诊断与 R4 项目 CI 已按本机范围 verified   | Node/Python 与 Canary 自身通过；普通 run 页面整合已由 R5 验收                        |
+| 三平台                                                         | declared                                     | 当前本地 Windows 证据不能代表 Ubuntu/macOS                                           |
+| Node 24                                                        | verified（本地基线）                         | 需绑定实际命令和日期                                                                 |
+| Node 22                                                        | declared                                     | 尚未作为新路线图的完整兼容证据                                                       |
+| AgentHub 适配                                                  | excluded（写死适配）/blocked（当前样本运行） | AgentHub 是样本，不是 Canary 架构要求；其测试存在收集阻塞和失败                      |
+| pi 等开源 Agent fixture                                        | declared                                     | 需建立固定来源和离线/凭证边界                                                        |
+| npm、独立 registry package、平台二进制、签名、SBOM、provenance | excluded                                     | 用户明确暂不考虑，不作为本路线图缺口                                                 |
+| 自动外发、云端观测、完整 Phoenix/Langfuse 生态适配             | excluded                                     | 不属于个人本地优先核心                                                               |
 
 首批执行顺序固定为：R0、R1、R2、R3、R4、R5、R6、R7、R8。R8 只有在核心稳定后实施。
 
