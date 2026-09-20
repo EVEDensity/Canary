@@ -1,0 +1,1 @@
+export default {"agent": {"adapter": "function", "entry": "./agent.mjs"}, "cases": "./cases.ts", "coverage": {"include": ["*.mjs"]}, "web": {"enabled": false}, "reporters": ["json", "junit", "markdown"]};

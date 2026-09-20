@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "id": "tool-calling-agent",
+  "source": "Canary repository / integrations/fixtures/tool-calling-agent",
+  "revision": "r6-v1",
+  "credentials": [],
+  "offline": true,
+  "start": "node scripts/verify-r6.mjs",
+  "expectedExit": 0,
+  "expectedOutput": {
+    "answer": "ping"
+  },
+  "sideEffects": [
+    "Temporary project artifact files"
+  ],
+  "limitations": "Deterministic local contract fixture; no model provider.",
+  "files": {
+    "agent.mjs": "fb05e5c499cc65f498e9cf8970c5cad4ba158f7ba83da8aefb2d0d43b0b6a49d",
+    "canary.config.ts": "8eafb337fb8bcf81ea0e518e5d3bcfae350ff0a568884ba52ebc4bb1143be1aa",
+    "cases.ts": "04f15c10ebef8e521858d6a2abd9485153fbbfa124ae9721c3247ae1cb86f583",
+    "tools.mjs": "fbeaf6a0c5443d16035a153d86960b9b29bbd1093727a089fd5fe22ceaab676b"
+  }
+}

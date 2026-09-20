@@ -1,0 +1,1 @@
+export default {"agent": {"adapter": "http", "entry": process.env.CANARY_R6_HTTP_URL}, "cases": "./cases.ts", "coverage": {"include": ["*.mjs"]}, "web": {"enabled": false}, "reporters": ["json", "junit", "markdown"]};

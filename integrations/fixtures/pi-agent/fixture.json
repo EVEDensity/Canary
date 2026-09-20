@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "id": "pi-agent",
+  "source": "https://github.com/earendil-works/pi",
+  "tag": "v0.86.0",
+  "commit": "ecac0a9c4edad3dac5d9f8b40e0c7db7a56471fc",
+  "package": "@earendil-works/pi-coding-agent@0.86.0",
+  "status": "blocked",
+  "reason": "Pi model inference requires an explicitly selected and authorized provider/model. Separate pinned runtime probes do not satisfy inference acceptance.",
+  "credentials": ["User-selected model provider; supplied only in an explicitly authorized run"],
+  "offline": "No full coding-agent inference without a configured local provider. Default verification records blocked.",
+  "start": "Install the pinned package in an isolated fixture checkout; run pi --version, then explicitly configure a provider before model execution.",
+  "expected": "Version 0.86.0; inference success must include model identity, bounded prompt and real output evidence.",
+  "sideEffects": [
+    "Optional install downloads dependencies",
+    "Authorized inference may use network and model budget; not executed by verify:r6"
+  ],
+  "integrity": "sha512-tzLh/10bPQZbA9shvA8TALT4eSNCifJaDq672MPXHldsvZ9t9lQ8J5Z9CD1d7UZVzG4l85XUZWo6ZCCNhBULxw=="
+}

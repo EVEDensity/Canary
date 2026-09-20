@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "id": "mcp-agent",
+  "source": "Canary repository / integrations/fixtures/mcp-agent",
+  "revision": "r6-v1",
+  "credentials": [],
+  "offline": true,
+  "start": "node scripts/verify-r6.mjs",
+  "expectedExit": 0,
+  "expectedOutput": {
+    "output": "mcp:ping",
+    "adapter": "mcp"
+  },
+  "sideEffects": [
+    "Temporary project artifact files"
+  ],
+  "limitations": "MCP fixture covers existing newline JSON-RPC run adapter, not full MCP protocol conformance.",
+  "files": {
+    "canary.config.ts": "d8ff573cc4e789ec7c81e311437ef5e00c3acba0fdd32345335380f212aab74c",
+    "cases.ts": "82b2db43299adeb4259a6f7f57a12df93da49579e66770a13d57f961d146c36b",
+    "server.mjs": "2c9788818702cfaec43b5aa3f3cc7a198c6973ea11f18a909fa65b28b834e990"
+  }
+}

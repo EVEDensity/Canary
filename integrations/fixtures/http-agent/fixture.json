@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "id": "http-agent",
+  "source": "Canary repository / integrations/fixtures/http-agent",
+  "revision": "r6-v1",
+  "credentials": [],
+  "offline": true,
+  "start": "node scripts/verify-r6.mjs",
+  "expectedExit": 0,
+  "expectedOutput": {
+    "answer": "ping"
+  },
+  "sideEffects": [
+    "Temporary project artifact files",
+    "Loopback HTTP listener on ephemeral port"
+  ],
+  "limitations": "Deterministic local contract fixture; no model provider.",
+  "files": {
+    "canary.config.ts": "75190168f9bd5d9d35c517099edfd65b00227377d744cd575a422e45d2ad7c2a",
+    "cases.ts": "8d16a4c98bafb26bf73b459a12a8a872b788bcdc7c4206adaa8d9f7f8d918ef4",
+    "server.mjs": "b1576d5e7c88d26d944d5cad7ab731a26abb8a1c38a081ad8cb0d066254a8df3"
+  }
+}
