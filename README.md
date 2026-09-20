@@ -27,7 +27,7 @@
 
 ---
 
-> 当前执行基线：[个人开发者路线图 R0–R8](docs/roadmap/06-personal-production-test-roadmap.md)。R0 已冻结 [CLI/root/schema 契约](docs/guides/r0-cli-contract.md)，[真实验收](docs/evidence/r0-execution.md)限 Windows Node 24；项目仍在补齐生产级运行器和三平台证据。已配置项目可运行 `canary run --ci`，目前执行 Agent cases，不冒充全仓库自动 CI。
+> 当前执行基线：[个人开发者路线图 R0–R8](docs/roadmap/06-personal-production-test-roadmap.md)。R0–R5 已在 Windows Node 24 范围验收。最新 [R4 项目门禁](docs/evidence/r4-execution-record.md)支持显式六类检查、超时预算、JSON/JUnit 和 R3 证据链，真实 Node/Python fixture 已验证；使用见 [项目检查指南](docs/guides/r4-project-checks.md)。[R5 本地报告](docs/guides/r5-local-report.md)已支持实时进度、历史比较与重跑，见 [R5 证据](docs/evidence/r5-execution-record.md)。[R6 实测](docs/evidence/r6-execution-record.md)已覆盖 Windows/Ubuntu 容器 Node 24/22；macOS/Pi 与原生 Ubuntu 主机仍未验收，R6 不标全部完成。长跑仍属 R7。
 
 ## 🎯 为什么用 Canary？
 
@@ -80,14 +80,15 @@ curl -fsSL https://raw.githubusercontent.com/EVEDensity/Canary/main/install.sh |
 新开一个终端，然后：
 
 ```bash
-canary run                       # 跑默认 15 个 case
-canary run --headless --no-open  # 无头模式（CI 友好）
-canary report <runId>            # 生成 markdown 报告
-canary compare <base> <cand>     # 对比两次运行
-canary replay <runId>            # 完整回放
+canary run --ci                  # 执行当前项目的显式检查计划
+canary run --port 4318           # 运行并展示本地端口页面
+canary run --port 4318 --no-open # 保留页面服务，手动打开 URL
+canary report <runId>            # 导出该项目运行的 markdown 报告
 ```
 
-就这么多。第一次跑会在 `.canary/artifacts/<runId>/` 生成完整的 trajectory + 覆盖率 + 报告。
+目标项目需配置 `canary.project.json` 或 `canary.config.ts`。同目录优先项目 JSON；缺配置会报错，不执行安装目录 Demo。仓库默认计划包含 build、typecheck、lint、格式检查、全仓测试与 Agent 回归。Agent demo 可使用 `pnpm demo`，Agent replay/compare 使用显式 Agent 配置。详见 [默认入口与全局验收](docs/evidence/entry-execution-record.md)。
+
+第一次跑会在 `.canary/artifacts/<runId>/` 生成完整的 trajectory + 覆盖率 + 报告。
 
 ---
 
@@ -161,7 +162,7 @@ cd Canary
 pnpm install
 pnpm build          # 编译所有 packages
 pnpm check          # format + lint + typecheck + test
-pnpm demo:headless  # 跑默认 15-case smoke（和 CI 一样）
+pnpm demo:headless  # 显式运行 Agent demo，独立于项目完整门禁
 ```
 
 ---
