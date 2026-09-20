@@ -2,6 +2,8 @@
 
 > 2026-09-16 冻结。实现与真实验收见 [R0 执行记录](../evidence/r0-execution.md)。后续唯一计划仍是 [R0–R8 路线图](../roadmap/06-personal-production-test-roadmap.md)。
 
+R4 增加独立项目检查配置和 `project-checks` scope，原有 agent 输出仍保持 `configured-agent-cases`；新增行为见 [项目检查指南](r4-project-checks.md)。
+
 ## 范围与兼容边界
 
 R0 固定现有 Agent case 执行路径的入口契约，不实现通用语言项目发现或自动运行任意仓库脚本。Node/Python/Go/Rust 等 required/optional 检查编排属于 R4。进程树清理、崩溃恢复和 tmp/lock/port 隔离已在 [R1](../evidence/r1-execution-record.md) 的 Windows Node 24 范围落地；Ubuntu/macOS 仍为 declared。当前仓库的 CI 配置运行 15 个本地示例 case，不等于执行完整的 pnpm check。
@@ -13,18 +15,18 @@ R0 固定现有 Agent case 执行路径的入口契约，不实现通用语言�
 
 ## 四类 root
 
-| 字段           | v1 含义与优先级                                                                                                                                          |
-| -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| invocationRoot | 用户调用位置的绝对路径，保留路径别名；库调用可传 cwd。仅在 @canary/cli 包目录中运行 canary/dev 包脚本时使用 INIT_CWD，全局 launcher 清除继承的包脚本变量 |
-| projectRoot    | 显式 --config 文件所在目录，优先于从 invocationRoot 向上找到的最近 canary.config.ts；没有配置则保持调用目录并报错，不回退安装 Demo                       |
-| installRoot    | CANARY_HOME > 有效的 ~/.canary/home.json.root > 正在执行的源码仓库根；仅描述安装位置，不参与项目配置发现                                                 |
-| artifactRoot   | projectRoot/.canary/artifacts，表示历史运行集合；单次运行目录是 artifactRoot/runId，artifactPath 指向其中 run.json                                       |
+| 字段           | v1 含义与优先级                                                                                                                                                                 |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| invocationRoot | 用户调用位置的绝对路径，保留路径别名；库调用可传 cwd。仅在 @canary/cli 包目录中运行 canary/dev 包脚本时使用 INIT_CWD，全局 launcher 清除继承的包脚本变量                        |
+| projectRoot    | 显式 --config 文件所在目录，优先于从 invocationRoot 向上找到的最近配置目录（同目录 canary.project.json 优先于 canary.config.ts）；没有配置则保持调用目录并报错，不回退安装 Demo |
+| installRoot    | CANARY_HOME > 有效的 ~/.canary/home.json.root > 正在执行的源码仓库根；仅描述安装位置，不参与项目配置发现                                                                        |
+| artifactRoot   | projectRoot/.canary/artifacts，表示历史运行集合；单次运行目录是 artifactRoot/runId，artifactPath 指向其中 run.json                                                              |
 
 configRoot 当前等于 projectRoot；configFile 为绝对文件路径。已存在的项目、配置、安装目录使用 realpath 规范化，避免 Windows 8.3 短路径或 junction 别名产生不同 projectRoot；不存在的路径保持绝对形式以便诊断。不会仅靠字符串小写强行合并 Unix 大小写不同的目录。
 
 projectRoot 与 installRoot 在 Canary 自测时允许相同；**禁止的是缺少项目配置时隐式使用安装 Demo**，不是禁止所有相等路径。R2 将外部调用选中安装配置诊断为 `PROJECT_INSTALL_CONFLICT` warning，并报告不可写 artifact 与路径异常；仍不自动改写用户文件。
 
-当前默认配置仍是 canary.config.ts；不声称已支持 .canary/config.* 或任意 artifactRoot 配置。原路线图中的这些建议不能冒充已实现行为。
+当前默认发现按最近配置目录查找，同目录 canary.project.json 优先于 canary.config.ts；不声称已支持 .canary/config.* 或任意 artifactRoot 配置。原路线图中的这些建议不能冒充已实现行为。
 
 历史 source=install 值只保留在旧 TypeScript 类型中供历史消费者识别；新 projectContextSchema 不接受它。老 artifact 不被重写。历史授权/经验若绑定了路径别名，可能因 canonical projectRoot 不同而拒绝使用；不得静默重新授权，应保留记录并按规范路径重新确认，自动迁移不在 R0。
 
@@ -59,7 +61,7 @@ CI 只接受 --ci、--json、--headless、--no-open 及带值的 --config、--ca
 | summary                              | total、passed、failed，非负整数，passed+failed 不得超过 total；取消时未完成项不伪装成通过                                                                            |
 | issues                               | code、severity=error/warning、message、suggestion；不打印任意异常栈中的凭证                                                                                          |
 | runtime / canary.version             | v、kind、canaryVersion、nodeVersion；Canary 版本取实际可执行包，不信任安装元数据的版本                                                                               |
-| capabilities                         | scope=configured-agent-cases、web=false、automaticExport=false，防止误解为已经实现全项目 CI                                                                          |
+| capabilities                         | agent 的 scope=configured-agent-cases；R4 项目为 project-checks；web=false、automaticExport=false                                                                    |
 | canary.paths / pathsSnapshotSchema   | context 的扁平字段 + kind；不执行配置、不启动评估、不探测网络                                                                                                        |
 | canary.doctor / doctorSnapshotSchema | paths 字段 + canaryVersion/nodeVersion/pnpmVersion/launcher/metadataStatus/exporter/localFirst/exitCode/issues/problems/suggestions；problems/suggestions 为兼容字段 |
 
@@ -96,7 +98,7 @@ pnpm check
 pnpm verify:r0
 ```
 
-verify:r0 生成临时 launcher，只修改子进程 PATH，不安装全局、不改写用户 home.json；从仓库根调用真正的 canary run --ci，验证缺配置退出码、诊断 schema、pnpm 调用目录和受跟踪及新增源码/脚本 SHA-256 不变。它会在仓库 .canary/artifacts 新建独立运行，保留证据；临时 launcher 随后清理。使用 node scripts/verify-r0.mjs --out <file> 可保存结构化记录。
+verify:r0 生成临时 launcher，只修改子进程 PATH，不安装全局、不改写用户 home.json；从仓库根显式选择 canary.config.ts 验证历史 Agent CI 契约，项目默认入口另由 verify:entry 验收，验证缺配置退出码、诊断 schema、pnpm 调用目录和受跟踪及新增源码/脚本 SHA-256 不变。它会在仓库 .canary/artifacts 新建独立运行，保留证据；临时 launcher 随后清理。使用 node scripts/verify-r0.mjs --out <file> 可保存结构化记录。
 
 R1 修改运行器后必须保持本契约回归通过，并保留进程树取消、锁/端口隔离、并发重复执行、部分失败持久化、checkpoint 与恢复测试。R0 的一次通过不能代替这些验收；Windows 证据见 [R1 执行记录](../evidence/r1-execution-record.md)。
 

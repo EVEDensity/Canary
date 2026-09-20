@@ -1,5 +1,7 @@
 # 当前运行、UI、产物与 Replay
 
+默认入口优先选择最近配置目录中的 `canary.project.json`，同目录缺少它时使用 `canary.config.ts`。项目检查与 Agent 评估现在共用[统一工作台](unified-workspace.md)。项目重跑与开关见 [R5 指南](r5-local-report.md)。以下 case/trajectory/coverage/replay 说明针对 Agent 配置；在本仓库需显式加 `--config canary.config.ts`。
+
 ## 已有命令
 
 全局命令下使用以下语法；仓库内可用 `pnpm canary -- <command>`。尖括号是占位符。
@@ -18,7 +20,7 @@ repetitions 运行 case × N；用例自身 options.repetitions 优先于 CLI/�
 ## UI 生命周期
 
 - 默认 loopback host 为 `127.0.0.1`、port 0 表示由系统分配；可配置 host/port，不建议暴露公网。
-- 非 headless 且 `web.enabled !== false` 时，先创建 runId、监听、打印 `canary UI` 再执行用例，因此长运行期间可以打开页面看 SSE。
+- 非 headless 且 `web.enabled !== false` 时，先创建 runId、监听、打印 `canary UI` 再执行用例，因此长运行期间可以打开工作台查看进度。工作台使用紧凑数据轮询，旧 SSE API 继续保留。
 - `--headless` 或 `web.enabled: false` **不创建监听、不打开浏览器**。`--no-open` 仍监听但不自动打开。
 - 页面包含运行概览/时间线、case 断言与轨迹、source/feature coverage、建议队列与 compare。现有截图是界面参考，不是本轮浏览器验收证据。
 - 端口占用会以 `Port N is already in use` 失败退出。
@@ -36,7 +38,7 @@ repetitions 运行 case × N；用例自身 options.repetitions 优先于 CLI/�
 - gate.json、improvement.json；
 - 按 reporters 配置写 report.json / report.md / report.xml / report.console.txt；比较另写 comparison.json。
 
-其中部分文件在执行中被反复覆盖；不是不可变、已签名的证据库。覆盖率产物可能带源码，脱敏也未覆盖所有通道；不要直接上传整个 artifact 目录。
+执行中的文件会更新；结束时 R3 manifest 封存并校验内容，页面和导出使用脱敏快照。该机制不是数字签名或对任意第三方检查的安全证明，详见 [R3 证据说明](r3-artifact-evidence.md)。
 
 ## Replay 不等于历史实验复现
 

@@ -2,6 +2,8 @@
 
 当前契约和本轮证据分别见 [R0 CLI 契约](r0-cli-contract.md)、[R0 执行记录](../evidence/r0-execution.md)。远端 GitHub CI 不作为本轮必需门槛；未执行的环境不写 verified。
 
+项目级 CI 配置及退出码语义见 [R4 项目检查](r4-project-checks.md)，最新本机结果见 [R4 执行记录](../evidence/r4-execution-record.md)。
+
 ## 本地命令
 
 ```powershell
@@ -13,6 +15,8 @@ pnpm lint
 pnpm format:check
 pnpm demo:headless
 pnpm verify:r0
+pnpm verify:r3
+pnpm verify:r4
 ```
 
 只运行需要的范围，记录实际退出码。typecheck 当前脚本调用 tsc，不能假设完全不产生编译产物。没有重新安装依赖就不要写“已验证全新安装”。
