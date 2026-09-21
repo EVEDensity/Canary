@@ -10,13 +10,13 @@
 
 ## 执行结果
 
-| 命令               | 退出码 | 结果/日志                                                          |
-| ------------------ | ------ | ------------------------------------------------------------------ |
-| pnpm build         | 0      | [build.txt](logs/build.txt)                                        |
-| pnpm test          | 0      | 17 个测试文件 / 105 个测试，[test.txt](logs/test.txt)              |
-| pnpm typecheck     | 0      | [typecheck.txt](logs/typecheck.txt)                                |
-| pnpm lint          | 0      | [lint.txt](logs/lint.txt)                                          |
-| pnpm demo:headless | 0      | 默认 Demo 15/15 cases、45/45 assertions，[demo.txt](logs/demo.txt) |
+| 命令               | 退出码 | 结果/日志                                                                   |
+| ------------------ | ------ | --------------------------------------------------------------------------- |
+| pnpm build         | 0      | [build.txt](logs/baseline/build.txt)                                        |
+| pnpm test          | 0      | 17 个测试文件 / 105 个测试，[test.txt](logs/baseline/test.txt)              |
+| pnpm typecheck     | 0      | [typecheck.txt](logs/baseline/typecheck.txt)                                |
+| pnpm lint          | 0      | [lint.txt](logs/baseline/lint.txt)                                          |
+| pnpm demo:headless | 0      | 默认 Demo 15/15 cases、45/45 assertions，[demo.txt](logs/baseline/demo.txt) |
 
 默认 `pnpm test` 包含 coverage fixture；CI 单独 fixture job 是额外重复，不应重复计入这里的 105。
 

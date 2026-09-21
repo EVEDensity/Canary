@@ -53,12 +53,12 @@ This task does not implement an MCP Server, automatic source writes, a sandbox, 
 
 ## Validation logs
 
-- `docs/evidence/logs/s01-pnpm-build.txt`
-- `docs/evidence/logs/s01-pnpm-test.txt`
-- `docs/evidence/logs/s01-pnpm-typecheck.txt`
-- `docs/evidence/logs/s01-pnpm-lint.txt`
-- `docs/evidence/logs/s01-pnpm-demo-headless.txt`
-- `docs/evidence/logs/s01-pnpm-format-check.txt` (initial check; final check passed after formatting)
+- `docs/evidence/logs/s01/s01-pnpm-build.txt`
+- `docs/evidence/logs/s01/s01-pnpm-test.txt`
+- `docs/evidence/logs/s01/s01-pnpm-typecheck.txt`
+- `docs/evidence/logs/s01/s01-pnpm-lint.txt`
+- `docs/evidence/logs/s01/s01-pnpm-demo-headless.txt`
+- `docs/evidence/logs/s01/s01-pnpm-format-check.txt` (initial check; final check passed after formatting)
 - `docs/evidence/s01-validation-results.json`
 
 ## Uncovered boundaries

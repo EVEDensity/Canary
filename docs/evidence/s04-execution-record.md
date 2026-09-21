@@ -61,13 +61,13 @@ S-04 交付一个可重复、可审计的软进化闭环：已知失败样例 �
 
 日志：
 
-- `docs/evidence/logs/s04-build.txt`
-- `docs/evidence/logs/s04-test.txt`
-- `docs/evidence/logs/s04-typecheck.txt`
-- `docs/evidence/logs/s04-lint.txt`
-- `docs/evidence/logs/s04-format-check.txt`
-- `docs/evidence/logs/s04-demo-headless.txt`
-- `docs/evidence/logs/s04-diff-check.txt`
+- `docs/evidence/logs/s04/s04-build.txt`
+- `docs/evidence/logs/s04/s04-test.txt`
+- `docs/evidence/logs/s04/s04-typecheck.txt`
+- `docs/evidence/logs/s04/s04-lint.txt`
+- `docs/evidence/logs/s04/s04-format-check.txt`
+- `docs/evidence/logs/s04/s04-demo-headless.txt`
+- `docs/evidence/logs/s04/s04-diff-check.txt`
 
 ## 结论与边界
 

@@ -32,19 +32,19 @@
 
 真实环境：Windows 11 25H2（10.0.26200），Node 24.18.0，pnpm 10.15.0，PowerShell 7.6.5；启动器验收由 Node 启动 cmd.exe。沿用已有依赖，并执行 offline install 链接 runner 到已有 trace 包，没有新增第三方运行时依赖。
 
-| 验收             | 结果                                                           | 证据                                                              |
-| ---------------- | -------------------------------------------------------------- | ----------------------------------------------------------------- |
-| `pnpm build`     | exit 0                                                         | [构建日志](logs/r3-build.txt)                                     |
-| `pnpm check`     | typecheck、319 tests、lint、format 通过                        | [全量检查](logs/r3-check.txt)                                     |
-| 相关包测试       | trace 19、runner 31、web 16、cli 103 通过                      | [相关包日志](logs/r3-tests.txt)                                   |
-| `pnpm verify:r0` | 临时全局启动器与 pnpm 两轮均 15/15，旧 CI v1/根目录/退出码保持 | [结构化记录](logs/r3-r0-acceptance.json)、[输出](logs/r3-r0.txt)  |
-| `pnpm verify:r3` | 12 项真实 CLI/恢复/隐私/不改源码检查 verified                  | [结构化记录](logs/r3-acceptance.json)、[输出](logs/r3-verify.txt) |
+| 验收             | 结果                                                           | 证据                                                                    |
+| ---------------- | -------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| `pnpm build`     | exit 0                                                         | [构建日志](logs/r3/r3-build.txt)                                        |
+| `pnpm check`     | typecheck、319 tests、lint、format 通过                        | [全量检查](logs/r3/r3-check.txt)                                        |
+| 相关包测试       | trace 19、runner 31、web 16、cli 103 通过                      | [相关包日志](logs/r3/r3-tests.txt)                                      |
+| `pnpm verify:r0` | 临时全局启动器与 pnpm 两轮均 15/15，旧 CI v1/根目录/退出码保持 | [结构化记录](logs/r3/r3-r0-acceptance.json)、[输出](logs/r3/r3-r0.txt)  |
+| `pnpm verify:r3` | 12 项真实 CLI/恢复/隐私/不改源码检查 verified                  | [结构化记录](logs/r3/r3-acceptance.json)、[输出](logs/r3/r3-verify.txt) |
 
 相较 R2 的 300 项全仓测试，R3 新增 19 项：trace 14 项、CLI 5 项。覆盖 manifest 字节哈希、派生写入历史链、修改/丢失/截断/额外文件、manifest 删除/损坏、历史链损坏、旧格式读取、原子替换失败、JSONL 尾行/中间损坏、结构化与无标签已知凭据、保留策略、CI 封存、重试/回放谱系、固定时钟/随机源、HTTP/SSE 脱敏、恢复和 CI 5/6 分类。
 
 R3 真实验收在带空格的临时项目中执行，之后仅删除该脚本自己创建的目录；完整结构化摘要保留。R0 两轮验收的项目内 artifact 保留在 `.canary/artifacts/`。两套验收均核对 237 个源码/脚本/配置文件，运行命令没有改写这些文件。
 
-初次完整检查在 319 项测试通过后因 `no-unsafe-finally` 失败，见 [初始记录](logs/r3-check-initial.txt)。已将收尾逻辑提取为明确的 finalize 步骤，保留 artifact 失败传递到 CI 的行为；未禁用 lint 规则。
+初次完整检查在 319 项测试通过后因 `no-unsafe-finally` 失败，见 [初始记录](logs/r3/r3-check-initial.txt)。已将收尾逻辑提取为明确的 finalize 步骤，保留 artifact 失败传递到 CI 的行为；未禁用 lint 规则。
 
 ## 5. 边界与回滚
 

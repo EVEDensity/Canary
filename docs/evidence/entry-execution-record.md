@@ -25,7 +25,7 @@
 
 验收包括：独立项目及带空格子目录、项目 JSON 默认优先、显式 Agent 配置、无效/缺失配置不回退、项目报告导出、两个项目隔离、指定随机端口的运行中页面、关闭服务后证据封存，以及从 Canary 子目录执行完整默认门禁。
 
-结构化结果保存为 `logs/entry-acceptance.json`；运行产生的临时项目保留供审计，位置在结果中。全局页面测试使用空闲端口以避免干扰用户服务，并在验收结束时关闭监听。
+结构化结果保存为 `logs/entry/entry-acceptance.json`；运行产生的临时项目保留供审计，位置在结果中。全局页面测试使用空闲端口以避免干扰用户服务，并在验收结束时关闭监听。
 
 ## 使用
 
@@ -52,11 +52,11 @@ canary run --config canary.config.ts
 
 ## 本轮结果
 
-- Windows / Node 24.18.0，实际全局安装与 `pnpm verify:entry --self` 成功，七组入口验收全部 verified：[结构化结果](logs/entry-acceptance.json)、[运行日志](logs/entry-verify.txt)、[安装日志](logs/entry-install.txt)。
+- Windows / Node 24.18.0，实际全局安装与 `pnpm verify:entry --self` 成功，七组入口验收全部 verified：[结构化结果](logs/entry/entry-acceptance.json)、[运行日志](logs/entry/entry-verify.txt)、[安装日志](logs/entry/entry-install.txt)。
 - 从 `packages/cli` 子目录启动默认项目门禁，runId 为 `run_0d01f3f2-367d-4db2-a53a-d2eeb6b11bf3`，六项 required checks 全部 passed，manifest 校验 verified。build / typecheck / lint / format / test / Agent 分别约 9.6 / 9.2 / 4.8 / 2.4 / 73.3 / 57.1 秒。
 - 指定端口 57606 的运行中页面及 API 验证通过；跨项目读取返回 404，关闭服务后进程正常退出、证据封存通过。该端口仅用于验收，现已关闭。
-- 隔离环境下 R0/R2 的 36 项测试通过，含缺配置、脱敏、安装根隔离与诊断：[日志](logs/entry-doctor-tests.txt)。Windows 超长路径的真实全局 CI 回归通过：[日志](logs/entry-longpath.txt)。
-- 旧 R0 兼容验收通过：显式 Agent 配置、pnpm 入口、缺配置退出及执行前后源码哈希核对均 verified：[结果](logs/entry-r0.json)。
+- 隔离环境下 R0/R2 的 36 项测试通过，含缺配置、脱敏、安装根隔离与诊断：[日志](logs/entry/entry-doctor-tests.txt)。Windows 超长路径的真实全局 CI 回归通过：[日志](logs/entry/entry-longpath.txt)。
+- 旧 R0 兼容验收通过：显式 Agent 配置、pnpm 入口、缺配置退出及执行前后源码哈希核对均 verified：[结果](logs/entry/entry-r0.json)。
 - 完整门禁的测试输出超过 64 KiB，持久化输出按已有规则标记 omitted；通过结论依据进程退出码及已封存 check 结果，不声称该 artifact 保存了全部测试控制台日志。
 
 这是当前 Windows 源码全局安装的实测结果，不扩展为 macOS、原生 Ubuntu 或 Pi 的新增验收结论。全局命令执行调用项目的显式计划；无配置目录仍需先建立项目配置。

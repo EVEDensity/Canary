@@ -56,12 +56,12 @@ S-03 只实现项目级、版本化、可审计的经验库和加载器：经验
 
 详细命令日志见：
 
-- `docs/evidence/logs/s03-build.txt`
-- `docs/evidence/logs/s03-test.txt`
-- `docs/evidence/logs/s03-typecheck.txt`
-- `docs/evidence/logs/s03-lint.txt`
-- `docs/evidence/logs/s03-format-check.txt`
-- `docs/evidence/logs/s03-demo-headless.txt`
+- `docs/evidence/logs/s03/s03-build.txt`
+- `docs/evidence/logs/s03/s03-test.txt`
+- `docs/evidence/logs/s03/s03-typecheck.txt`
+- `docs/evidence/logs/s03/s03-lint.txt`
+- `docs/evidence/logs/s03/s03-format-check.txt`
+- `docs/evidence/logs/s03/s03-demo-headless.txt`
 - `docs/evidence/s03-validation-results.json`
 
 ## 风险与未覆盖边界
