@@ -110,5 +110,6 @@ export interface ProjectCheckResult {
   stdout?: string;
   stderr?: string;
   outputTruncated?: boolean;
+  outputEvidence?: { stdout: string[]; stderr: string[]; policy: "bounded-redacted-lines-v1" };
   childRun?: { runId: string; artifactPath: string; manifestHash: string };
 }
