@@ -1,0 +1,29 @@
+
+> canary@0.1.0 typecheck <workspace>
+> pnpm -r --if-present typecheck
+
+Scope: 12 of 13 workspace projects
+packages/core typecheck$ tsc -p tsconfig.json --pretty false
+packages/core typecheck: Done
+packages/coverage typecheck$ tsc -p tsconfig.json --pretty false
+packages/adapters typecheck$ tsc -p tsconfig.json --pretty false
+packages/environment typecheck$ tsc -p tsconfig.json --pretty false
+packages/evaluators typecheck$ tsc -p tsconfig.json --pretty false
+packages/coverage typecheck: Done
+packages/adapters typecheck: Done
+packages/environment typecheck: Done
+packages/reporters typecheck$ tsc -p tsconfig.json --pretty false
+packages/trace typecheck$ tsc -p tsconfig.json --pretty false
+packages/evaluators typecheck: Done
+packages/reporters typecheck: Done
+packages/trace typecheck: Done
+examples/local-agent typecheck$ tsc -p tsconfig.json --pretty false
+packages/improvement typecheck$ tsc -p tsconfig.json --pretty false
+packages/runner typecheck$ tsc -p tsconfig.json --pretty false
+packages/improvement typecheck: Done
+packages/runner typecheck: Done
+examples/local-agent typecheck: Done
+apps/web typecheck$ tsc -p tsconfig.json --pretty false
+apps/web typecheck: Done
+packages/cli typecheck$ tsc -p tsconfig.json --pretty false
+packages/cli typecheck: Done
