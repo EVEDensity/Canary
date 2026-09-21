@@ -1,3 +1,4 @@
+import { evidenceOutput } from "./lib/evidence-output.mjs";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
@@ -10,7 +11,7 @@ import { ciResultSchema } from "../packages/core/dist/index.js";
 // This entry deliberately verifies runtime integration only. It never invokes a model.
 const root = resolve(import.meta.dirname, "..");
 const fixture = JSON.parse(readFileSync(join(root, "integrations/fixtures/pi-agent/fixture.json"), "utf8"));
-const output = resolve(process.env.CANARY_R6_PI_OUTPUT ?? "docs/evidence/logs/r6-pi-runtime.json");
+const output = evidenceOutput("r6", "r6-pi-runtime.json", process.env.CANARY_R6_PI_OUTPUT);
 const base = realpathSync(mkdtempSync(join(tmpdir(), "Canary Pi runtime ")));
 const home = join(base, "isolated-home");
 mkdirSync(home);
@@ -44,7 +45,7 @@ const report = {
   inference: {
     status: "blocked",
     reason:
-      "No user-selected authorized provider/model or credential injection was supplied. Runtime probes do not prove inference.",
+      "This runtime-only probe does not execute inference. Consult the separate opt-in inference evidence when supplied.",
     modelCalls: 0,
     credentialDiscovery: false,
   },
@@ -113,7 +114,7 @@ try {
   assert.equal(ci.exitCode, 0);
   const snapshot = JSON.parse(readFileSync(ci.artifactPath, "utf8"));
   assert.equal(snapshot.checks[0].stdout.trim(), "0.86.0");
-  assert.match(snapshot.checks[1].stdout, /--provider/);
+  assert.match(snapshot.checks[1].outputEvidence?.stdout.join("\n") ?? snapshot.checks[1].stdout, /--provider/);
   assert.ok(snapshot.checks.every((c) => c.status === "passed"));
   assert.equal(verifyArtifacts(dirname(ci.artifactPath)).status, "verified");
   report.checks.push({

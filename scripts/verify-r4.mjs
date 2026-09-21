@@ -1,3 +1,4 @@
+import { evidenceOutput } from "./lib/evidence-output.mjs";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
@@ -133,10 +134,7 @@ try {
   rmSync(base, { recursive: true, force: true });
 }
 const outIndex = process.argv.indexOf("--out");
-if (outIndex >= 0) {
-  const out = resolve(process.argv[outIndex + 1]);
-  mkdirSync(dirname(out), { recursive: true });
-  writeFileSync(out, JSON.stringify(report, null, 2) + "\n");
-}
+const destination = evidenceOutput("r4", "r4-acceptance.json", outIndex >= 0 ? process.argv[outIndex + 1] : undefined);
+writeFileSync(destination, JSON.stringify(report, null, 2) + "\n");
 assert.ok(report.checks.every((check) => check.status === "verified"));
 console.log(JSON.stringify(report, null, 2));

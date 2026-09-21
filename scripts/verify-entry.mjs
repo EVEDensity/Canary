@@ -1,3 +1,4 @@
+import { evidenceOutput } from "./lib/evidence-output.mjs";
 import assert from "node:assert/strict";
 import { spawn, spawnSync } from "node:child_process";
 import { createServer } from "node:net";
@@ -227,7 +228,7 @@ try {
   process.exitCode = 1;
 } finally {
   if (serverProcess?.exitCode === null) serverProcess.kill();
-  const path = join(root, "docs/evidence/logs/entry-acceptance.json");
+  const path = evidenceOutput("entry", "entry-acceptance.json", process.env.CANARY_ENTRY_OUTPUT);
   mkdirSync(dirname(path), { recursive: true });
   writeFileSync(path, JSON.stringify(report, null, 2) + "\n");
   console.log(JSON.stringify(report, null, 2));

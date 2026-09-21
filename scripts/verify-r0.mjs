@@ -1,3 +1,4 @@
+import { evidenceOutput } from "./lib/evidence-output.mjs";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { existsSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
@@ -153,8 +154,6 @@ try {
 }
 const output = JSON.stringify(evidence, null, 2) + "\n";
 const out = process.argv.indexOf("--out");
-if (out >= 0) {
-  assert(process.argv[out + 1]);
-  writeFileSync(resolve(process.argv[out + 1]), output, "utf8");
-}
+const destination = evidenceOutput("r0", "r0-acceptance.json", out >= 0 ? process.argv[out + 1] : undefined);
+writeFileSync(destination, output, "utf8");
 console.log(output);

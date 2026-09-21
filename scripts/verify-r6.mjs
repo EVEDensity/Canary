@@ -1,3 +1,4 @@
+import { evidenceOutput } from "./lib/evidence-output.mjs";
 import assert from "node:assert/strict";
 import { spawn, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
@@ -20,9 +21,10 @@ import { ciResultSchema } from "../packages/core/dist/index.js";
 const root = realpathSync(resolve(import.meta.dirname, ".."));
 const fixtures = join(root, "integrations/fixtures");
 const base = realpathSync(mkdtempSync(join(tmpdir(), "Canary R6 projects ")));
-const output = resolve(
-  process.env.CANARY_R6_OUTPUT ??
-    join(root, `docs/evidence/logs/r6-${process.platform}-node${process.versions.node.split(".")[0]}.json`),
+const output = evidenceOutput(
+  "r6",
+  `r6-${process.platform}-node${process.versions.node.split(".")[0]}.json`,
+  process.env.CANARY_R6_OUTPUT,
 );
 const sha = (value) => createHash("sha256").update(value).digest("hex");
 const report = {

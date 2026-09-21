@@ -1,3 +1,4 @@
+import { evidenceOutput } from "./lib/evidence-output.mjs";
 import assert from "node:assert/strict";
 import { spawn, spawnSync } from "node:child_process";
 import { mkdtempSync, writeFileSync, realpathSync, rmSync, mkdirSync } from "node:fs";
@@ -143,9 +144,9 @@ try {
     child.kill();
     await stopped;
   }
-  const logs = join(root, "docs/evidence/logs");
-  mkdirSync(logs, { recursive: true });
-  writeFileSync(join(logs, "r5-acceptance.json"), JSON.stringify(report, null, 2) + "\n");
+  const destination = evidenceOutput("r5", "r5-acceptance.json", process.env.CANARY_R5_OUTPUT);
+
+  writeFileSync(destination, JSON.stringify(report, null, 2) + "\n");
   // base is the absolute directory returned by mkdtemp, owned by this script.
   rmSync(base, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
 }
