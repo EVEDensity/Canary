@@ -6,6 +6,7 @@ import { beginArtifacts, sealArtifacts, writePrivateJson, FileArtifactRepository
 import type { RunSnapshot } from "@canary/core";
 import { WorkspaceReader } from "../src/workspace.js";
 import { createWebServer } from "../src/index.js";
+import { Script } from "node:vm";
 
 const run = (id: string): RunSnapshot => ({
   runId: id,
@@ -101,6 +102,7 @@ describe("unified verification workspace", () => {
     const { url } = await web.listen();
     try {
       const page = await fetch(url).then((r) => r.text());
+      for (const match of page.matchAll(/<script[^>]*>([\s\S]*?)<\/script>/g)) expect(() => new Script(match[1]!)).not.toThrow();
       expect(page).toContain("代码与功能覆盖率");
       expect(page).toContain("用例与轨迹");
       const fonts = await fetch(url + "/assets/fonts/fonts.css");

@@ -1,7 +1,20 @@
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import type { CoverageSummary, RunSnapshot } from "@canary/core";
-import { ArtifactIntegrityError, FileArtifactRepository, RunStore } from "@canary/trace";
+import {
+  ArtifactIntegrityError,
+  FileArtifactRepository,
+  RunStore,
+  readArtifactManifest,
+  safeArtifactPath,
+} from "@canary/trace";
+import {
+  gateIssues,
+  issueFromCheck,
+  linkVerification,
+  type ProjectIssue,
+  type RetryCandidate,
+} from "./project-issues.js";
 
 function summary(run: RunSnapshot) {
   return {
@@ -41,7 +54,7 @@ export class WorkspaceReader {
     private store: RunStore,
     private repository?: FileArtifactRepository,
   ) {}
-  list() {
+  list(limit = 100) {
     const rows = new Map<string, ReturnType<typeof summary>>();
     const root = this.repository?.rootDir;
     if (root && existsSync(root)) {
@@ -66,13 +79,53 @@ export class WorkspaceReader {
       }
     }
     for (const run of this.store.list()) rows.set(run.runId, summary(run));
-    return this.store.sanitize([...rows.values()].sort((a, b) => b.startedAt.localeCompare(a.startedAt)).slice(0, 100));
+    return this.store.sanitize(
+      [...rows.values()].sort((a, b) => b.startedAt.localeCompare(a.startedAt)).slice(0, limit),
+    );
+  }
+  private retries(): RetryCandidate[] {
+    const rows = this.list(Number.MAX_SAFE_INTEGER);
+    const known = new Set(rows.map((row) => row.runId));
+    const retries: RetryCandidate[] = rows.filter((row) => row.retryOf);
+    const root = this.repository?.rootDir;
+    if (root && existsSync(root))
+      for (const entry of readdirSync(root, { withFileTypes: true })) {
+        if (!entry.isDirectory() || known.has(entry.name)) continue;
+        try {
+          // The manifest can still identify a retry whose run.json was half-written.
+          // This is a discovery hint only; linkVerification always verifies content.
+          const manifest = readArtifactManifest(safeArtifactPath(root, entry.name));
+          if (manifest?.lineage.retryOf)
+            retries.push({
+              runId: entry.name,
+              retryOf: manifest.lineage.retryOf,
+              startedAt: manifest.createdAt,
+              checkIds: [],
+            });
+        } catch {
+          /* Unreadable metadata never supplies a verified result. */
+        }
+      }
+    return retries;
   }
   read(id: string) {
     const integrity = this.repository?.verify(id);
     if (integrity?.status === "invalid") throw new ArtifactIntegrityError(integrity);
     const run = this.store.get(id) ?? this.repository?.readRun(id);
     if (!run) return undefined;
+    const issues: ProjectIssue[] = [...gateIssues(run)];
+    const retryRuns = run.checks?.some((check) => check.status === "failed" || check.status === "blocked")
+      ? this.retries()
+      : [];
+    const loaded = new Map<string, RunSnapshot | undefined>();
+    const loadRetry = (runId: string) => {
+      if (!loaded.has(runId)) loaded.set(runId, this.store.get(runId) ?? this.repository?.readRun(runId));
+      return loaded.get(runId);
+    };
+    for (const check of run.checks ?? []) {
+      if (check.status === "failed" || check.status === "blocked")
+        issues.push(linkVerification(issueFromCheck(id, check), run, retryRuns, this.repository, loadRetry));
+    }
     const sources: {
       runId: string;
       checkId?: string;
@@ -91,6 +144,21 @@ export class WorkspaceReader {
         if (verified.status !== "verified" || verified.manifestHash !== check.childRun.manifestHash)
           throw new Error("Unverified child evidence");
         const child = this.repository.readRun(check.childRun.runId);
+        if (child) {
+          issues.push(...gateIssues(child));
+          for (const result of child.results.filter((result) => !result.passed))
+            issues.push({
+              id: `${child.runId}:case:${result.caseId}`,
+              runId: child.runId,
+              category: "agent",
+              title: result.caseId,
+              summary:
+                result.assertions.find((a) => !a.passed)?.message ?? result.failureCategory ?? "Agent 用例未通过",
+              advice: "进入关联用例检查断言和轨迹，修复后重新评估。",
+              target: "cases",
+              status: "open",
+            });
+        }
         sources.push({
           runId: check.childRun.runId,
           checkId: check.id,
@@ -98,6 +166,17 @@ export class WorkspaceReader {
           coverage: compactCoverage(child?.coverage ?? this.repository.readCoverage(check.childRun.runId)),
         });
       } catch {
+        issues.push({
+          id: `${id}:artifact:${check.id}`,
+          runId: id,
+          checkId: check.id,
+          category: "artifact",
+          title: check.id,
+          summary: "子运行证据缺失、损坏或谱系不匹配",
+          advice: "重新生成并核验关联 Agent 证据。",
+          target: "coverage",
+          status: "open",
+        });
         sources.push({
           runId: check.childRun.runId,
           checkId: check.id,
@@ -108,6 +187,7 @@ export class WorkspaceReader {
     }
     return this.store.sanitize({
       ...summary(run),
+      issues,
       activeCheck: run.activeCheck,
       checks: run.checks,
       coverageSources: sources,

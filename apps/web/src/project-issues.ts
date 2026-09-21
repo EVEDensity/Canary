@@ -1,0 +1,145 @@
+import type { ProjectCheckResult, RunSnapshot, ProjectChecksConfig } from "@canary/core";
+import { FileArtifactRepository, stableHash } from "@canary/trace";
+
+export interface ProjectIssue {
+  id: string;
+  runId: string;
+  checkId?: string;
+  category: string;
+  title: string;
+  summary: string;
+  advice: string;
+  target: "check" | "evidence" | "coverage" | "cases";
+  status: "open" | "verified" | "waiting" | "failed" | "unverified";
+  verification?: { runId: string; reason: string };
+}
+const advice: Record<string, string> = {
+  assertion: "检查错误堆栈和断言，修复后重跑该检查。",
+  configuration: "核对配置、命令参数和工作目录。",
+  environment: "检查工具、服务和资源是否可用。",
+  dependency: "先处理未通过的前置检查，再重跑。",
+  timeout: "检查最后执行位置与阻塞步骤，再核对超时设置。",
+  budget: "核对总预算和检查耗时，补跑未完成项。",
+  cancelled: "确认中断原因后补跑，不将中断判定为通过。",
+  platform: "在声明支持的真实平台执行并保存证据。",
+  artifact: "核对 manifest、文件哈希和父子运行关系。",
+  policy: "检查违规断言与工具轨迹，核对策略要求。",
+};
+export function issueFromCheck(runId: string, check: ProjectCheckResult): ProjectIssue {
+  const lines = [
+    ...(check.outputEvidence?.stderr ?? []),
+    ...(check.outputEvidence?.stdout ?? []),
+    check.stderr ?? "",
+    check.stdout ?? "",
+  ]
+    .flatMap((line) => line.split("\n"))
+    .filter((line) => line.trim() && !/^\[.*(?:omitted|redacted|recent output)/i.test(line));
+  return {
+    id: `${runId}:check:${check.id}`,
+    runId,
+    checkId: check.id,
+    category: check.category,
+    title: check.id,
+    summary:
+      (lines.find((line) => /error|fail|exception|timeout|错误|失败/i.test(line)) ?? lines[0])?.slice(0, 1600) ??
+      (check.outputTruncated
+        ? "日志已截断，当前证据不足以定位根因。"
+        : `检查${check.status === "blocked" ? "阻塞" : "失败"}，退出码 ${check.exitCode}。`),
+    advice: advice[check.category] ?? "查看原始证据与执行上下文后定位原因。",
+    target: "check",
+    status: "open",
+  };
+}
+
+/** A passing unrelated run or manually assigned status can never close a project issue. */
+export type RetryCandidate = Pick<RunSnapshot, "runId" | "retryOf" | "startedAt"> & { checkIds: string[] };
+export function linkVerification(
+  issue: ProjectIssue,
+  source: RunSnapshot,
+  candidates: RetryCandidate[],
+  repository?: FileArtifactRepository,
+  load?: (id: string) => RunSnapshot | undefined,
+): ProjectIssue {
+  if (!repository || !issue.checkId) return issue;
+  const reachable = new Map<string, RunSnapshot>([[source.runId, source]]);
+  const ordered = [...candidates].sort((a, b) => a.startedAt.localeCompare(b.startedAt));
+  const sourcePlan = repository.readJson<ProjectChecksConfig>(source.runId, "check-plan.json");
+  const sourceCheck = sourcePlan?.checks.find((c) => c.id === issue.checkId);
+  for (const header of ordered) {
+    if (!header.retryOf || !reachable.has(header.retryOf)) continue;
+    const parent = reachable.get(header.retryOf)!;
+    const result = { ...issue, verification: { runId: header.runId, reason: "" } };
+    try {
+      const candidate = load?.(header.runId) ?? repository.readRun(header.runId);
+      if (!candidate) throw new Error("Missing retry");
+      const parentIntegrity = repository.verify(parent.runId);
+      const integrity = repository.verify(candidate.runId);
+      const parentHash = candidate.evidence?.lineage.parentManifestHash;
+      const plan = repository.readJson<ProjectChecksConfig>(candidate.runId, "check-plan.json");
+      const planCheck = plan?.checks.find((c) => c.id === issue.checkId);
+      // A retry of another check must not change this issue's verification.
+      if (plan && !planCheck) continue;
+      const check = candidate.checks?.find((c) => c.id === issue.checkId);
+      const samePlan = plan?.checks.every((c) => {
+        const original = sourcePlan?.checks.find((s) => s.id === c.id);
+        return (
+          original &&
+          stableHash(original) === stableHash(c) &&
+          (c.dependsOn ?? []).every((dep) => plan.checks.some((p) => p.id === dep))
+        );
+      });
+      if (
+        parentIntegrity.status !== "verified" ||
+        !parentHash ||
+        parentHash !== parentIntegrity.manifestHash ||
+        candidate.retryOf !== parent.runId ||
+        candidate.evidence?.lineage.retryOf !== parent.runId ||
+        !sourceCheck ||
+        !planCheck ||
+        !samePlan ||
+        stableHash(sourceCheck) !== stableHash(planCheck)
+      ) {
+        result.status = "unverified";
+        result.verification.reason = "谱系、配置或来源证据不匹配";
+      } else if (candidate.status === "running" && integrity.status !== "invalid") {
+        result.status = "waiting";
+        result.verification.reason = "关联重跑尚未完成";
+      } else if (integrity.status !== "verified") {
+        result.status = "unverified";
+        result.verification.reason = "重跑证据尚未封存或已损坏";
+      } else {
+        reachable.set(candidate.runId, candidate);
+        const passed =
+          candidate.status === "completed" &&
+          check?.status === "passed" &&
+          plan!.checks
+            .filter((c) => c.required)
+            .every((c) => candidate.checks?.some((r) => r.id === c.id && r.status === "passed")) &&
+          (candidate.checks ?? []).filter((c) => c.required).every((c) => c.status === "passed");
+        result.status = passed ? "verified" : "failed";
+        result.verification.reason = passed ? "同一检查及必需前置检查通过，谱系和封存证据已校验" : "关联重跑仍未通过";
+      }
+    } catch {
+      if (header.checkIds.length && !header.checkIds.includes(issue.checkId!)) continue;
+      result.status = "unverified";
+      result.verification.reason = "无法读取完整验证证据";
+    }
+    issue = result;
+  }
+  return issue;
+}
+
+export function gateIssues(run: RunSnapshot): ProjectIssue[] {
+  return run.gate?.passed === false
+    ? (run.gate.failures ?? []).map((failure, index) => ({
+        id: `${run.runId}:gate:${index}`,
+        runId: run.runId,
+        category: "quality",
+        title: failure.target || failure.code,
+        summary: failure.message,
+        advice: "查看实际值、门槛和测量精度，补齐验证后重新运行。",
+        target: "evidence",
+        status: "open",
+      }))
+    : [];
+}
