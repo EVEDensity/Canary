@@ -3,6 +3,12 @@ dist/
 /coverage/
 .canary/runs/*
 .canary/artifacts/*
+**/.canary/logs/
+/.canary/experiences/
+/.canary/local-tools/
+/.canary/r5-ui-fixture/
+/r6-evidence/
+/docs/evidence/logs/**/artifacts/
 !.canary/runs/.gitkeep
 !.canary/artifacts/.gitkeep
 *.log

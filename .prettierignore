@@ -1,0 +1,3 @@
+# Immutable raw evidence: SHA-256 referenced by the Pi inference revalidation.
+docs/evidence/logs/r6/r6-closure-pi-runtime.json
+docs/evidence/logs/r6/r6-closure-pi-inference.json

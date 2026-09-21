@@ -11,7 +11,10 @@
   "scripts": {
     "build": "pnpm -r --if-present build",
     "check": "pnpm typecheck && pnpm test && pnpm lint && pnpm format:check",
-    "test": "pnpm -r --if-present test",
+    "test": "node scripts/run-logged.mjs tests -- pnpm -r --if-present test",
+    "test:quick": "node scripts/run-logged.mjs quick -- node --test scripts/tests/local-logs.test.mjs",
+    "logs:status": "node scripts/logs.mjs",
+    "logs:prune": "node scripts/logs.mjs",
     "typecheck": "pnpm -r --if-present typecheck",
     "lint": "eslint .",
     "format": "prettier --write README.md CHANGELOG.md CONTRIBUTING.md SECURITY.md docs .github .changeset .prettierrc.json eslint.config.mjs",
@@ -23,13 +26,13 @@
     "check:demo": "pnpm demo:headless",
     "install:global": "node scripts/install-global.mjs",
     "canary": "pnpm --filter @canary/cli canary",
-    "verify:r0": "node scripts/verify-r0.mjs",
-    "verify:r3": "node scripts/verify-r3.mjs",
-    "verify:r4": "node scripts/verify-r4.mjs",
+    "verify:r0": "node scripts/run-logged.mjs verification/r0 -- node scripts/verify-r0.mjs",
+    "verify:r3": "node scripts/run-logged.mjs verification/r3 -- node scripts/verify-r3.mjs",
+    "verify:r4": "node scripts/run-logged.mjs verification/r4 -- node scripts/verify-r4.mjs",
     "verify:distribution": "node scripts/verify-distribution.mjs",
-    "verify:r5": "node scripts/verify-r5.mjs",
-    "verify:r6": "node scripts/verify-r6.mjs",
-    "verify:entry": "node scripts/verify-entry.mjs"
+    "verify:r5": "node scripts/run-logged.mjs verification/r5 -- node scripts/verify-r5.mjs",
+    "verify:r6": "node scripts/run-logged.mjs verification/r6 -- node scripts/verify-r6.mjs",
+    "verify:entry": "node scripts/run-logged.mjs verification/entry -- node scripts/verify-entry.mjs"
   },
   "devDependencies": {
     "@changesets/cli": "^3.0.2",

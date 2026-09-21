@@ -8,6 +8,8 @@ on:
         "apps/**",
         "integrations/fixtures/**",
         "scripts/verify-r6.mjs",
+        "scripts/lib/**",
+        "scripts/run-logged.mjs",
         ".github/workflows/r6.yml",
         "pnpm-lock.yaml",
       ]
@@ -42,5 +44,8 @@ jobs:
         if: always()
         with:
           name: r6-${{ matrix.os }}-node${{ matrix.node }}
-          path: r6-evidence/
+          path: |
+            r6-evidence/
+            .canary/logs/verification/r6/
+          include-hidden-files: true
           if-no-files-found: error
