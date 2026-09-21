@@ -253,7 +253,7 @@ projectRoot 优先级是显式 --config > 最近祖先配置 > 调用目录（�
 
 ### R5：全面 canary run 与本地控制面
 
-状态：**已完成（Windows Node 24 范围）**。见 [R5 执行记录](../evidence/r5-execution-record.md)和 [使用说明](../guides/r5-local-report.md)。日志按完成项脱敏更新，资源诊断是快照；三平台/长跑仍属 R6/R7。
+状态：**已完成（Windows Node 24 范围）**。见 [R5 执行记录](../evidence/r5-execution-record.md)和 [使用说明](../guides/r5-local-report.md)。2026-09-21 已补项目问题分类汇总、有界错误证据和基于谱系的重跑验证关联，见 [闭环验收](../evidence/project-issue-closure.md)。日志按完成项脱敏更新，资源诊断是快照；三平台/长跑仍属 R6/R7。
 
 目标：为个人开发者提供一次命令完成的全量排查。
 
@@ -263,7 +263,9 @@ projectRoot 优先级是显式 --config > 最近祖先配置 > 调用目录（�
 
 ### R6：真实三平台验证与 Agent fixture
 
-状态：**部分完成，仍有阻塞**。Windows 与 Ubuntu 容器的 Node 24/22 已有真实证据；macOS、原生 Ubuntu 主机与 Pi 模型执行未验收。六组合 CI 与固定 fixture 已建立，见 [R6 执行记录](../evidence/r6-execution-record.md)。
+**2026-09-21 范围调整（用户决定）**：macOS、原生 Ubuntu 验收延后到开源后的 CI，不再阻塞当前本机交付和 R7 初步维护。保留其“尚未验证”的事实与历史 blocked 证据；不为此继续寻找 runner、重跑容器或调用模型。当前可执行范围已收尾，完整三平台验收仍未完成。
+
+状态：**部分完成，仍有阻塞**。2026-09-21 重新验证 Windows 与 Ubuntu 容器的 Node 24/22，四组各 10 项通过；固定 Pi 0.86.0 已通过一次获授权的 DeepSeek 真实推理（75 token）。macOS、原生 Ubuntu 主机仍缺运行证据。六组合 CI 配置存在但本轮未执行远端工作流，见 [R6 执行记录](../evidence/r6-execution-record.md)及 [当前状态](../evidence/logs/r6/r6-closure-status.json)。
 
 目标：以真实项目和真实系统边界证明支持，而不是以静态声明代替。
 
@@ -273,6 +275,12 @@ projectRoot 优先级是显式 --config > 最近祖先配置 > 调用目录（�
 
 ### R7：长时间运行、容量和恢复
 
+状态：**初步维护范围已实现，完整阶段验收暂缓**。按本轮用户要求控制投入，仅做必要且可快速验证的事项，见 [本地日志维护](../guides/local-log-maintenance.md)。
+
+本轮交付：历史证据按阶段归档；临时日志和生成产物不进入版本库；测试/验收日志默认进入 `.canary/logs/` 独立目录；沿用有界脱敏输出；增加占用统计、默认只预览的清理计划和显式清理；短回归验证退出码、密钥脱敏、活动锁及 artifact 保护。
+
+本轮不做：多小时长跑、大规模 case 压测、重启实验、高并发基准和完整磁盘配额/背压系统。已有 checkpoint/恢复逻辑继续复用，不另建恢复框架。下列完整阶段目标保留供后续选择，不作为本次交付门槛。
+
 目标：验证个人长期使用时不会因日志、重试或崩溃失控。
 
 交付：长时间运行和大量 case 的容量基线；artifact 保留、磁盘配额、日志轮换；断点恢复、机器重启、进程崩溃和半写文件恢复；并发上限、背压和资源告警；生产测试项目文档、运行手册和故障排查手册。
@@ -280,6 +288,8 @@ projectRoot 优先级是显式 --config > 最近祖先配置 > 调用目录（�
 验收：在固定容量预算内完成长跑；中断后能继续或明确失败；不重复执行已确认完成的 case；恢复行为保留审计链。
 
 ### R8：受控 Skill/软自进化
+
+状态：**R8-00 基线收口已完成，功能阶段尚未开始验收**。起点见 [R8 基线记录](../evidence/r8-baseline.md)，后续按 [R8 受控 Skill 实施计划](07-r8-controlled-skill-plan.md)执行。已有部分经验管理基础实现；不据此认定收益验证完成。首轮只实施人工批准、可回放、可比较、可回滚的最小闭环。
 
 目标：让 Canary 通过事实反馈帮助 Agent/宿主改善 prompt 和测试策略，而不是直接宣称自动进化。
 
@@ -289,7 +299,7 @@ projectRoot 优先级是显式 --config > 最近祖先配置 > 调用目录（�
 
 ## 10. 当前状态与首批执行顺序
 
-截至 2026-09-19：
+截至 2026-09-21；历史阶段的 verified 范围保留，R6 按本轮实际执行范围更新：
 
 | 能力                                                           | 当前状态                                     | 说明                                                                                 |
 | -------------------------------------------------------------- | -------------------------------------------- | ------------------------------------------------------------------------------------ |
@@ -298,15 +308,17 @@ projectRoot 优先级是显式 --config > 最近祖先配置 > 调用目录（�
 | 配置发现、doctor/paths/version 诊断                            | verified（Windows Node 24）                  | Ubuntu/macOS 与 Node 22 仍为 declared；见 [R2](../evidence/r2-execution-record.md)   |
 | artifact manifest、哈希链、谱系、脱敏、可复现元数据和历史清理  | verified（Windows Node 24）                  | 含损坏、半写入、敏感信息和真实 CLI 验收；见 [R3](../evidence/r3-execution-record.md) |
 | 基础 CLI version/paths/doctor/run                              | R2 诊断与 R4 项目 CI 已按本机范围 verified   | Node/Python 与 Canary 自身通过；普通 run 页面整合已由 R5 验收                        |
-| 三平台                                                         | declared                                     | 当前本地 Windows 证据不能代表 Ubuntu/macOS                                           |
+| 三平台                                                         | 部分 verified / blocked                      | Windows 与 Ubuntu Docker 四组通过；macOS 和原生 Ubuntu 尚无当前运行证据              |
 | Node 24                                                        | verified（本地基线）                         | 需绑定实际命令和日期                                                                 |
-| Node 22                                                        | declared                                     | 尚未作为新路线图的完整兼容证据                                                       |
+| Node 22                                                        | verified（R6 Windows / Ubuntu 容器）         | 已执行真实 fixture；不推导 macOS 或原生 Ubuntu 兼容性                                |
 | AgentHub 适配                                                  | excluded（写死适配）/blocked（当前样本运行） | AgentHub 是样本，不是 Canary 架构要求；其测试存在收集阻塞和失败                      |
-| pi 等开源 Agent fixture                                        | declared                                     | 需建立固定来源和离线/凭证边界                                                        |
+| pi 等开源 Agent fixture                                        | verified（固定样本范围）                     | 离线四类 Agent、Pi 固定运行时与一次 DeepSeek 推理有证据；非完整编码任务基准          |
 | npm、独立 registry package、平台二进制、签名、SBOM、provenance | excluded                                     | 用户明确暂不考虑，不作为本路线图缺口                                                 |
 | 自动外发、云端观测、完整 Phoenix/Langfuse 生态适配             | excluded                                     | 不属于个人本地优先核心                                                               |
 
 首批执行顺序固定为：R0、R1、R2、R3、R4、R5、R6、R7、R8。R8 只有在核心稳定后实施。
+
+当前执行顺序调整：R4/R5 问题闭环已完成 → R6 可执行范围收尾（三平台余项延后开源 CI）→ R7 初步维护完成 → R8-00 基线收口 → R8 最小受控闭环。暂不启动长跑、跨平台补验、自动批准、自动源码修改或常驻进化循环。
 
 ## 11. 每阶段一致性审计
 
