@@ -1,4 +1,0 @@
-
-> canary@0.1.0 lint C:\Users\temp-admin\Desktop\Canary
-> eslint .
-
