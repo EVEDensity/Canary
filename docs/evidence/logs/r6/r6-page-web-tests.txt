@@ -1,0 +1,15 @@
+
+> @canary/web@0.1.0 test C:\Users\temp-admin\Desktop\Canary\apps\web
+> vitest run
+
+
+ RUN  v3.2.7 C:/Users/temp-admin/Desktop/Canary/apps/web
+
+ ✓ tests/control-server.test.ts (4 tests) 136ms
+ ✓ tests/web.test.ts (13 tests) 349ms
+
+ Test Files  2 passed (2)
+      Tests  17 passed (17)
+   Start at  15:26:23
+   Duration  2.04s (transform 704ms, setup 0ms, collect 1.48s, tests 485ms, environment 1ms, prepare 341ms)
+
