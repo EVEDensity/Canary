@@ -78,7 +78,7 @@ CI stdout 仍是单行 `canary.ci` v1，`capabilities.scope` 为 `project-checks
 ```sh
 pnpm build
 pnpm check
-pnpm verify:r4 --out docs/evidence/logs/r4-acceptance.json
+pnpm verify:r4 --out docs/evidence/logs/r4/r4-acceptance.json
 ```
 
 `canary.project.json` 对 Canary 自身运行 typecheck 和既有 agent 回归；不会递归调用整套验收。Node/Python fixture 位于 `scripts/fixtures/r4`，验收复制到带空格的临时项目，通过实际全局启动器执行成功与失败分支，再核对源码未变化。Python 需要可用的 `python` 命令，fixture 使用标准库 unittest，无第三方 Python 依赖。

@@ -1,6 +1,6 @@
 # R5 本地项目报告
 
-默认在最近配置目录优先选择 `canary.project.json`，显式 `--config` 可覆盖。`canary.project` 配置的普通 `run` 在检查开始前启动回环页面。原有 agent 配置继续使用既有页面。项目检查配置见 [R4](r4-project-checks.md)。
+默认在最近配置目录优先选择 `canary.project.json`，显式 `--config` 可覆盖。`canary.project` 配置的普通 `run` 在检查开始前启动回环页面。项目与 Agent 运行共用工作台，根据运行类型展示对应数据。项目检查配置见 [R4](r4-project-checks.md)。
 
 ```sh
 canary run --config canary.project.json
@@ -12,6 +12,10 @@ canary run --config canary.project.json --ci
 `--no-open` 保留服务但不打开浏览器；端口 0 自动分配。`--headless`、`--artifacts-only`、`--json` 或配置 `web.enabled: false` 不启动服务。CI 始终无页面。配置可设置 `web: { host: "127.0.0.1", port: 0, open: false }`；仅接受回环主机。
 
 ## 页面与运行生命周期
+
+“改进建议”展示问题汇总、分类、错误摘要和证据定位。修复后点击“重跑验证”，会新建独立运行并重新执行依赖；回到来源运行可以看到关联验证结果。只有配置、谱系和封存证据一致，且目标检查及必需依赖通过，才显示“重跑已验证”。该状态不改写原始失败，也不代表来源运行的其他问题全部解决。
+
+日志采用有界、先脱敏的错误上下文保留；检查详情和抽屉可查看开头、错误附近与末尾内容。旧运行已经省略的日志无法恢复。损坏、半写入或未封存的验证证据不会显示为通过。实现与验收见 [问题闭环记录](../evidence/project-issue-closure.md)。
 
 页面展示 SSE 实时检查进度、当前检查、完成项的有界脱敏日志、错误分类、固定排查建议、项目历史、逐项比较，以及 JSON/JUnit/Markdown 报告。日志在检查完成时更新，不直接转发原始 stdout 分片，以保持现有脱敏边界。建议不会自动执行。
 
