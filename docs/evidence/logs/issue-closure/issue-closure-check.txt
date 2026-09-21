@@ -1,0 +1,236 @@
+
+> canary@0.1.0 check C:\Users\temp-admin\Desktop\Canary
+> pnpm typecheck && pnpm test && pnpm lint && pnpm format:check
+
+
+> canary@0.1.0 typecheck C:\Users\temp-admin\Desktop\Canary
+> pnpm -r --if-present typecheck
+
+Scope: 20 of 21 workspace projects
+packages/core typecheck$ tsc -p tsconfig.json --pretty false
+packages/mcp-server typecheck$ tsc -p tsconfig.json --pretty false
+packages/exporter-core typecheck$ tsc -p tsconfig.json --pretty false
+packages/mcp-server typecheck: Done
+packages/core typecheck: Done
+packages/exporter-core typecheck: Done
+packages/coverage typecheck$ tsc -p tsconfig.json --pretty false
+packages/adapters typecheck$ tsc -p tsconfig.json --pretty false
+packages/evaluators typecheck$ tsc -p tsconfig.json --pretty false
+packages/environment typecheck$ tsc -p tsconfig.json --pretty false
+packages/environment typecheck: Done
+packages/experience typecheck$ tsc -p tsconfig.json --pretty false
+packages/adapters typecheck: Done
+packages/policy typecheck$ tsc -p tsconfig.json --pretty false
+packages/evaluators typecheck: Done
+packages/reporters typecheck$ tsc -p tsconfig.json --pretty false
+packages/coverage typecheck: Done
+packages/trace typecheck$ tsc -p tsconfig.json --pretty false
+packages/experience typecheck: Done
+packages/policy typecheck: Done
+packages/reporters typecheck: Done
+packages/trace typecheck: Done
+packages/improvement typecheck$ tsc -p tsconfig.json --pretty false
+examples/local-agent typecheck$ tsc -p tsconfig.json --pretty false
+packages/isolation typecheck$ tsc -p tsconfig.json --pretty false
+packages/isolation typecheck: Done
+examples/local-agent typecheck: Done
+packages/improvement typecheck: Done
+packages/hard-evolution typecheck$ tsc -p tsconfig.json --pretty false
+packages/runner typecheck$ tsc -p tsconfig.json --pretty false
+packages/hard-evolution typecheck: Done
+packages/runner typecheck: Done
+packages/loop typecheck$ tsc -p tsconfig.json --pretty false
+packages/loop typecheck: Done
+packages/control-plane typecheck$ tsc -p tsconfig.json --pretty false
+packages/control-plane typecheck: Done
+apps/web typecheck$ tsc -p tsconfig.json --pretty false
+apps/web typecheck: Done
+packages/cli typecheck$ tsc -p tsconfig.json --pretty false
+packages/cli typecheck: Done
+
+> canary@0.1.0 test C:\Users\temp-admin\Desktop\Canary
+> pnpm -r --if-present test
+
+Scope: 20 of 21 workspace projects
+packages/mcp-server test$ vitest run
+packages/exporter-core test$ vitest run
+packages/core test$ vitest run --passWithNoTests
+packages/mcp-server test:  RUN  v3.2.7 C:/Users/temp-admin/Desktop/Canary/packages/mcp-server
+packages/exporter-core test:  RUN  v3.2.7 C:/Users/temp-admin/Desktop/Canary/packages/exporter-core
+packages/core test:  RUN  v3.2.7 C:/Users/temp-admin/Desktop/Canary/packages/core
+packages/mcp-server test:  ✓ tests/mcp-server.test.ts (9 tests) 117ms
+packages/exporter-core test:  ✓ tests/exporter-core.test.ts (15 tests) 180ms
+packages/core test:  ✓ tests/contracts.test.ts (2 tests) 7ms
+packages/mcp-server test:  Test Files  1 passed (1)
+packages/mcp-server test:       Tests  9 passed (9)
+packages/mcp-server test:    Start at  16:23:41
+packages/mcp-server test:    Duration  3.30s (transform 275ms, setup 0ms, collect 326ms, tests 117ms, environment 0ms, prepare 301ms)
+packages/exporter-core test:  Test Files  1 passed (1)
+packages/exporter-core test:       Tests  15 passed (15)
+packages/exporter-core test:    Start at  16:23:41
+packages/exporter-core test:    Duration  3.33s (transform 214ms, setup 0ms, collect 251ms, tests 180ms, environment 0ms, prepare 290ms)
+packages/core test:  ✓ tests/schema.test.ts (5 tests) 40ms
+packages/core test:  Test Files  2 passed (2)
+packages/core test:       Tests  7 passed (7)
+packages/core test:    Start at  16:23:41
+packages/core test:    Duration  3.51s (transform 434ms, setup 0ms, collect 887ms, tests 47ms, environment 1ms, prepare 552ms)
+packages/exporter-core test: Done
+packages/mcp-server test: Done
+packages/core test: Done
+packages/coverage test$ vitest run
+packages/adapters test$ vitest run
+packages/environment test$ vitest run
+packages/evaluators test$ vitest run --passWithNoTests
+packages/environment test:  RUN  v3.2.7 C:/Users/temp-admin/Desktop/Canary/packages/environment
+packages/adapters test:  RUN  v3.2.7 C:/Users/temp-admin/Desktop/Canary/packages/adapters
+packages/evaluators test:  RUN  v3.2.7 C:/Users/temp-admin/Desktop/Canary/packages/evaluators
+packages/coverage test:  RUN  v3.2.7 C:/Users/temp-admin/Desktop/Canary/packages/coverage
+packages/environment test:  ✓ tests/environment.test.ts (2 tests) 6ms
+packages/environment test:  Test Files  1 passed (1)
+packages/environment test:       Tests  2 passed (2)
+packages/environment test:    Start at  16:23:46
+packages/environment test:    Duration  3.21s (transform 228ms, setup 0ms, collect 240ms, tests 6ms, environment 0ms, prepare 273ms)
+packages/evaluators test:  ✓ tests/evaluator.test.ts (15 tests) 156ms
+packages/evaluators test:  Test Files  1 passed (1)
+packages/evaluators test:       Tests  15 passed (15)
+packages/evaluators test:    Start at  16:23:46
+packages/evaluators test:    Duration  3.46s (transform 313ms, setup 0ms, collect 354ms, tests 156ms, environment 0ms, prepare 224ms)
+packages/environment test: Done
+packages/experience test$ vitest run
+packages/coverage test:  ✓ tests/coverage-contract.test.ts (1 test) 3ms
+packages/coverage test:  ✓ tests/coverage.test.ts (3 tests) 27ms
+packages/coverage test:  ✓ tests/coverage-summary.test.ts (11 tests) 19ms
+packages/evaluators test: Done
+packages/policy test$ vitest run
+packages/coverage test:  ✓ tests/coverage-fixtures.test.ts (5 tests) 32ms
+packages/coverage test:  ✓ tests/coverage-benchmark.test.ts (1 test) 132ms
+packages/coverage test:  ✓ tests/coverage-collector.test.ts (1 test) 182ms
+packages/coverage test:  Test Files  6 passed (6)
+packages/coverage test:       Tests  22 passed (22)
+packages/coverage test:    Start at  16:23:46
+packages/coverage test:    Duration  4.48s (transform 2.09s, setup 0ms, collect 5.44s, tests 395ms, environment 1ms, prepare 1.65s)
+packages/experience test:  RUN  v3.2.7 C:/Users/temp-admin/Desktop/Canary/packages/experience
+packages/coverage test: Done
+packages/reporters test$ vitest run
+packages/policy test:  RUN  v3.2.7 C:/Users/temp-admin/Desktop/Canary/packages/policy
+packages/adapters test:  ✓ tests/adapters.test.ts (7 tests) 2092ms
+packages/adapters test:    ✓ agent and tool adapters > calls mock tools and an MCP stdio tool adapter separately from AgentAdapter  982ms
+packages/adapters test:    ✓ agent and tool adapters > runs an MCP agent adapter over stdio tools/call run  901ms
+packages/adapters test:  Test Files  1 passed (1)
+packages/adapters test:       Tests  7 passed (7)
+packages/adapters test:    Start at  16:23:46
+packages/adapters test:    Duration  5.49s (transform 277ms, setup 0ms, collect 259ms, tests 2.09s, environment 0ms, prepare 464ms)
+packages/adapters test: Done
+packages/trace test$ vitest run
+packages/reporters test:  RUN  v3.2.7 C:/Users/temp-admin/Desktop/Canary/packages/reporters
+packages/experience test:  ✓ tests/experience.test.ts (4 tests) 95ms
+packages/experience test:  Test Files  1 passed (1)
+packages/experience test:       Tests  4 passed (4)
+packages/experience test:    Start at  16:23:51
+packages/experience test:    Duration  1.94s (transform 195ms, setup 0ms, collect 210ms, tests 95ms, environment 0ms, prepare 208ms)
+packages/experience test: Done
+packages/trace test:  RUN  v3.2.7 C:/Users/temp-admin/Desktop/Canary/packages/trace
+packages/policy test:  ✓ tests/policy.test.ts (8 tests) 144ms
+packages/policy test:  Test Files  1 passed (1)
+packages/policy test:       Tests  8 passed (8)
+packages/policy test:    Start at  16:23:51
+packages/policy test:    Duration  2.24s (transform 195ms, setup 0ms, collect 248ms, tests 144ms, environment 0ms, prepare 217ms)
+packages/policy test: Done
+packages/reporters test:  ✓ tests/reporters.test.ts (5 tests) 7ms
+packages/reporters test:  Test Files  1 passed (1)
+packages/reporters test:       Tests  5 passed (5)
+packages/reporters test:    Start at  16:23:52
+packages/reporters test:    Duration  1.92s (transform 214ms, setup 0ms, collect 235ms, tests 7ms, environment 0ms, prepare 227ms)
+packages/reporters test: Done
+packages/trace test:  ✓ tests/trace.test.ts (5 tests) 30ms
+packages/trace test:  ✓ tests/artifacts.test.ts (14 tests) 955ms
+packages/trace test:  Test Files  2 passed (2)
+packages/trace test:       Tests  19 passed (19)
+packages/trace test:    Start at  16:23:53
+packages/trace test:    Duration  3.11s (transform 433ms, setup 0ms, collect 965ms, tests 985ms, environment 1ms, prepare 425ms)
+packages/trace test: Done
+examples/local-agent test$ vitest run --passWithNoTests
+packages/isolation test$ vitest run
+packages/improvement test$ vitest run
+examples/local-agent test:  RUN  v3.2.7 C:/Users/temp-admin/Desktop/Canary/examples/local-agent
+examples/local-agent test: No test files found, exiting with code 0
+examples/local-agent test: include: **/*.{test,spec}.?(c|m)[jt]s?(x)
+examples/local-agent test: exclude:  **/node_modules/**, **/dist/**, **/cypress/**, **/.{idea,git,cache,output,temp}/**, **/{karma,rollup,webpack,vite,vitest,jest,ava,babel,nyc,cypress,tsup,build,eslint,prettier}.config.*
+examples/local-agent test: Done
+packages/improvement test:  RUN  v3.2.7 C:/Users/temp-admin/Desktop/Canary/packages/improvement
+packages/isolation test:  RUN  v3.2.7 C:/Users/temp-admin/Desktop/Canary/packages/isolation
+packages/improvement test:  ✓ tests/improvement.test.ts (12 tests) 21ms
+packages/improvement test:  Test Files  1 passed (1)
+packages/improvement test:       Tests  12 passed (12)
+packages/improvement test:    Start at  16:23:57
+packages/improvement test:    Duration  2.16s (transform 260ms, setup 0ms, collect 370ms, tests 21ms, environment 0ms, prepare 189ms)
+packages/improvement test: Done
+packages/isolation test:  ✓ tests/process.test.ts (2 tests) 814ms
+packages/isolation test:    ✓ process tree adapter > kills a descendant worker and records the platform adapter  812ms
+packages/isolation test:  ✓ tests/isolation.test.ts (5 tests) 1253ms
+packages/isolation test:    ✓ isolation capability and process boundary > fail-closes auto hard write when OS isolation is required and missing  354ms
+packages/isolation test:    ✓ userspace isolation rejects real attacks > blocks parent reads, protected files, env secrets, unauthorized network, and spawn  351ms
+packages/isolation test:    ✓ userspace isolation rejects real attacks > blocks a hard link into the protected holdout file  314ms
+packages/isolation test:  Test Files  2 passed (2)
+packages/isolation test:       Tests  7 passed (7)
+packages/isolation test:    Start at  16:23:57
+packages/isolation test:    Duration  3.24s (transform 289ms, setup 0ms, collect 459ms, tests 2.07s, environment 0ms, prepare 358ms)
+packages/isolation test: Done
+packages/runner test$ vitest run
+packages/hard-evolution test$ vitest run
+packages/runner test:  RUN  v3.2.7 C:/Users/temp-admin/Desktop/Canary/packages/runner
+packages/hard-evolution test:  RUN  v3.2.7 C:/Users/temp-admin/Desktop/Canary/packages/hard-evolution
+packages/runner test:  ✓ tests/lifecycle.test.ts (3 tests) 3ms
+packages/hard-evolution test:  ✓ tests/hard-evolution.test.ts (6 tests) 837ms
+packages/hard-evolution test:    ✓ H-03 trusted applyer > auto-applies inside policy when isolation is satisfied and recovers a crash without double apply  487ms
+packages/hard-evolution test:  Test Files  1 passed (1)
+packages/hard-evolution test:       Tests  6 passed (6)
+packages/hard-evolution test:    Start at  16:24:01
+packages/hard-evolution test:    Duration  3.34s (transform 386ms, setup 0ms, collect 606ms, tests 837ms, environment 0ms, prepare 203ms)
+packages/hard-evolution test: Done
+packages/runner test:  ❯ tests/r1-stability.test.ts (12 tests | 1 failed) 3867ms
+packages/runner test:    ✓ R1 status, budget and non-zero exit > classifies a non-zero child exit as error without touching other dirs  552ms
+packages/runner test:    ✓ R1 status, budget and non-zero exit > stops on maxToolCalls and records budget_exceeded  505ms
+packages/runner test:    ✓ R1 status, budget and non-zero exit > passes when budget_exceeded is the expected termination  482ms
+packages/runner test:    × R1 descendant termination > times out a hanging agent that spawned a grandchild and releases both pids 512ms
+packages/runner test:      → ENOENT: no such file or directory, open 'C:\Users\TEMP-A~1\AppData\Local\Temp\canary-r1-tree-Sd8qyN\grand.pid'
+packages/runner test:    ✓ R1 temp, env, port and lock isolation > gives concurrent workspaces distinct tmp, env and ports  461ms
+packages/runner test:    ✓ R1 temp, env, port and lock isolation > classifies a preferred port conflict 5ms
+packages/runner test:    ✓ R1 temp, env, port and lock isolation > classifies a live lock held by a different runId without replacing it 7ms
+packages/runner test:    ✓ R1 temp, env, port and lock isolation > reclaims leftover child pids when the workspace is released  863ms
+packages/runner test:    ✓ R1 temp, env, port and lock isolation > rejects a duplicate live lock without overwriting the first lock record 6ms
+packages/runner test:    ✓ R1 temp, env, port and lock isolation > reclaims a leftover lock from a dead pid 78ms
+packages/runner test:    ✓ R1 temp, env, port and lock isolation > classifies a live temp-dir owner conflict 137ms
+packages/runner test:    ✓ R1 checkpoint and partial recovery > recovers a crashed run without dropping completed results 257ms
+packages/runner test:  ✓ tests/runner.test.ts (16 tests) 7918ms
+packages/runner test:    ✓ runner lifecycle > returns a result and performs child cleanup after a successful agent  612ms
+packages/runner test:    ✓ runner lifecycle > records an agent exception  547ms
+packages/runner test:    ✓ runner lifecycle > kills a detached busy-loop with killProcessTree  686ms
+packages/runner test:    ✓ runner evaluation matrix > passes when the agent completes and assertions succeed  603ms
+packages/runner test:    ✓ runner evaluation matrix > fails evaluation when output assertions fail after a completed execution  492ms
+packages/runner test:    ✓ runner evaluation matrix > fails when a required trajectory event is missing  637ms
+packages/runner test:    ✓ runner evaluation matrix > records state_mismatch when a state assertion fails after a completed agent  483ms
+packages/runner test:    ✓ provisional coverage sampling > emits provisional then final coverage and throttles duplicate samples  622ms
+packages/runner test:    ✓ provisional coverage sampling > collects exact istanbul coverage when the provider is opted in  1104ms
+packages/runner test:    ✓ mcp agent adapter and process pool > marks coverage unavailable for an MCP stdio agent  1406ms
+packages/runner test: ⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+packages/runner test:  FAIL  tests/r1-stability.test.ts > R1 descendant termination > times out a hanging agent that spawned a grandchild and releases both pids
+packages/runner test: Error: ENOENT: no such file or directory, open 'C:\Users\TEMP-A~1\AppData\Local\Temp\canary-r1-tree-Sd8qyN\grand.pid'
+packages/runner test:  ❯ tests/r1-stability.test.ts:92:26
+packages/runner test:      90|     expect(result.failureCategory).toBe("timeout");
+packages/runner test:      91|     expect(result.trajectory?.termination).toBe("timeout");
+packages/runner test:      92|     const grand = Number(readFileSync(pidFile, "utf8"));
+packages/runner test:        |                          ^
+packages/runner test:      93|     expect(grand).toBeGreaterThan(0);
+packages/runner test:      94|     expect(await waitForExit(grand, 5_000)).toBe(true);
+packages/runner test:  Test Files  1 failed | 2 passed (3)
+packages/runner test:       Tests  1 failed | 30 passed (31)
+packages/runner test: ⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+packages/runner test:    Start at  16:24:01
+packages/runner test:    Duration  11.02s (transform 866ms, setup 0ms, collect 2.69s, tests 11.79s, environment 1ms, prepare 572ms)
+packages/runner test: Failed
+C:\Users\temp-admin\Desktop\Canary\packages\runner:
+ ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  @canary/runner@0.1.0 test: `vitest run`
+Exit status 1
+ ELIFECYCLE  Test failed. See above for more details.
+ ELIFECYCLE  Command failed with exit code 1.
