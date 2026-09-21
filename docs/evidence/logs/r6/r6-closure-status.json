@@ -1,0 +1,81 @@
+{
+  "kind": "canary.r6.stage-status",
+  "date": "2026-09-21T08:36:40.144Z",
+  "status": "blocked",
+  "stageComplete": false,
+  "sourceTreeHash": "d71cf5a9b59f4cef71853bc8a81f6b55ebcccc0c10c826c857c7d1f703771a82",
+  "executed": [
+    {
+      "platform": "win32",
+      "node": "v24.18.0",
+      "context": "native",
+      "status": "passed",
+      "verifiedChecks": 10,
+      "evidence": "r6-closure-win32-node24.json",
+      "scope": "native-windows"
+    },
+    {
+      "platform": "win32",
+      "node": "v22.23.2",
+      "context": "native",
+      "status": "passed",
+      "verifiedChecks": 10,
+      "evidence": "r6-closure-win32-node22.json",
+      "scope": "native-windows"
+    },
+    {
+      "platform": "linux",
+      "node": "v24.15.0",
+      "context": "ubuntu22.04-docker-nonroot",
+      "status": "passed",
+      "verifiedChecks": 10,
+      "evidence": "r6-closure-linux-node24.json",
+      "scope": "container-only"
+    },
+    {
+      "platform": "linux",
+      "node": "v22.23.2",
+      "context": "ubuntu22.04-docker-nonroot",
+      "status": "passed",
+      "verifiedChecks": 10,
+      "evidence": "r6-closure-linux-node22.json",
+      "scope": "container-only"
+    }
+  ],
+  "pi": {
+    "runtime": "verified",
+    "runtimeEvidence": "r6-closure-pi-runtime.json",
+    "inference": "verified",
+    "inferenceEvidence": "r6-closure-pi-inference-verified.json",
+    "originalAttempt": "r6-closure-pi-inference.json",
+    "provider": "deepseek",
+    "model": "deepseek-flash",
+    "modelCalls": 1,
+    "inputTokens": 68,
+    "outputTokens": 7,
+    "totalTokens": 75,
+    "scope": "Windows Node 24, pinned Pi 0.86.0 SDK, one bounded tool-free inference; not a coding-task or multi-turn benchmark",
+    "credentialPersistence": "empty store only"
+  },
+  "blockers": [
+    {
+      "id": "macos-node24-node22",
+      "status": "blocked",
+      "reason": "No macOS runner supplied in the current local environment.",
+      "unblock": "Run the reviewed R6 workflow or verify:r6 on a macOS runner against the bound source tree and export artifacts."
+    },
+    {
+      "id": "native-ubuntu-node24-node22",
+      "status": "blocked",
+      "reason": "Docker Desktop is the only local Linux environment; container results do not prove a native Ubuntu host.",
+      "unblock": "Run verify:r6 as a non-root user on an Ubuntu host/VM runner and export original artifacts."
+    }
+  ],
+  "availability": {
+    "wslDistributions": ["docker-desktop"],
+    "remoteWorkflowExecuted": false,
+    "container": "canary-r6-closure-20260921",
+    "containerState": "exited",
+    "containerExitCode": 0
+  }
+}

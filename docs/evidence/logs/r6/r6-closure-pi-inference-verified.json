@@ -1,0 +1,91 @@
+{
+  "kind": "canary.r6.pi-inference",
+  "date": "2026-09-21T08:32:04.847Z",
+  "platform": "win32",
+  "node": "v24.18.0",
+  "osRelease": "10.0.26200",
+  "status": "verified",
+  "stageComplete": false,
+  "model": "deepseek-flash",
+  "modelCalls": 1,
+  "credentialDiscovery": false,
+  "checks": [
+    "original-manifest",
+    "runtime-evidence-hash",
+    "wrapper-hash",
+    "real-provider-response",
+    "exact-output",
+    "token-usage",
+    "empty-credential-store"
+  ],
+  "fixtureRoot": "C:\\Users\\TEMP-A~1\\AppData\\Local\\Temp\\Canary Pi inference 5gn58y",
+  "package": "@earendil-works/pi-coding-agent@0.86.0",
+  "upstreamCommit": "ecac0a9c4edad3dac5d9f8b40e0c7db7a56471fc",
+  "runtimeEvidence": {
+    "path": "C:\\Users\\temp-admin\\Desktop\\Canary\\docs\\evidence\\logs\\r6-closure-pi-runtime.json",
+    "sha256": "da4ed30d1f95c4b7a0a934a787f229cd39586fd385bd2e2edf853ebc5e691d59",
+    "sdkHash": "82cb4ea864f3d8816c06bc8f2f2d9a8d82d883297af179dc69d287d042834844",
+    "integrity": "sha512-tzLh/10bPQZbA9shvA8TALT4eSNCifJaDq672MPXHldsvZ9t9lQ8J5Z9CD1d7UZVzG4l85XUZWo6ZCCNhBULxw=="
+  },
+  "sourceFiles": {
+    "integrations/fixtures/pi-agent/inference.mjs": "ff560e9e046579879159b1f3105d23daa16e9f30c8fb55f156c4a06a601899aa",
+    "scripts/verify-r6-pi-inference.mjs": "f908a52a00e16851673f14a08bb193c298559c05cadbba8bb969b145a8b59710"
+  },
+  "budget": {
+    "maxRequests": 1,
+    "maxOutputTokens": 128,
+    "timeoutMs": 75000,
+    "retries": 0,
+    "tools": 0
+  },
+  "runId": "run_bc4e3553-8402-43df-b7b7-cce4e06625ea",
+  "artifactPath": "C:\\Users\\temp-admin\\AppData\\Local\\Temp\\Canary Pi inference 5gn58y\\.canary\\artifacts\\run_bc4e3553-8402-43df-b7b7-cce4e06625ea\\run.json",
+  "exitCode": 0,
+  "inference": {
+    "type": "pi.inference",
+    "timestamp": "2026-09-21T08:29:48.999Z",
+    "provider": "deepseek",
+    "requestedModel": "deepseek-flash",
+    "responseModel": "deepseek-flash",
+    "modelCalls": 1,
+    "httpStatus": 200,
+    "usage": {
+      "input": 68,
+      "output": 7,
+      "cacheRead": 0,
+      "cacheWrite": 0,
+      "reasoning": 0,
+      "totalTokens": 75
+    },
+    "cost": null,
+    "stopReason": "stop"
+  },
+  "output": "CANARY_PI_R6_OK",
+  "assertions": [
+    {
+      "id": "agent.completed",
+      "passed": true,
+      "message": "Agent completed"
+    },
+    {
+      "id": "output.predicate#1",
+      "passed": true
+    },
+    {
+      "id": "trajectory.required_event#2",
+      "passed": true,
+      "details": {
+        "event": "pi.inference",
+        "actual": 1,
+        "required": 1
+      }
+    }
+  ],
+  "manifestHash": "79e4cc2cf007003d554d7dc841f8085c9dca156b97a4d119eaaa71f96d9bc58a",
+  "revalidationOf": {
+    "path": "C:\\Users\\temp-admin\\Desktop\\Canary\\docs\\evidence\\logs\\r6-closure-pi-inference.json",
+    "sha256": "9707890cd50c176441b716f8b52e542ea63685cf82bb8d243dc9cb2ccaf437d5"
+  },
+  "modelCallsThisVerification": 0,
+  "coverageScope": "Only the Canary integration wrapper; not Pi internals or model coverage"
+}
