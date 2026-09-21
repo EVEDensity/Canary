@@ -8,6 +8,7 @@ import { statfsSync } from "node:fs";
 import type { ProjectCheck, ProjectCheckResult } from "@canary/core";
 import { killProcessTree, waitForExit } from "@canary/isolation";
 import { isolatedEnv, type ExecutionWorkspace } from "@canary/runner";
+import { DiagnosticOutput } from "./diagnostic-output.js";
 
 export type CheckOutcome = Pick<ProjectCheckResult, "status" | "exitCode" | "category"> & Partial<ProjectCheckResult>;
 export const ok = (): CheckOutcome => ({ status: "passed", exitCode: 0, category: "none" });
@@ -53,6 +54,7 @@ export async function runCheckProcess(
   signal: AbortSignal,
   onPid: (pid: number) => void,
   readyText?: string,
+  onStdout?: (chunk: string) => void,
 ): Promise<CheckOutcome> {
   if (signal.aborted) return blocked(3, "cancelled");
   return new Promise((resolveResult) => {
@@ -65,10 +67,8 @@ export async function runCheckProcess(
       detached: process.platform !== "win32",
       stdio: ["ignore", "pipe", "pipe"],
     });
-    let stdout = "",
-      stderr = "",
-      outputTruncated = false,
-      ready = false,
+    const stdout = new DiagnosticOutput(env), stderr = new DiagnosticOutput(env);
+    let readiness = "", ready = false,
       done = false;
     const finish = (outcome: CheckOutcome): void => {
       if (done) return;
@@ -81,13 +81,15 @@ export async function runCheckProcess(
         }
         child.stdout?.destroy();
         child.stderr?.destroy();
+        const out = stdout.finish(), err = stderr.finish();
         resolveResult({
           ...outcome,
           command,
           args,
-          stdout: outputTruncated ? "[output omitted: limit exceeded]" : stdout,
-          stderr: outputTruncated ? "[output omitted: limit exceeded]" : stderr,
-          outputTruncated,
+          stdout: out.summary,
+          stderr: err.summary,
+          outputTruncated: out.truncated || err.truncated,
+          outputEvidence: { stdout: out.lines, stderr: err.lines, policy: "bounded-redacted-lines-v1" },
         });
       })();
     };
@@ -106,22 +108,15 @@ export async function runCheckProcess(
     child.stdout.setEncoding("utf8");
     child.stderr.setEncoding("utf8");
     child.stdout.on("data", (data: string) => {
-      if (!outputTruncated) stdout += data;
-      ready ||= Boolean(readyText && stdout.includes(readyText));
-      if (stdout.length + stderr.length > 65_536) {
-        outputTruncated = true;
-        stdout = "";
-        stderr = "";
-      }
+      onStdout?.(data);
+      stdout.append(data);
+      readiness += data;
+      ready ||= Boolean(readyText && readiness.includes(readyText));
+      readiness = readiness.slice(-Math.max(256, readyText?.length ?? 0));
       if (ready) finish(ok());
     });
     child.stderr.on("data", (data: string) => {
-      if (!outputTruncated) stderr += data;
-      if (stdout.length + stderr.length > 65_536) {
-        outputTruncated = true;
-        stdout = "";
-        stderr = "";
-      }
+      stderr.append(data);
     });
     child.once("error", () => finish(blocked(4, "environment")));
     child.once("close", (code) =>

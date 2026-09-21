@@ -321,10 +321,16 @@ export async function runCommandDetailed(options: CliOptions = {}): Promise<RunC
       if (resolve(configFile, "..") !== context.projectRoot) return blocked(2, "configuration");
       // Import the trusted agent config only inside the cancellable child process.
       const entry = fileURLToPath(import.meta.url);
-      const result = await runCheckProcess(process.execPath, [...(entry.endsWith(".ts") ? ["--import", pathToFileURL(createRequire(import.meta.url).resolve("tsx")).href] : []), entry, "run", "--ci", "--agent-check", "--config", configFile], context.projectRoot, env, signal, onPid);
+      // The machine envelope is parsed separately from bounded human diagnostics.
+      let envelope = "", envelopeOverflow = false;
+      const result = await runCheckProcess(process.execPath, [...(entry.endsWith(".ts") ? ["--import", pathToFileURL(createRequire(import.meta.url).resolve("tsx")).href] : []), entry, "run", "--ci", "--agent-check", "--config", configFile], context.projectRoot, env, signal, onPid, undefined, chunk => {
+        if (envelopeOverflow) return;
+        envelope += chunk;
+        if (envelope.length > 65_536) { envelope = ""; envelopeOverflow = true; }
+      });
       if (result.exitCode !== 0) return result;
       let ci;
-      try { ci = ciResultSchema.parse(JSON.parse(result.stdout ?? "")); } catch { return { ...result, ...blocked(10, "internal") }; }
+      try { ci = ciResultSchema.parse(JSON.parse(envelope)); } catch { return { ...result, ...blocked(10, "internal") }; }
       if (result.processExit !== ci.exitCode) return { ...result, ...blocked(10, "internal") };
       const categories = { 0: "none", 1: "assertion", 2: "configuration", 3: "timeout", 4: "environment", 5: "artifact", 6: "policy", 10: "internal" } as const;
       const integrity = ci.artifactPath ? verifyArtifacts(resolve(ci.artifactPath, "..")) : undefined;

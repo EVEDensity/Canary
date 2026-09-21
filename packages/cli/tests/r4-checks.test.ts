@@ -11,6 +11,8 @@ import { runCommandDetailed } from "../src/index.js";
 import { discoverProject } from "../src/discovery.js";
 import { diagnosticSnapshot } from "../src/diagnostics.js";
 import { assessDockerState, ok } from "../src/check-executor.js";
+import { createWebServer } from "@canary/web";
+import { RunStore } from "@canary/trace";
 
 const base = realpathSync(mkdtempSync(join(tmpdir(), "canary-r4-tests-")));
 let count = 0;
@@ -241,6 +243,35 @@ describe("R4 project checks", () => {
     } finally {
       delete process.env.CANARY_R4_PRIVATE_TOKEN;
       delete process.env.CANARY_R4_UNLISTED;
+    }
+  });
+  it("keeps noisy failure evidence sealed, redacted and available through the workspace API", async () => {
+    const f = fixture([
+      node(
+        "noisy",
+        "for(let i=0;i<2000;i++)console.log('progress '+i+' '+'.'.repeat(60));console.error('Error: final failure at src/widget.ts:42:8');console.error('Bearer fixture-private-bearer');process.exitCode=1",
+      ),
+    ]);
+    const ci = await f.run();
+    expect(ci.exitCode).toBe(1);
+    const saved = read(ci.artifactPath),
+      check = saved.checks[0];
+    expect(check.outputEvidence.stderr.join("\n")).toContain("src/widget.ts:42:8");
+    expect(check.outputTruncated).toBe(true);
+    expect(JSON.stringify(saved)).not.toContain("fixture-private-bearer");
+    expect(verifyArtifacts(resolve(ci.artifactPath!, "..")).status).toBe("verified");
+    const web = createWebServer(new RunStore(), "127.0.0.1", 0, resolve(ci.artifactPath!, "../.."), {
+      projectPage: true,
+    });
+    const { url } = await web.listen();
+    try {
+      const detail = await fetch(url + "/api/workspace/runs/" + ci.runId).then((r) => r.json());
+      expect(detail.issues[0].summary).toContain("src/widget.ts:42:8");
+      expect(detail.checks[0].outputEvidence.stderr.join("\n")).toContain("src/widget.ts:42:8");
+      expect(JSON.stringify(detail)).not.toContain("fixture-private-bearer");
+    } finally {
+      web.server.closeAllConnections();
+      await new Promise<void>((done) => web.server.close(() => done()));
     }
   });
   it("runs an existing agent configuration through the CI contract and binds child evidence", async () => {

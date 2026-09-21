@@ -115,6 +115,12 @@ describe("R5 live project sessions", () => {
         async () => verifyArtifacts(join(f.root, ".canary/artifacts", runId)),
         (r) => r.status === "verified",
       );
+      const sourceDetail = await fetch(f.url + `/api/workspace/runs/${result.runId}`).then((r) => r.json());
+      expect(sourceDetail.status).toBe("failed");
+      expect(sourceDetail.issues.find((issue: { checkId: string }) => issue.checkId === "target")).toMatchObject({
+        status: "verified",
+        verification: { runId },
+      });
       const compare = await (await fetch(f.url + `/api/compare?baseline=${result.runId}&candidate=${runId}`)).json();
       expect(compare.checks.find((c: { id: string }) => c.id === "target")).toMatchObject({
         before: "failed",
@@ -134,6 +140,10 @@ describe("R5 live project sessions", () => {
         async () => verifyArtifacts(join(f.root, ".canary/artifacts", singleId)),
         (r) => r.status === "verified",
       );
+      const afterUnrelated = await fetch(f.url + `/api/workspace/runs/${result.runId}`).then((r) => r.json());
+      expect(
+        afterUnrelated.issues.find((issue: { checkId: string }) => issue.checkId === "target").verification.runId,
+      ).toBe(runId);
       writeFileSync(result.artifactPath, "{}");
       expect((await post(f.url + `/api/runs/${result.runId}/retry`, credential, { failed: true })).status).toBe(409);
     } finally {
