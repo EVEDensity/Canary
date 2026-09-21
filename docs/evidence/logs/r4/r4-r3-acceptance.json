@@ -1,0 +1,322 @@
+{
+  "v": 1,
+  "kind": "canary.r3.acceptance",
+  "date": "2026-09-19T10:02:53.727Z",
+  "root": "C:\\Users\\temp-admin\\Desktop\\Canary",
+  "fixture": "C:\\Users\\temp-admin\\AppData\\Local\\Temp\\canary R3 acceptance OCVWIA",
+  "platform": "win32",
+  "osRelease": "10.0.26200",
+  "node": "24.18.0",
+  "checks": [
+    {
+      "command": "canary run --ci",
+      "exitCode": 0,
+      "status": "verified",
+      "result": {
+        "v": 1,
+        "kind": "canary.ci",
+        "mode": "ci",
+        "context": {
+          "v": 1,
+          "invocationRoot": "C:\\Users\\temp-admin\\AppData\\Local\\Temp\\canary R3 acceptance OCVWIA",
+          "projectRoot": "C:\\Users\\temp-admin\\AppData\\Local\\Temp\\canary R3 acceptance OCVWIA",
+          "configRoot": "C:\\Users\\temp-admin\\AppData\\Local\\Temp\\canary R3 acceptance OCVWIA",
+          "configFile": "C:\\Users\\temp-admin\\AppData\\Local\\Temp\\canary R3 acceptance OCVWIA\\canary.config.ts",
+          "installRoot": "C:\\Users\\temp-admin\\Desktop\\Canary",
+          "artifactRoot": "C:\\Users\\temp-admin\\AppData\\Local\\Temp\\canary R3 acceptance OCVWIA\\.canary\\artifacts",
+          "source": "config"
+        },
+        "exitCode": 0,
+        "outcome": "passed",
+        "runId": "run_42994786-0259-4aa5-9e65-cd9e6df7673b",
+        "artifactPath": "C:\\Users\\temp-admin\\AppData\\Local\\Temp\\canary R3 acceptance OCVWIA\\.canary\\artifacts\\run_42994786-0259-4aa5-9e65-cd9e6df7673b\\run.json",
+        "summary": {
+          "total": 1,
+          "passed": 1,
+          "failed": 0
+        },
+        "issues": [],
+        "runtime": {
+          "v": 1,
+          "kind": "canary.version",
+          "canaryVersion": "0.1.0",
+          "nodeVersion": "24.18.0"
+        },
+        "capabilities": {
+          "scope": "configured-agent-cases",
+          "web": false,
+          "automaticExport": false
+        }
+      }
+    },
+    {
+      "command": "canary verify run_42994786-0259-4aa5-9e65-cd9e6df7673b --json",
+      "exitCode": 0,
+      "status": "verified",
+      "result": {
+        "v": 1,
+        "kind": "canary.artifact-integrity",
+        "runId": "run_42994786-0259-4aa5-9e65-cd9e6df7673b",
+        "status": "verified",
+        "issues": [],
+        "manifestHash": "999934a5f920eb46932cec31e85bed2938200a09cb2c3035b02ceb2094fce2f8",
+        "revision": 3
+      }
+    },
+    {
+      "command": "canary run --ci --retry-of run_42994786-0259-4aa5-9e65-cd9e6df7673b",
+      "exitCode": 0,
+      "status": "verified",
+      "result": {
+        "v": 1,
+        "kind": "canary.ci",
+        "mode": "ci",
+        "context": {
+          "v": 1,
+          "invocationRoot": "C:\\Users\\temp-admin\\AppData\\Local\\Temp\\canary R3 acceptance OCVWIA",
+          "projectRoot": "C:\\Users\\temp-admin\\AppData\\Local\\Temp\\canary R3 acceptance OCVWIA",
+          "configRoot": "C:\\Users\\temp-admin\\AppData\\Local\\Temp\\canary R3 acceptance OCVWIA",
+          "configFile": "C:\\Users\\temp-admin\\AppData\\Local\\Temp\\canary R3 acceptance OCVWIA\\canary.config.ts",
+          "installRoot": "C:\\Users\\temp-admin\\Desktop\\Canary",
+          "artifactRoot": "C:\\Users\\temp-admin\\AppData\\Local\\Temp\\canary R3 acceptance OCVWIA\\.canary\\artifacts",
+          "source": "config"
+        },
+        "exitCode": 0,
+        "outcome": "passed",
+        "runId": "run_1f877e59-72c4-42d5-b358-cf7b2302df72",
+        "artifactPath": "C:\\Users\\temp-admin\\AppData\\Local\\Temp\\canary R3 acceptance OCVWIA\\.canary\\artifacts\\run_1f877e59-72c4-42d5-b358-cf7b2302df72\\run.json",
+        "summary": {
+          "total": 1,
+          "passed": 1,
+          "failed": 0
+        },
+        "issues": [],
+        "runtime": {
+          "v": 1,
+          "kind": "canary.version",
+          "canaryVersion": "0.1.0",
+          "nodeVersion": "24.18.0"
+        },
+        "capabilities": {
+          "scope": "configured-agent-cases",
+          "web": false,
+          "automaticExport": false
+        }
+      }
+    },
+    {
+      "command": "canary verify run_1f877e59-72c4-42d5-b358-cf7b2302df72 --json",
+      "exitCode": 0,
+      "status": "verified",
+      "result": {
+        "v": 1,
+        "kind": "canary.artifact-integrity",
+        "runId": "run_1f877e59-72c4-42d5-b358-cf7b2302df72",
+        "status": "verified",
+        "issues": [],
+        "manifestHash": "f40f841a32f0f5cc7ad1c82ca87e876074300ed45c43328a58d8c2a4ed859998",
+        "revision": 3
+      }
+    },
+    {
+      "command": "fixed clock/seed conclusion and privacy scan",
+      "status": "verified",
+      "conclusionHash": "3864fcfd8cffead8fc90d5d8553e36220038d0fc2ebe19dea348e0652f0f42d4",
+      "manifest": {
+        "v": 1,
+        "kind": "canary.artifact-manifest",
+        "runId": "run_42994786-0259-4aa5-9e65-cd9e6df7673b",
+        "state": "sealed",
+        "revision": 3,
+        "createdAt": "2026-09-19T10:02:55.499Z",
+        "updatedAt": "2026-09-19T10:02:56.168Z",
+        "previousManifestHash": "bc66e3691034943d6440317ca0452f4ce58a5a8a28c7d1d757c8e509338239f8",
+        "lineage": {},
+        "files": [
+          {
+            "path": "checkpoint.json",
+            "bytes": 975,
+            "sha256": "bae079f2271ef6b55e5bf29f181ea61ed6d3028ad0f5e548e9c6edbaed79f75c"
+          },
+          {
+            "path": "ci.json",
+            "bytes": 1260,
+            "sha256": "a8760193db6a216a2d500caf381cab7a81e47b1c53ab51e64120e18fefad1c97"
+          },
+          {
+            "path": "coverage-manifest.json",
+            "bytes": 1838,
+            "sha256": "9ba677e4b3f4168c5cc2cbf5313aa5618f804ff903526bc11721eff91c6ed929"
+          },
+          {
+            "path": "coverage.json",
+            "bytes": 1735,
+            "sha256": "cb21ff7608a6ce9f9a38e06e6967f3f62186ec6ac861db3c5bc453b803077c9b"
+          },
+          {
+            "path": "evaluator.json",
+            "bytes": 404,
+            "sha256": "9bca16a60b11b35950751eac504de8cec4a9a6dd73a1ee7733e1da14a9acb4ee"
+          },
+          {
+            "path": "gate.json",
+            "bytes": 301,
+            "sha256": "5ee5b534ce7be8272b276dd36841215bd6587a48acf487da74a2ce9915291c9e"
+          },
+          {
+            "path": "improvement.json",
+            "bytes": 2,
+            "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+          },
+          {
+            "path": "report.json",
+            "bytes": 2579,
+            "sha256": "1d29e93be1f4a1f8ad2c8a21c70ce101029566d8c9b9f0f7dfdbc61df3d1ac19"
+          },
+          {
+            "path": "report.xml",
+            "bytes": 181,
+            "sha256": "27bae0345af8fde1f6e659ffe55bb70c5940cbfe3ba58052587a40cf8ac89b41"
+          },
+          {
+            "path": "run.json",
+            "bytes": 14124,
+            "sha256": "d0522ebc18ada190c97727fd783147d0600938bf857e326e1d534906b9044848"
+          },
+          {
+            "path": "trace.jsonl",
+            "bytes": 4176,
+            "sha256": "ecf0ae7c21e5fb21a92ddeb6d48532d837684bbb8313953812c78dc335dd87b3"
+          },
+          {
+            "path": "trajectory.json",
+            "bytes": 167,
+            "sha256": "889ffc4995fe38905fdecf2283baf5fe644b9311b205cf0f1cfde88b0af85a88"
+          }
+        ],
+        "privacy": {
+          "policy": "redact-v1",
+          "scanned": true
+        }
+      }
+    },
+    {
+      "command": "canary prune --json",
+      "exitCode": 0,
+      "status": "verified",
+      "result": {
+        "v": 1,
+        "kind": "canary.retention",
+        "candidates": [],
+        "protectedRuns": ["run_42994786-0259-4aa5-9e65-cd9e6df7673b"],
+        "retainedBytes": 65296,
+        "withinBudget": false,
+        "mode": "preview",
+        "removed": []
+      }
+    },
+    {
+      "command": "canary verify run_recovery_fixture --json",
+      "exitCode": 0,
+      "status": "verified",
+      "result": {
+        "v": 1,
+        "kind": "canary.artifact-integrity",
+        "runId": "run_recovery_fixture",
+        "status": "verified",
+        "issues": [],
+        "manifestHash": "337f8a9b9f0ee14aeba2d8679325c7efb8d54c84e9d1fffaf17b4e956f45522a",
+        "revision": 2
+      }
+    },
+    {
+      "command": "partial JSONL recovery",
+      "status": "verified",
+      "result": {
+        "v": 1,
+        "kind": "canary.recovery",
+        "runId": "run_recovery_fixture",
+        "recoveredAt": "2026-09-19T10:02:59.137Z",
+        "priorIntegrity": "partial",
+        "priorManifestHash": "ebab67886f4cf00476a539b6c6dc2f96441b57a4f4be5906d950b1308dfd885a",
+        "traceRepair": {
+          "originalHash": "246c766f2564ab93987546b92397d50ef98a086bb9e18344171d5af177202e64",
+          "recoveredHash": "c114976e1cd5b6b2cab40131ca58c6a501975b96121e41bc25b6f0c9a8e064e4",
+          "removedBytes": 8,
+          "removedHash": "d356aa44394dfb9e6d62d1ee01fa0e67610ff5b42d93791e44c2731901c7df66"
+        },
+        "completedCaseKeys": ["deterministic"],
+        "pendingCaseKeys": [],
+        "killedPids": [],
+        "leftoverPids": []
+      }
+    },
+    {
+      "command": "canary verify run_42994786-0259-4aa5-9e65-cd9e6df7673b --json",
+      "exitCode": 5,
+      "status": "verified",
+      "result": {
+        "v": 1,
+        "kind": "canary.artifact-integrity",
+        "runId": "run_42994786-0259-4aa5-9e65-cd9e6df7673b",
+        "status": "invalid",
+        "issues": [
+          {
+            "code": "HASH_MISMATCH",
+            "path": "run.json"
+          },
+          {
+            "code": "LINEAGE_MISMATCH",
+            "path": "run.json"
+          }
+        ],
+        "manifestHash": "999934a5f920eb46932cec31e85bed2938200a09cb2c3035b02ceb2094fce2f8",
+        "revision": 3
+      }
+    },
+    {
+      "command": "canary verify run_1f877e59-72c4-42d5-b358-cf7b2302df72 --json",
+      "exitCode": 5,
+      "status": "verified",
+      "result": {
+        "v": 1,
+        "kind": "canary.artifact-integrity",
+        "runId": "run_1f877e59-72c4-42d5-b358-cf7b2302df72",
+        "status": "invalid",
+        "issues": [
+          {
+            "code": "HASH_MISMATCH",
+            "path": "trace.jsonl"
+          },
+          {
+            "code": "CONTENT_INVALID",
+            "path": "trace.jsonl"
+          }
+        ],
+        "manifestHash": "f40f841a32f0f5cc7ad1c82ca87e876074300ed45c43328a58d8c2a4ed859998",
+        "revision": 3
+      }
+    },
+    {
+      "command": "canary verify legacy --json",
+      "exitCode": 5,
+      "status": "verified",
+      "result": {
+        "v": 1,
+        "kind": "canary.artifact-integrity",
+        "runId": "legacy",
+        "status": "legacy",
+        "issues": []
+      }
+    },
+    {
+      "command": "source files unchanged by acceptance",
+      "status": "verified",
+      "files": 251
+    }
+  ],
+  "commit": "c0cceda9aa775e4960757c68687760da4a52b487",
+  "pnpm": "10.15.0",
+  "shell": "PowerShell / Node child_process",
+  "status": "verified"
+}

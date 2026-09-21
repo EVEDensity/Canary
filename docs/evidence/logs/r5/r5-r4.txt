@@ -1,0 +1,359 @@
+
+> canary@0.1.0 verify:r4 C:\Users\temp-admin\Desktop\Canary
+> node scripts/verify-r4.mjs
+
+{
+  "v": 1,
+  "kind": "canary.r4.acceptance",
+  "date": "2026-09-19T10:39:15.485Z",
+  "platform": "win32",
+  "osRelease": "10.0.26200",
+  "node": "24.18.0",
+  "checks": [
+    {
+      "name": "node-fixture",
+      "status": "verified",
+      "ci": {
+        "v": 1,
+        "kind": "canary.ci",
+        "mode": "ci",
+        "context": {
+          "v": 1,
+          "invocationRoot": "C:\\Users\\TEMP-A~1\\AppData\\Local\\Temp\\canary R4 acceptance kX9WD7\\node project",
+          "projectRoot": "C:\\Users\\temp-admin\\AppData\\Local\\Temp\\canary R4 acceptance kX9WD7\\node project",
+          "configRoot": "C:\\Users\\temp-admin\\AppData\\Local\\Temp\\canary R4 acceptance kX9WD7\\node project",
+          "configFile": "C:\\Users\\temp-admin\\AppData\\Local\\Temp\\canary R4 acceptance kX9WD7\\node project\\canary.config.ts",
+          "installRoot": "C:\\Users\\temp-admin\\Desktop\\Canary",
+          "artifactRoot": "C:\\Users\\temp-admin\\AppData\\Local\\Temp\\canary R4 acceptance kX9WD7\\node project\\.canary\\artifacts",
+          "source": "walk"
+        },
+        "exitCode": 0,
+        "outcome": "passed",
+        "runId": "run_c18235a8-c8c2-4d1b-b17a-a83c906ce262",
+        "artifactPath": "C:\\Users\\temp-admin\\AppData\\Local\\Temp\\canary R4 acceptance kX9WD7\\node project\\.canary\\artifacts\\run_c18235a8-c8c2-4d1b-b17a-a83c906ce262\\run.json",
+        "summary": {
+          "total": 1,
+          "passed": 1,
+          "failed": 0
+        },
+        "issues": [],
+        "runtime": {
+          "v": 1,
+          "kind": "canary.version",
+          "canaryVersion": "0.1.0",
+          "nodeVersion": "24.18.0"
+        },
+        "capabilities": {
+          "scope": "project-checks",
+          "web": false,
+          "automaticExport": false
+        }
+      },
+      "integrity": {
+        "v": 1,
+        "kind": "canary.artifact-integrity",
+        "runId": "run_c18235a8-c8c2-4d1b-b17a-a83c906ce262",
+        "status": "verified",
+        "issues": [],
+        "manifestHash": "7ef9f5f6831134057c2ce2e44dfb782b719e500270697a8ece4e298d8720a5a9",
+        "revision": 3
+      }
+    },
+    {
+      "name": "node-real-assertion-failure",
+      "status": "verified",
+      "ci": {
+        "v": 1,
+        "kind": "canary.ci",
+        "mode": "ci",
+        "context": {
+          "v": 1,
+          "invocationRoot": "C:\\Users\\TEMP-A~1\\AppData\\Local\\Temp\\canary R4 acceptance kX9WD7\\node project",
+          "projectRoot": "C:\\Users\\temp-admin\\AppData\\Local\\Temp\\canary R4 acceptance kX9WD7\\node project",
+          "configRoot": "C:\\Users\\temp-admin\\AppData\\Local\\Temp\\canary R4 acceptance kX9WD7\\node project",
+          "configFile": "C:\\Users\\temp-admin\\AppData\\Local\\Temp\\canary R4 acceptance kX9WD7\\node project\\canary.config.ts",
+          "installRoot": "C:\\Users\\temp-admin\\Desktop\\Canary",
+          "artifactRoot": "C:\\Users\\temp-admin\\AppData\\Local\\Temp\\canary R4 acceptance kX9WD7\\node project\\.canary\\artifacts",
+          "source": "walk"
+        },
+        "exitCode": 1,
+        "outcome": "failed",
+        "runId": "run_675a9825-7d2c-47df-bcef-66c2c553c76b",
+        "artifactPath": "C:\\Users\\temp-admin\\AppData\\Local\\Temp\\canary R4 acceptance kX9WD7\\node project\\.canary\\artifacts\\run_675a9825-7d2c-47df-bcef-66c2c553c76b\\run.json",
+        "summary": {
+          "total": 1,
+          "passed": 0,
+          "failed": 1
+        },
+        "issues": [
+          {
+            "code": "CHECK_FAILED",
+            "severity": "error",
+            "message": "The configured run did not pass.",
+            "suggestion": "Inspect the local run.json and report.xml; correct the failing case or environment before re-running."
+          }
+        ],
+        "runtime": {
+          "v": 1,
+          "kind": "canary.version",
+          "canaryVersion": "0.1.0",
+          "nodeVersion": "24.18.0"
+        },
+        "capabilities": {
+          "scope": "project-checks",
+          "web": false,
+          "automaticExport": false
+        }
+      }
+    },
+    {
+      "name": "python-fixture",
+      "status": "verified",
+      "ci": {
+        "v": 1,
+        "kind": "canary.ci",
+        "mode": "ci",
+        "context": {
+          "v": 1,
+          "invocationRoot": "C:\\Users\\TEMP-A~1\\AppData\\Local\\Temp\\canary R4 acceptance kX9WD7\\python project",
+          "projectRoot": "C:\\Users\\temp-admin\\AppData\\Local\\Temp\\canary R4 acceptance kX9WD7\\python project",
+          "configRoot": "C:\\Users\\temp-admin\\AppData\\Local\\Temp\\canary R4 acceptance kX9WD7\\python project",
+          "configFile": "C:\\Users\\temp-admin\\AppData\\Local\\Temp\\canary R4 acceptance kX9WD7\\python project\\canary.config.ts",
+          "installRoot": "C:\\Users\\temp-admin\\Desktop\\Canary",
+          "artifactRoot": "C:\\Users\\temp-admin\\AppData\\Local\\Temp\\canary R4 acceptance kX9WD7\\python project\\.canary\\artifacts",
+          "source": "walk"
+        },
+        "exitCode": 0,
+        "outcome": "passed",
+        "runId": "run_c07856c7-716b-4e5b-b7d6-621ed2a330e3",
+        "artifactPath": "C:\\Users\\temp-admin\\AppData\\Local\\Temp\\canary R4 acceptance kX9WD7\\python project\\.canary\\artifacts\\run_c07856c7-716b-4e5b-b7d6-621ed2a330e3\\run.json",
+        "summary": {
+          "total": 1,
+          "passed": 1,
+          "failed": 0
+        },
+        "issues": [],
+        "runtime": {
+          "v": 1,
+          "kind": "canary.version",
+          "canaryVersion": "0.1.0",
+          "nodeVersion": "24.18.0"
+        },
+        "capabilities": {
+          "scope": "project-checks",
+          "web": false,
+          "automaticExport": false
+        }
+      },
+      "integrity": {
+        "v": 1,
+        "kind": "canary.artifact-integrity",
+        "runId": "run_c07856c7-716b-4e5b-b7d6-621ed2a330e3",
+        "status": "verified",
+        "issues": [],
+        "manifestHash": "0b376c1eaf0f95ba485d80b34675ec54591ddb854104486720c0ae614f18af89",
+        "revision": 3
+      }
+    },
+    {
+      "name": "python-real-assertion-failure",
+      "status": "verified",
+      "ci": {
+        "v": 1,
+        "kind": "canary.ci",
+        "mode": "ci",
+        "context": {
+          "v": 1,
+          "invocationRoot": "C:\\Users\\TEMP-A~1\\AppData\\Local\\Temp\\canary R4 acceptance kX9WD7\\python project",
+          "projectRoot": "C:\\Users\\temp-admin\\AppData\\Local\\Temp\\canary R4 acceptance kX9WD7\\python project",
+          "configRoot": "C:\\Users\\temp-admin\\AppData\\Local\\Temp\\canary R4 acceptance kX9WD7\\python project",
+          "configFile": "C:\\Users\\temp-admin\\AppData\\Local\\Temp\\canary R4 acceptance kX9WD7\\python project\\canary.config.ts",
+          "installRoot": "C:\\Users\\temp-admin\\Desktop\\Canary",
+          "artifactRoot": "C:\\Users\\temp-admin\\AppData\\Local\\Temp\\canary R4 acceptance kX9WD7\\python project\\.canary\\artifacts",
+          "source": "walk"
+        },
+        "exitCode": 1,
+        "outcome": "failed",
+        "runId": "run_20542c89-434e-435c-9bc9-3aa0a943d9f4",
+        "artifactPath": "C:\\Users\\temp-admin\\AppData\\Local\\Temp\\canary R4 acceptance kX9WD7\\python project\\.canary\\artifacts\\run_20542c89-434e-435c-9bc9-3aa0a943d9f4\\run.json",
+        "summary": {
+          "total": 1,
+          "passed": 0,
+          "failed": 1
+        },
+        "issues": [
+          {
+            "code": "CHECK_FAILED",
+            "severity": "error",
+            "message": "The configured run did not pass.",
+            "suggestion": "Inspect the local run.json and report.xml; correct the failing case or environment before re-running."
+          }
+        ],
+        "runtime": {
+          "v": 1,
+          "kind": "canary.version",
+          "canaryVersion": "0.1.0",
+          "nodeVersion": "24.18.0"
+        },
+        "capabilities": {
+          "scope": "project-checks",
+          "web": false,
+          "automaticExport": false
+        }
+      }
+    },
+    {
+      "name": "unknown-language-blocked",
+      "status": "verified",
+      "discovery": {
+        "v": 1,
+        "kind": "canary.discovery",
+        "projectRoot": "C:\\Users\\temp-admin\\AppData\\Local\\Temp\\canary R4 acceptance kX9WD7\\unknown project",
+        "status": "blocked",
+        "languages": [],
+        "automaticExecution": false,
+        "reason": "Unknown language; declare explicit checks before running CI."
+      },
+      "ci": {
+        "v": 1,
+        "kind": "canary.ci",
+        "mode": "ci",
+        "context": {
+          "v": 1,
+          "invocationRoot": "C:\\Users\\TEMP-A~1\\AppData\\Local\\Temp\\canary R4 acceptance kX9WD7\\unknown project",
+          "projectRoot": "C:\\Users\\temp-admin\\AppData\\Local\\Temp\\canary R4 acceptance kX9WD7\\unknown project",
+          "configRoot": "C:\\Users\\temp-admin\\AppData\\Local\\Temp\\canary R4 acceptance kX9WD7\\unknown project",
+          "configFile": "C:\\Users\\TEMP-A~1\\AppData\\Local\\Temp\\canary R4 acceptance kX9WD7\\unknown project\\canary.config.ts",
+          "installRoot": "C:\\Users\\temp-admin\\Desktop\\Canary",
+          "artifactRoot": "C:\\Users\\temp-admin\\AppData\\Local\\Temp\\canary R4 acceptance kX9WD7\\unknown project\\.canary\\artifacts",
+          "source": "cwd"
+        },
+        "exitCode": 2,
+        "outcome": "error",
+        "runId": null,
+        "artifactPath": null,
+        "summary": {
+          "total": 0,
+          "passed": 0,
+          "failed": 0
+        },
+        "issues": [
+          {
+            "code": "CONFIG_NOT_FOUND",
+            "severity": "error",
+            "message": "No Canary project configuration found at C:\\Users\\TEMP-A~1\\AppData\\Local\\Temp\\canary R4 acceptance kX9WD7\\unknown project\\canary.config.ts.\nRun from the tested project or pass --config <path-to-canary.config.ts>.\nInstalling Canary does not configure the tested project; the installation demo is never an implicit fallback.",
+            "suggestion": "Use canary paths --json and pass --config <existing-canary.config.ts> from the tested project."
+          }
+        ],
+        "runtime": {
+          "v": 1,
+          "kind": "canary.version",
+          "canaryVersion": "0.1.0",
+          "nodeVersion": "24.18.0"
+        },
+        "capabilities": {
+          "scope": "configured-agent-cases",
+          "web": false,
+          "automaticExport": false
+        }
+      }
+    },
+    {
+      "name": "docker-unavailable-does-not-pass",
+      "status": "verified",
+      "ci": {
+        "v": 1,
+        "kind": "canary.ci",
+        "mode": "ci",
+        "context": {
+          "v": 1,
+          "invocationRoot": "C:\\Users\\TEMP-A~1\\AppData\\Local\\Temp\\canary R4 acceptance kX9WD7\\unknown project",
+          "projectRoot": "C:\\Users\\temp-admin\\AppData\\Local\\Temp\\canary R4 acceptance kX9WD7\\unknown project",
+          "configRoot": "C:\\Users\\temp-admin\\AppData\\Local\\Temp\\canary R4 acceptance kX9WD7\\unknown project",
+          "configFile": "C:\\Users\\temp-admin\\AppData\\Local\\Temp\\canary R4 acceptance kX9WD7\\unknown project\\docker.json",
+          "installRoot": "C:\\Users\\temp-admin\\Desktop\\Canary",
+          "artifactRoot": "C:\\Users\\temp-admin\\AppData\\Local\\Temp\\canary R4 acceptance kX9WD7\\unknown project\\.canary\\artifacts",
+          "source": "config"
+        },
+        "exitCode": 4,
+        "outcome": "error",
+        "runId": "run_bc754ef0-8863-4837-abc0-2b9bf9e0d1c4",
+        "artifactPath": "C:\\Users\\temp-admin\\AppData\\Local\\Temp\\canary R4 acceptance kX9WD7\\unknown project\\.canary\\artifacts\\run_bc754ef0-8863-4837-abc0-2b9bf9e0d1c4\\run.json",
+        "summary": {
+          "total": 1,
+          "passed": 0,
+          "failed": 1
+        },
+        "issues": [
+          {
+            "code": "CHECK_FAILED",
+            "severity": "error",
+            "message": "The configured run did not pass.",
+            "suggestion": "Inspect the local run.json and report.xml; correct the failing case or environment before re-running."
+          }
+        ],
+        "runtime": {
+          "v": 1,
+          "kind": "canary.version",
+          "canaryVersion": "0.1.0",
+          "nodeVersion": "24.18.0"
+        },
+        "capabilities": {
+          "scope": "project-checks",
+          "web": false,
+          "automaticExport": false
+        }
+      }
+    },
+    {
+      "name": "canary-self-typecheck-and-agent",
+      "status": "verified",
+      "ci": {
+        "v": 1,
+        "kind": "canary.ci",
+        "mode": "ci",
+        "context": {
+          "v": 1,
+          "invocationRoot": "C:\\Users\\temp-admin\\Desktop\\Canary",
+          "projectRoot": "C:\\Users\\temp-admin\\Desktop\\Canary",
+          "configRoot": "C:\\Users\\temp-admin\\Desktop\\Canary",
+          "configFile": "C:\\Users\\temp-admin\\Desktop\\Canary\\canary.project.json",
+          "installRoot": "C:\\Users\\temp-admin\\Desktop\\Canary",
+          "artifactRoot": "C:\\Users\\temp-admin\\Desktop\\Canary\\.canary\\artifacts",
+          "source": "config"
+        },
+        "exitCode": 0,
+        "outcome": "passed",
+        "runId": "run_0158ab81-419a-4824-9840-af4b97a84787",
+        "artifactPath": "C:\\Users\\temp-admin\\Desktop\\Canary\\.canary\\artifacts\\run_0158ab81-419a-4824-9840-af4b97a84787\\run.json",
+        "summary": {
+          "total": 2,
+          "passed": 2,
+          "failed": 0
+        },
+        "issues": [],
+        "runtime": {
+          "v": 1,
+          "kind": "canary.version",
+          "canaryVersion": "0.1.0",
+          "nodeVersion": "24.18.0"
+        },
+        "capabilities": {
+          "scope": "project-checks",
+          "web": false,
+          "automaticExport": false
+        }
+      }
+    },
+    {
+      "name": "project-sources-unchanged",
+      "status": "verified",
+      "files": 256
+    }
+  ],
+  "python": "Python 3.12.10",
+  "dockerRuntime": {
+    "status": "blocked",
+    "reason": "No running fixture container; only unavailable/timeout behavior was verified."
+  }
+}
