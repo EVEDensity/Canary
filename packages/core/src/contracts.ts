@@ -115,6 +115,19 @@ export interface ExperienceScope {
   caseIds?: string[];
   tags?: string[];
   featureIds?: string[];
+  checkIds?: string[];
+  checkTypes?: string[];
+  tools?: string[];
+  languages?: string[];
+}
+
+export interface ExperienceProvenance {
+  runId: string;
+  checkId: string;
+  manifestHash: string;
+  evidenceHash: string;
+  category: string;
+  adviceCode: string;
 }
 
 export interface ExperienceRecord {
@@ -135,6 +148,9 @@ export interface ExperienceRecord {
   expiresAt?: string;
   expiryReason?: string;
   validation?: { validatedAt: string; checks: string[] };
+  provenance?: ExperienceProvenance;
+  limitations?: string[];
+  validationRequirements?: string[];
 }
 
 export interface ActiveExperiencePointer {
@@ -161,6 +177,7 @@ export interface ExperienceLoadRecord {
   version: number;
   contentHash: string;
   loadedAt: string;
+  selection?: { caseIds?: string[]; checkId?: string; checkType?: string; tool?: string; language?: string };
 }
 
 export interface ActivationRecord {
