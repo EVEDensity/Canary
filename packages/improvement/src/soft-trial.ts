@@ -1,4 +1,9 @@
 import type { ActiveExperiencePointer, CoverageGateResult, RunSnapshot } from "@canary/core";
+import { createHash } from "node:crypto";
+
+export function softTrialDatasetIdentity(results: RunSnapshot["results"]): string {
+  return createHash("sha256").update(JSON.stringify(results.map((result) => ({ id: result.caseId, repetition: result.repetition, dataset: result.sourceCase?.dataset ?? null })))).digest("hex");
+}
 
 export type SoftTrialStatus = "prepared" | "validated" | "rejected" | "approved" | "activated" | "rolled_back";
 
@@ -27,6 +32,7 @@ export interface SoftTrialRecord {
   baselineRunId: string;
   experienceId: string;
   experienceContentHash: string;
+  experienceIdentityHash?: string;
   datasetIdentity: string;
   regressionCaseIds: string[];
   holdoutCaseIds: string[];
