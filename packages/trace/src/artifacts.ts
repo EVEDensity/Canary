@@ -7,6 +7,7 @@ import {
   mkdirSync,
   openSync,
   readFileSync,
+  realpathSync,
   readdirSync,
   renameSync,
   unlinkSync,
@@ -209,7 +210,7 @@ export function verifyArtifacts(dir: string, ancestors: ReadonlySet<string> = ne
           try {
             const childDir = safeArtifactPath(resolve(dir, ".."), check.childRun.runId);
             const child = verifyArtifacts(childDir, visited);
-            if (child.status !== "verified" || child.manifestHash !== check.childRun.manifestHash || resolve(check.childRun.artifactPath) !== join(childDir, "run.json")) issue("CHILD_EVIDENCE_INVALID", "run.json");
+            if (child.status !== "verified" || child.manifestHash !== check.childRun.manifestHash || realpathSync.native(resolve(check.childRun.artifactPath)) !== realpathSync.native(join(childDir, "run.json"))) issue("CHILD_EVIDENCE_INVALID", "run.json");
           } catch { issue("CHILD_EVIDENCE_INVALID", "run.json"); }
         }
       }
