@@ -125,6 +125,21 @@ describe("L02 protected operations", () => {
     atomic(join(root, ".canary/artifacts/candidate/run.json"), fixtureRun("candidate", 2));
     expect(() => p.assertSoftApproval("trial")).toThrow(/changed/);
   });
+  it("binds soft approval to the dataset identity and human decision", () => {
+    const { p, file } = soft();
+    act(p, "soft.approve", "trial", "approve");
+    const approved = JSON.parse(readFileSync(file, "utf8"));
+    expect(approved.authorization).toMatchObject({ actor: "owner", reason: "acceptance" });
+    atomic(file, { ...approved, datasetIdentity: "substituted" });
+    expect(() => p.assertSoftApproval("trial")).toThrow(/changed/);
+    atomic(file, { ...approved, authorization: { ...approved.authorization, reason: "substituted" } });
+    expect(() => p.assertSoftApproval("trial")).toThrow(/changed/);
+  });
+  it("rejects a trial whose experience identity changed before approval", () => {
+    const { p, trial, file } = soft();
+    atomic(file, { ...trial, experienceIdentityHash: "project-derived" });
+    expect(() => p.assertSoftApproval("trial")).toThrow(/identity changed/);
+  });
   it("restores the exact previous experience pointer", () => {
     const { p, store, exp, file, trial, root } = soft();
     act(p, "soft.approve", "trial", "approve");

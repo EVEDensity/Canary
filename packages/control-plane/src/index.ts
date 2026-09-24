@@ -2,8 +2,8 @@
 import { resolve } from "node:path";
 import type { ActiveExperiencePointer, AuthorizationRecord, ExperienceRecord, RunSnapshot } from "@canary/core";
 import { FileArtifactRepository, redactValue } from "@canary/trace";
-import { assessSoftTrial, compareRuns, isHoldoutCase, type SoftTrialRecord } from "@canary/improvement";
-import { ExperienceStore, validateExperienceInput } from "@canary/experience";
+import { assessSoftTrial, compareRuns, isHoldoutCase, softTrialDatasetIdentity, type SoftTrialRecord } from "@canary/improvement";
+import { ExperienceStore, experienceIdentityHash, validateExperienceInput } from "@canary/experience";
 import { TrustedApplyer, type CandidateManifest, type ApplyJournal } from "@canary/hard-evolution";
 import {
   AuthorizationStore,
@@ -323,6 +323,7 @@ export class ControlPlane {
           id: e.id,
           version: e.version,
           contentHash: e.contentHash,
+          selection: e.selection ?? null,
         })),
         agentClaims: { status: "not_used_as_evidence", count: r.results.filter((x) => x.output !== undefined).length },
         admission:
@@ -340,6 +341,13 @@ export class ControlPlane {
         candidateRunId: t.validation?.candidateRunId,
         experienceId: t.experienceId,
         experienceContentHash: t.experienceContentHash,
+        datasetIdentity: t.datasetIdentity,
+        regressionCaseIds: t.regressionCaseIds,
+        holdoutCaseIds: t.holdoutCaseIds,
+        comparison: (() => {
+          const report = this.get<{ verdict?: string; improvements?: string[]; regressions?: string[]; completeness?: { passed?: boolean; reasons?: string[] } }>(this.artifactRoot, "soft-trials", safeId(t.id), "comparison.json");
+          return report ? { verdict: report.verdict, improvements: report.improvements ?? [], regressions: report.regressions ?? [], completeness: report.completeness ?? null } : null;
+        })(),
         validation: t.validation
           ? { valid: t.validation.valid, reasons: t.validation.reasons, validatedAt: t.validation.validatedAt }
           : null,
@@ -363,8 +371,14 @@ export class ControlPlane {
         key: e.key,
         version: e.version,
         status: e.status,
+        summary: e.summary,
         contentHash: e.contentHash,
-        source: { kind: e.source.kind },
+        source: { kind: e.source.kind, ref: e.source.ref ?? null },
+        scope: e.scope,
+        provenance: e.provenance ?? null,
+        limitations: e.limitations ?? [],
+        validation: e.validation ?? null,
+        lastLoadedRunId: runs.find((r) => r.experiences?.some((item) => item.id === e.id && item.contentHash === e.contentHash))?.runId ?? null,
       })),
       activeExperience: this.pointer() ?? null,
       loop: loop
@@ -475,19 +489,28 @@ export class ControlPlane {
     });
   }
   assertSoftApproval(id: string): void {
-    const approval = this.get<{ baselineHash: string; candidateHash: string; experienceContentHash: string }>(
+    const trial = this.trial(id);
+    const approval = this.get<{ baselineHash: string; candidateHash: string; experienceContentHash: string; experienceIdentityHash?: string; datasetIdentity?: string; validationHash?: string; decisionHash?: string }>(
       ".canary/control-plane/soft-approvals",
       safeId(id) + ".json",
     );
-    if (!approval) return; // Legacy S-04 approvals keep their existing contract.
-    const trial = this.trial(id);
+    if (!approval) {
+      const experience = this.experience(trial.experienceId);
+      assert(!trial.experienceIdentityHash || trial.experienceIdentityHash === experienceIdentityHash(experience), "Experience identity changed since trial preparation");
+      assert(!experience.provenance, "Project trial requires control-plane approval evidence");
+      return; // Legacy S-04 approvals keep their existing contract.
+    }
     assert(
-      trial.status === "approved" &&
+      ["approved", "activated"].includes(trial.status) &&
         trial.validation &&
         hash(this.run(trial.baselineRunId)) === approval.baselineHash &&
         hash(this.run(trial.validation.candidateRunId)) === approval.candidateHash &&
         this.experience(trial.experienceId).contentHash === approval.experienceContentHash &&
-        validateExperienceInput(this.experience(trial.experienceId)).contentHash === approval.experienceContentHash,
+        validateExperienceInput(this.experience(trial.experienceId)).contentHash === approval.experienceContentHash &&
+        (!approval.experienceIdentityHash || approval.experienceIdentityHash === experienceIdentityHash(this.experience(trial.experienceId))) &&
+        (!approval.datasetIdentity || approval.datasetIdentity === trial.datasetIdentity) &&
+        (!approval.validationHash || approval.validationHash === hash(trial.validation)) &&
+        (!approval.decisionHash || approval.decisionHash === hash({ actor: trial.authorization.actor, reason: trial.authorization.reason })),
       "Control-plane approval evidence changed or revoked",
     );
   }
@@ -588,6 +611,7 @@ export class ControlPlane {
       const trial = this.trial(id),
         experience = this.experience(trial.experienceId);
       assert(experience.contentHash === trial.experienceContentHash, "Experience version no longer matches trial");
+      assert(!trial.experienceIdentityHash || trial.experienceIdentityHash === experienceIdentityHash(experience), "Experience identity or scope changed since trial preparation");
       if (c.action === "soft.approve") {
         assert(
           trial.status === "validated" && trial.validation?.valid,
@@ -595,6 +619,7 @@ export class ControlPlane {
         );
         const baseline = this.run(trial.baselineRunId),
           candidateRun = this.run(trial.validation.candidateRunId);
+        if (trial.experienceIdentityHash) assert(trial.datasetIdentity === softTrialDatasetIdentity(baseline.results.filter((result) => [...trial.regressionCaseIds, ...trial.holdoutCaseIds].includes(result.caseId))), "Trial dataset identity changed");
         const comparison = compareRuns(baseline, candidateRun);
         const checked = assessSoftTrial({
           baseline,
@@ -616,17 +641,32 @@ export class ControlPlane {
           "Independent comparison no longer passes",
         );
         const checkedExperience = validateExperienceInput(experience);
+        if (experience.provenance) {
+          const source = experience.provenance;
+          const repository = new FileArtifactRepository(this.artifactRoot);
+          const sourceIntegrity = repository.verify(source.runId);
+          const sourceRun = sourceIntegrity.status === "verified" && sourceIntegrity.manifestHash === source.manifestHash ? this.run(source.runId) : undefined;
+          const check = sourceRun?.checks?.find((item) => item.id === source.checkId);
+          assert(check?.type === "agent" && check.childRun?.runId === trial.baselineRunId, "Project candidate source is no longer verified");
+          const loaded = candidateRun.experiences?.find((item) => item.id === experience.id && item.version === experience.version && item.contentHash === experience.contentHash);
+          assert(loaded && trial.regressionCaseIds.every((caseId) => loaded.selection?.caseIds?.includes(caseId)) && trial.holdoutCaseIds.every((caseId) => !loaded.selection?.caseIds?.includes(caseId)), "Project candidate was not independently loaded only for regression cases");
+        }
         assert(
           checkedExperience.valid &&
             checkedExperience.contentHash === experience.contentHash &&
-            ["validated", "active"].includes(experience.status),
+            (["validated", "active"].includes(experience.status) || (Boolean(experience.provenance) && experience.status === "proposed")),
           "Experience is not eligible or content changed",
         );
         atomic(this.path(".canary/control-plane/soft-approvals", id + ".json"), {
           baselineHash: hash(this.run(trial.baselineRunId)),
           candidateHash: hash(this.run(trial.validation.candidateRunId)),
           experienceContentHash: trial.experienceContentHash,
+          experienceIdentityHash: experienceIdentityHash(experience),
+          datasetIdentity: trial.datasetIdentity,
+          validationHash: hash(trial.validation),
+          decisionHash: hash({ actor: c.actor, reason: c.reason }),
         });
+        if (experience.provenance && experience.status === "proposed") new ExperienceStore(this.path(".canary/experiences")).transition(experience.id, "validated");
         trial.status = "approved";
         trial.authorization = {
           status: "approved",

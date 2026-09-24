@@ -141,6 +141,13 @@ describe("L02 persistent evidence and safety", () => {
     expect(JSON.stringify(p.snapshot())).not.toContain("sensitive output");
     expect(JSON.stringify(p.snapshot())).not.toContain("synthetic-99");
   });
+  it("shows the actual case selection for a loaded experience without exposing its content", () => {
+    const { p, save } = project();
+    const run = fixtureRun();
+    run.experiences = [{ id: "experience_one", key: "case-rule", version: 2, contentHash: "a".repeat(64), loadedAt: run.startedAt, selection: { caseIds: ["case-one"] } }];
+    save(run);
+    expect(p.snapshot().runs[0]?.loadedExperiences).toEqual([{ id: "experience_one", version: 2, contentHash: "a".repeat(64), selection: { caseIds: ["case-one"] } }]);
+  });
 });
 
 function actReconcile(p: ControlPlane) {
