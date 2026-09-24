@@ -70,9 +70,11 @@ describe("L02 HTTP security", () => {
       html = await res.text();
     expect(res.headers.get("content-security-policy")).toContain("frame-ancestors 'none'");
     expect(html).toContain('id="actionForm"');
+    expect(html).toContain('data-view="experiences"');
     expect(html).not.toContain(token);
     const js = await (await fetch(url + "/control.js")).text();
     expect(() => new Function(js)).not.toThrow();
     expect(js).toContain("/api/control/actions");
+    expect(js).toContain("function experienceView");
   });
 });
