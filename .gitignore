@@ -6,6 +6,7 @@ dist/
 **/.canary/logs/
 /.canary/experiences/
 /.canary/local-tools/
+/.canary/verification/
 /.canary/r5-ui-fixture/
 /r6-evidence/
 /docs/evidence/logs/**/artifacts/

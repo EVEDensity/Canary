@@ -32,7 +32,8 @@
     "verify:distribution": "node scripts/verify-distribution.mjs",
     "verify:r5": "node scripts/run-logged.mjs verification/r5 -- node scripts/verify-r5.mjs",
     "verify:r6": "node scripts/run-logged.mjs verification/r6 -- node scripts/verify-r6.mjs",
-    "verify:entry": "node scripts/run-logged.mjs verification/entry -- node scripts/verify-entry.mjs"
+    "verify:entry": "node scripts/run-logged.mjs verification/entry -- node scripts/verify-entry.mjs",
+    "verify:r8": "node scripts/verify-r8.mjs"
   },
   "devDependencies": {
     "@changesets/cli": "^3.0.2",
