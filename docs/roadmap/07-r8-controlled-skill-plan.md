@@ -1,6 +1,6 @@
 # R8 受控 Skill 与软自进化实施计划
 
-状态：**R8-00 已完成，等待从 R8-01 开始实施**。代码起点见 [R8 基线记录](../evidence/r8-baseline.md)。
+状态：**R8-01 至 R8-09 的 Windows 本机最小闭环已实现并验收**。代码起点见 [R8 基线记录](../evidence/r8-baseline.md)，前段见 [R8-01 至 R8-04 执行记录](../evidence/r8-01-04-execution.md)，批准、导出、页面与固定闭环见 [R8-05 至 R8-09 执行记录](../evidence/r8-05-09-execution.md)。这不是跨平台或真实模型普适收益认证。
 
 ## 目标与约束
 

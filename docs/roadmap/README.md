@@ -26,9 +26,9 @@ Canary 的定位是本地优先的 Agent/应用测试工作台，目标是个人
 | R5   | 全面 `canary run` 和本地报告页面      | 已完成（Windows Node 24），见 [R5 证据](../evidence/r5-execution-record.md)                                                                                       |
 | R6   | 三平台真实验证和 Agent fixtures       | 部分完成：Windows/Ubuntu 容器 Node 24/22、固定 Pi runtime 与一次真实推理已验收；macOS/原生 Ubuntu 延后至开源 CI，见 [R6 证据](../evidence/r6-execution-record.md) |
 | R7   | 长跑、容量、断点恢复和运行手册        | 初步维护已完成；长跑、容量压测和重启实验按用户决定暂缓，见 [R7 记录](../evidence/r7-initial-maintenance.md)                                                       |
-| R8   | 受控 Skill/软自进化                   | R8-00 已完成；下一项为 [R8-01 现有能力审计](07-r8-controlled-skill-plan.md)                                                                                       |
+| R8   | 受控 Skill/软自进化                   | R8-01 至 R8-09 的 Windows 本机最小闭环已验收，见 [执行记录](../evidence/r8-05-09-execution.md) 和 [计划边界](07-r8-controlled-skill-plan.md)                      |
 
-R0 完成范围是现有 Agent case CI 入口、根目录/退出码/schema 冻结和 Windows 本地验收。R1 完成范围是运行器状态/超时/取消/预算、隔离与 Windows 进程树恢复。R2 完成配置发现与 doctor/paths/version 诊断。R3 完成 manifest、哈希、谱系、脱敏和损坏/恢复验收，并提供可复现元数据及显式历史清理。R4 完成项目发现、显式六类检查、CI 报告、预算和 Node/Python 实机 fixture，Docker daemon 成功路径仍为 blocked。以上范围以 Windows Node 24 为本地基线；R5 完成本地报告、历史比较、显式重跑和资源快照；R6 的跨平台余项已延后；R7 已完成快速维护范围；R8-00 已形成独立代码基线。下一任务是 R8-01 现有能力审计与契约冻结。
+R0 完成范围是现有 Agent case CI 入口、根目录/退出码/schema 冻结和 Windows 本地验收。R1 完成范围是运行器状态/超时/取消/预算、隔离与 Windows 进程树恢复。R2 完成配置发现与 doctor/paths/version 诊断。R3 完成 manifest、哈希、谱系、脱敏和损坏/恢复验收，并提供可复现元数据及显式历史清理。R4 完成项目发现、显式六类检查、CI 报告、预算和 Node/Python 实机 fixture，Docker daemon 成功路径仍为 blocked。以上范围以 Windows Node 24 为本地基线；R5 完成本地报告、历史比较、显式重跑和资源快照；R6 的跨平台余项已延后；R7 已完成快速维护范围；R8-00 已形成独立代码基线，R8-01 至 R8-09 的最小闭环已在本机固定函数 Agent 验收。真实模型长期收益与跨平台余项仍未由 R8 验收覆盖。
 
 阶段的详细交付物、依赖、验收命令、状态定义和排除项见[新路线图](06-personal-production-test-roadmap.md)。
 
