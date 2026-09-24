@@ -276,7 +276,7 @@ describe("improvement CLI loop", () => {
       expect(JSON.parse(approvalLogs[0]).record.authorization.status).toBe("approved");
       const runLogs = [];
       console.log = (...items) => runLogs.push(items.map(String).join(" "));
-      try { expect(await main(["soft-trial", "run", trialId, "--config", configPath])).toBe(0); } finally { console.log = originalLog; }
+      try { expect(await main(["soft-trial", "run", trialId, "--config", configPath]), runLogs.join("\n")).toBe(0); } finally { console.log = originalLog; }
       const activated = JSON.parse(runLogs[0]);
       expect(activated.record.status).toBe("activated");
       expect(activated.loadedExperienceIds).toContain(experienceId);
