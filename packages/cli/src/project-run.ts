@@ -38,6 +38,7 @@ export async function runProjectChecks(
     signal: AbortSignal,
     env: NodeJS.ProcessEnv,
     onPid: (pid: number) => void,
+    checkId: string,
   ) => Promise<CheckOutcome>,
   session?: { store: RunStore; runId: string; lineage?: RunLineage },
 ): Promise<RunCommandResult> {

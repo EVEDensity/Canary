@@ -141,6 +141,7 @@ export async function executeCheck(
       signal: AbortSignal,
       env: NodeJS.ProcessEnv,
       onPid: (pid: number) => void,
+      checkId: string,
     ) => Promise<CheckOutcome>;
   },
 ): Promise<CheckOutcome> {
@@ -157,6 +158,7 @@ export async function executeCheck(
       signal,
       checkEnvironment(check, input.workspace),
       input.onPid,
+      check.id,
     );
   if (check.type === "http") {
     if (!check.allowOutbound) return blocked(6, "policy");

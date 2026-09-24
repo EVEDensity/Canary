@@ -1,6 +1,6 @@
 import { mkdirSync, existsSync, lstatSync, rmSync } from "node:fs";
 import { resolve } from "node:path";
-import type { CanaryConfig, CoverageSummary, ProjectContext, RunSnapshot, TestCase } from "@canary/core";
+import type { CanaryConfig, CoverageSummary, ExperienceLoadRecord, ProjectContext, RunSnapshot, TestCase } from "@canary/core";
 import { createCoverageManifest, mergeCoverageSummaries, preparingCoverage } from "@canary/coverage";
 import { evaluateCoverageGates, evaluateHardGates, mergeQualityGates, exitCodeForRun } from "@canary/evaluators";
 import { proposeFromResults } from "@canary/improvement";
@@ -96,6 +96,7 @@ export interface EvaluationInput {
   runId?: string;
   ports?: RunnerPorts;
   experiences?: ExperienceStore;
+  experienceContext?: { checkId: string; checkType: string };
 }
 
 /** Shared run use-case used by CLI (and Web replay hooks). Does not start HTTP. */
@@ -122,11 +123,14 @@ export async function runEvaluation(input: EvaluationInput): Promise<{ runId: st
     : input.store.create(plan.length, input.runId, input.replayOf);
   const experienceStore = input.experiences ?? new ExperienceStore(resolve(input.context.projectRoot, ".canary", "experiences"));
   const experienceByCase = new Map<string, ExperienceLoadResult>();
-  const experienceRefs = new Map<string, { id: string; key: string; version: number; contentHash: string; loadedAt: string }>();
+  const experienceRefs = new Map<string, ExperienceLoadRecord>();
   for (const testCase of input.selected) {
-    const loaded = experienceStore.load({ projectRoot: input.context.projectRoot, caseId: testCase.id, tags: testCase.tags, featureIds: testCase.expectedFeatures });
+    const loaded = experienceStore.load({ projectRoot: input.context.projectRoot, caseId: testCase.id, tags: testCase.tags, featureIds: testCase.expectedFeatures, ...input.experienceContext });
     experienceByCase.set(testCase.id, loaded);
-    for (const item of loaded.loaded) experienceRefs.set(item.id, { id: item.id, key: item.key, version: item.version, contentHash: item.contentHash, loadedAt: new Date().toISOString() });
+    for (const item of loaded.loaded) {
+      const prior = experienceRefs.get(item.id);
+      experienceRefs.set(item.id, { id: item.id, key: item.key, version: item.version, contentHash: item.contentHash, loadedAt: prior?.loadedAt ?? new Date().toISOString(), selection: { caseIds: [...(prior?.selection?.caseIds ?? []), testCase.id], ...input.experienceContext } });
+    }
   }
   if (input.candidateOf) input.store.update(run.runId, { candidateOf: input.candidateOf } as Partial<RunSnapshot>);
   if (input.retryOf) input.store.update(run.runId, { retryOf: input.retryOf });

@@ -1,13 +1,13 @@
 #!/usr/bin/env node
 import { existsSync, mkdirSync, readFileSync, writeFileSync, unlinkSync, statSync } from "node:fs";
-import { createHash, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import { missingConfigMessage, resolveProjectContext } from "./home.js";
 import { readdir } from "node:fs/promises";
 import { resolve } from "node:path";
 import { pathToFileURL, fileURLToPath } from "node:url";
 import { createRequire } from "node:module";
 import type { RunSnapshot } from "@canary/core";
-import { FileArtifactRepository, RunStore, applyRetention, planRetention, verifyArtifacts, redactValue } from "@canary/trace";
+import { FileArtifactRepository, RunStore, applyRetention, planRetention, verifyArtifacts, redactValue, readArtifactManifest, safeArtifactPath, writePrivateJson, writePrivateText, sha256 } from "@canary/trace";
 import { projectChecksConfigSchema, ciResultSchema } from "@canary/core";
 import { runProjectSession } from "./project-session.js";
 import { discoverProject } from "./discovery.js";
@@ -16,7 +16,9 @@ import { runEvaluation } from "./app.js";
 import { renderReport } from "@canary/reporters";
 import {
   assessSoftTrial,
+  softTrialDatasetIdentity,
   compareRuns,
+  compareProjectRuns,
   holdoutCaseIds,
   proposeFromResults,
   writeRegressionDrafts,
@@ -29,7 +31,7 @@ import {
 import { parseCanaryConfig, parseReportFormat, parseTestCase } from "@canary/core";
 import { hostEvidenceOutput, hostRunOutput, validateHostProposalFile } from "./host.js";
 import type { CanaryConfig, CoverageSummary, ProjectContext, TestCase } from "@canary/core";
-import { ExperienceStore, type ExperienceInput } from "@canary/experience";
+import { ExperienceStore, candidateFromProjectCheck, candidateFromQualityGate, experienceIdentityHash, validateExperienceInput, type ExperienceInput } from "@canary/experience";
 import { PolicyStore } from "@canary/policy";
 import { PROCESS_BOUNDARY, probeIsolation } from "@canary/isolation";
 import { LoopController, createIdlePorts } from "@canary/loop";
@@ -60,6 +62,7 @@ export interface CliOptions {
   signal?: AbortSignal;
   json?: boolean;
   experiences?: ExperienceStore;
+  experienceContext?: { checkId: string; checkType: string };
   suppressOutput?: boolean;
 }
 const USAGE = `Usage: canary run [--ci] [--headless|--artifacts-only] [--no-open] [--json] [--case <id>] [--tag <tag>] [--repetitions <n>] [--port <number>] [--config <path>] [--entry <path>] [--retry-of <runId>]
@@ -81,8 +84,11 @@ const USAGE = `Usage: canary run [--ci] [--headless|--artifacts-only] [--no-open
        canary host validate-proposal <runId> --file <proposal.json> [--config <path>]
        canary experience list [--config <path>]
        canary experience propose --file <experience.json> [--config <path>]
+       canary experience propose-project <runId> [--check <id>] [--config <path>]
+       canary experience compare-project <baselineRunId> <candidateRunId> --regression <checkId> --holdout <checkId> [--config <path>]
+       canary experience export-skill <experienceId> [--config <path>]
        canary experience validate|activate|revoke|expire <experienceId> [--config <path>]
-       canary experience load [--case <id>] [--tag <tag>] [--feature <id>] [--max-items <n>] [--max-chars <n>] [--config <path>]
+       canary experience load [--case <id>] [--tag <tag>] [--feature <id>] [--check <id>] [--check-type <type>] [--tool <name>] [--language <name>] [--max-items <n>] [--max-chars <n>] [--config <path>]
        canary experience clear [--config <path>]
        canary isolation probe [--config <path>]
        canary policy show [--config <path>]
@@ -317,13 +323,13 @@ export async function runCommandDetailed(options: CliOptions = {}): Promise<RunC
     if (options.agentCheck) throw new CliFailure(2, "AGENT_CONFIG_REQUIRED", "An agent check cannot recursively run a project configuration.", "Point the agent check at an agent/cases/coverage configuration in the same project root.");
     const parsed = projectChecksConfigSchema.safeParse(raw);
     if (!parsed.success) throw new CliFailure(2, "PROJECT_CONFIG_INVALID", "Invalid project check schema or dependencies.", "Use version 1, unique IDs, preceding dependencies and at least one required check.");
-    return runProjectSession(parsed.data, context, options, async (configFile, signal, env, onPid) => {
+    return runProjectSession(parsed.data, context, options, async (configFile, signal, env, onPid, checkId) => {
       if (resolve(configFile, "..") !== context.projectRoot) return blocked(2, "configuration");
       // Import the trusted agent config only inside the cancellable child process.
       const entry = fileURLToPath(import.meta.url);
       // The machine envelope is parsed separately from bounded human diagnostics.
       let envelope = "", envelopeOverflow = false;
-      const result = await runCheckProcess(process.execPath, [...(entry.endsWith(".ts") ? ["--import", pathToFileURL(createRequire(import.meta.url).resolve("tsx")).href] : []), entry, "run", "--ci", "--agent-check", "--config", configFile], context.projectRoot, env, signal, onPid, undefined, chunk => {
+      const result = await runCheckProcess(process.execPath, [...(entry.endsWith(".ts") ? ["--import", pathToFileURL(createRequire(import.meta.url).resolve("tsx")).href] : []), entry, "run", "--ci", "--agent-check", "--experience-check", checkId, "--config", configFile], context.projectRoot, env, signal, onPid, undefined, chunk => {
         if (envelopeOverflow) return;
         envelope += chunk;
         if (envelope.length > 65_536) { envelope = ""; envelopeOverflow = true; }
@@ -383,6 +389,7 @@ export async function runCommandDetailed(options: CliOptions = {}): Promise<RunC
     repetitions: options.repetitions,
     signal: options.signal,
     experiences: options.experiences,
+    experienceContext: options.experienceContext,
     consoleReporter: Boolean(config.reporters?.includes("console")),
     silent: options.json || options.suppressOutput || options.ci,
     runId,
@@ -516,6 +523,106 @@ async function experienceCommand(rest: string[], configPath?: string): Promise<n
     });
     return 0;
   }
+  if (action === "propose-project") {
+    const runId = rest[1], selectedCheck = flagValue(rest, "--check");
+    if (!runId) { console.log(USAGE); return 1; }
+    try {
+      const repository = new FileArtifactRepository(context.artifactRoot);
+      const integrity = repository.verify(runId);
+      if (integrity.status !== "verified" || !integrity.manifestHash) throw new Error("Project source run must have a verified manifest");
+      const run = repository.readRun(runId);
+      if (!run?.checks || !["completed", "failed"].includes(run.status)) throw new Error("Project source run is incomplete or has no checks");
+      const checks = run.checks.filter((check) => ["failed", "blocked"].includes(check.status) && (!selectedCheck || check.id === selectedCheck));
+      if (selectedCheck && !checks.length) throw new Error("Selected check has no failed or blocked result");
+      const records = checks.map((check) => {
+        const child = check.childRun ? repository.readRun(check.childRun.runId) : undefined;
+        const failingCaseIds = child?.results.filter((result) => !result.passed).map((result) => result.caseId) ?? [];
+        return store.propose(candidateFromProjectCheck(context.projectRoot, run, check, integrity.manifestHash!, failingCaseIds));
+      });
+      if (!selectedCheck) for (const [index] of (run.gate?.failures ?? []).entries()) records.push(store.propose(candidateFromQualityGate(context.projectRoot, run, integrity.manifestHash, index)));
+      experienceOutput("canary.experience.project-proposal", { valid: true, sourceRunId: runId, manifestHash: integrity.manifestHash, records, approval: { status: "not_approved" } });
+      return 0;
+    } catch (error) {
+      experienceOutput("canary.experience.project-proposal", { valid: false, errors: [error instanceof Error ? error.message : String(error)], approval: { status: "not_approved" } });
+      return 1;
+    }
+  }
+  if (action === "compare-project") {
+    const baselineId = rest[1], candidateId = rest[2];
+    const regressionCheckIds = flagValues(rest, "--regression"), holdoutCheckIds = flagValues(rest, "--holdout");
+    if (!baselineId || !candidateId || !regressionCheckIds.length || !holdoutCheckIds.length) { console.log(USAGE); return 1; }
+    try {
+      if (baselineId === candidateId) throw new Error("Baseline and candidate must be different runs");
+      const repository = new FileArtifactRepository(context.artifactRoot);
+      const baselineIntegrity = repository.verify(baselineId), candidateIntegrity = repository.verify(candidateId);
+      if (baselineIntegrity.status !== "verified" || candidateIntegrity.status !== "verified" || !baselineIntegrity.manifestHash || !candidateIntegrity.manifestHash) throw new Error("Both project runs require verified manifests");
+      const baseline = repository.readRun(baselineId), candidate = repository.readRun(candidateId);
+      const baselinePlan = repository.readJson(baselineId, "check-plan.json"), candidatePlan = repository.readJson(candidateId, "check-plan.json");
+      if (!baseline || !candidate || !baselinePlan || !candidatePlan) throw new Error("Project run or check plan is missing");
+      const input = {
+        baseline, candidate,
+        baselinePlan: projectChecksConfigSchema.parse(baselinePlan),
+        candidatePlan: projectChecksConfigSchema.parse(candidatePlan),
+        baselineManifestHash: baselineIntegrity.manifestHash,
+        candidateManifestHash: candidateIntegrity.manifestHash,
+        regressionCheckIds, holdoutCheckIds,
+      };
+      const previous = repository.readJson<ReturnType<typeof compareProjectRuns>>(candidateId, "project-comparison.json");
+      const candidateManifest = readArtifactManifest(safeArtifactPath(context.artifactRoot, candidateId));
+      const replay = previous && candidateManifest?.previousManifestHash === previous.evidence?.candidate?.manifestHash && previous.evidence?.baseline?.manifestHash === baselineIntegrity.manifestHash
+        ? compareProjectRuns({ ...input, candidateManifestHash: previous.evidence.candidate.manifestHash })
+        : undefined;
+      const reused = Boolean(replay && JSON.stringify(replay) === JSON.stringify(previous));
+      const report = reused ? replay! : compareProjectRuns(input);
+      if (!reused) repository.writeJson(candidateId, "project-comparison.json", report);
+      experienceOutput("canary.experience.project-comparison", { report, recordedManifestHash: repository.verify(candidateId).manifestHash });
+      return report.observedImprovement ? 0 : 1;
+    } catch (error) {
+      experienceOutput("canary.experience.project-comparison", { valid: false, errors: [error instanceof Error ? error.message : String(error)] });
+      return 1;
+    }
+  }
+  if (action === "export-skill") {
+    const id = rest[1];
+    if (!id) { console.log(USAGE); return 1; }
+    try {
+      const record = store.get(id);
+      if (!record || record.projectRoot !== context.projectRoot || !record.provenance || !["validated", "active"].includes(record.status) || !record.validation || !record.scope.checkIds?.includes(record.provenance.checkId)) throw new Error("Only a validated, project-scoped experience can be exported");
+      const checked = validateExperienceInput(record);
+      if (!checked.valid || checked.contentHash !== record.contentHash) throw new Error("Experience content changed or failed validation");
+      const trialRoot = resolve(context.artifactRoot, "soft-trials");
+      const trials = existsSync(trialRoot) ? await readdir(trialRoot, { withFileTypes: true }) : [];
+      const trial = trials.filter((item) => item.isDirectory()).map((item) => readSoftTrial(context, item.name)).filter((item) => item?.experienceId === id && item.experienceIdentityHash === experienceIdentityHash(record) && ["approved", "activated"].includes(item.status) && item.validation?.valid).sort((a, b) => b!.id.localeCompare(a!.id))[0];
+      if (!trial) throw new Error("An independently validated and approved project trial is required");
+      const { ControlPlane } = await import("@canary/control-plane");
+      new ControlPlane(context.projectRoot, context.artifactRoot).assertSoftApproval(trial.id);
+      const name = `canary-${record.key.toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/^-|-$/g, "").slice(0, 34)}-${record.contentHash.slice(0, 8)}`;
+      const folder = safeArtifactPath(resolve(context.projectRoot, ".canary", "skill-drafts"), name);
+      const scope = record.scope;
+      const markdown = [
+        "---", `name: ${name}`, "description: Review this project's validated Canary check guidance when the recorded check and case match.", "---", "",
+        `# ${record.summary}`, "",
+        "This is a local draft. Treat it as advisory context; it grants no write, network or credential access.", "",
+        "## Applicable context", "",
+        `- Check: ${record.provenance.checkId}`, `- Type: ${(scope.checkTypes ?? []).join(", ") || "unspecified"}`, `- Cases: ${(scope.caseIds ?? []).join(", ") || "unspecified"}`, `- Tools: ${(scope.tools ?? []).join(", ") || "unspecified"}`, `- Language: ${(scope.languages ?? []).join(", ") || "unspecified"}`, "",
+        "## Guidance", "", record.content, "", "## Evidence and validation", "",
+        `- Source run: ${record.provenance.runId}`, `- Source manifest SHA-256: ${record.provenance.manifestHash}`, `- Redacted evidence SHA-256: ${record.provenance.evidenceHash}`, `- Experience version and content SHA-256: ${record.version} / ${record.contentHash}`, `- Trial: ${trial.id}`, `- Candidate run: ${trial.validation!.candidateRunId}`, `- Dataset identity: ${trial.datasetIdentity}`, `- Regression: ${trial.regressionCaseIds.join(", ")}`, `- Holdout: ${trial.holdoutCaseIds.join(", ")}`, "",
+        "## Limits and rollback", "", ...(record.limitations ?? []).map((item) => `- ${item}`), "- Recheck the source and validation artifacts before relying on this draft.", "- Roll back the activated experience with the audited control-plane soft.rollback action if the same failure recurs or another check regresses.", "- Exporting this draft does not install it or activate an experience.", "",
+      ].join("\n");
+      const skillFile = resolve(folder, "SKILL.md"), metadataFile = resolve(folder, "draft.json");
+      if (existsSync(skillFile) && readFileSync(skillFile, "utf8") !== markdown) throw new Error("Existing Skill draft differs; refusing to overwrite it");
+      const metadata = { v: 1, kind: "canary.skill-draft", status: "draft", experienceId: id, experienceIdentityHash: experienceIdentityHash(record), trialId: trial.id, validationHash: sha256(JSON.stringify(trial.validation)), skillHash: sha256(markdown), installed: false };
+      if (existsSync(metadataFile) && JSON.stringify(JSON.parse(readFileSync(metadataFile, "utf8"))) !== JSON.stringify(metadata)) throw new Error("Existing Skill draft metadata differs; refusing to overwrite it");
+      mkdirSync(folder, { recursive: true });
+      if (!existsSync(skillFile)) writePrivateText(skillFile, markdown);
+      if (!existsSync(metadataFile)) writePrivateJson(metadataFile, metadata);
+      experienceOutput("canary.experience.skill-draft", { valid: true, path: skillFile, metadata });
+      return 0;
+    } catch (error) {
+      experienceOutput("canary.experience.skill-draft", { valid: false, errors: [error instanceof Error ? error.message : String(error)] });
+      return 1;
+    }
+  }
   if (action === "propose") {
     const file = flagValue(rest, "--file");
     if (!file) {
@@ -571,6 +678,18 @@ async function experienceCommand(rest: string[], configPath?: string): Promise<n
               featureIds: Array.isArray(raw.scope.featureIds)
                 ? raw.scope.featureIds.filter((item): item is string => typeof item === "string")
                 : undefined,
+              checkIds: Array.isArray(raw.scope.checkIds)
+                ? raw.scope.checkIds.filter((item): item is string => typeof item === "string")
+                : undefined,
+              checkTypes: Array.isArray(raw.scope.checkTypes)
+                ? raw.scope.checkTypes.filter((item): item is string => typeof item === "string")
+                : undefined,
+              tools: Array.isArray(raw.scope.tools)
+                ? raw.scope.tools.filter((item): item is string => typeof item === "string")
+                : undefined,
+              languages: Array.isArray(raw.scope.languages)
+                ? raw.scope.languages.filter((item): item is string => typeof item === "string")
+                : undefined,
             }
           : undefined,
         expiresAt: typeof raw.expiresAt === "string" ? raw.expiresAt : undefined,
@@ -595,6 +714,8 @@ async function experienceCommand(rest: string[], configPath?: string): Promise<n
       return 1;
     }
     try {
+      const existing = store.get(id);
+      if (existing?.provenance && ["validate", "activate"].includes(action!)) throw new Error("Project-derived experience requires independent trial evidence and human approval; direct validation or activation is unavailable");
       const record =
         action === "validate"
           ? store.transition(id, "validated")
@@ -629,6 +750,10 @@ async function experienceCommand(rest: string[], configPath?: string): Promise<n
         caseId: flagValue(rest, "--case"),
         tags: flagValues(rest, "--tag"),
         featureIds: flagValues(rest, "--feature"),
+        checkId: flagValue(rest, "--check"),
+        checkType: flagValue(rest, "--check-type"),
+        tool: flagValue(rest, "--tool"),
+        language: flagValue(rest, "--language"),
         maxItems: parseBoundedInteger(flagValue(rest, "--max-items"), "--max-items"),
         maxChars: parseBoundedInteger(flagValue(rest, "--max-chars"), "--max-chars"),
       });
@@ -671,20 +796,6 @@ function writeSoftTrial(context: ProjectContext, record: SoftTrialRecord): void 
 function softTrialOutput(value: unknown): void {
   printHost({ v: 1, kind: "canary.soft-trial", ...(isRecord(value) ? value : { value }) });
 }
-function softTrialDatasetIdentity(results: RunSnapshot["results"]): string {
-  return createHash("sha256")
-    .update(
-      JSON.stringify(
-        results.map((result) => ({
-          id: result.caseId,
-          repetition: result.repetition,
-          dataset: result.sourceCase?.dataset ?? null,
-        })),
-      ),
-    )
-    .digest("hex");
-}
-
 async function softTrialCommand(rest: string[], configPath?: string): Promise<number> {
   const action = rest[0];
   const { context, store } = experienceStoreFor(configPath);
@@ -723,7 +834,8 @@ async function softTrialCommand(rest: string[], configPath?: string): Promise<nu
       });
       return 1;
     }
-    if (experience.projectRoot !== context.projectRoot || !["validated", "active"].includes(experience.status)) {
+    const projectProposal = experience.status === "proposed" && Boolean(experience.provenance);
+    if (experience.projectRoot !== context.projectRoot || (!["validated", "active"].includes(experience.status) && !projectProposal)) {
       softTrialOutput({
         valid: false,
         status: "rejected",
@@ -732,6 +844,22 @@ async function softTrialCommand(rest: string[], configPath?: string): Promise<nu
         ],
       });
       return 1;
+    }
+    if (projectProposal) {
+      const source = experience.provenance!;
+      const repository = new FileArtifactRepository(context.artifactRoot);
+      const integrity = repository.verify(source.runId);
+      const parent = integrity.status === "verified" && integrity.manifestHash === source.manifestHash ? repository.readRun(source.runId) : undefined;
+      const check = parent?.checks?.find((item) => item.id === source.checkId);
+      if (!check?.childRun || check.type !== "agent" || check.childRun.runId !== baselineId || experience.scope.checkTypes?.[0] !== "agent" || !regressionCaseIds.every((id) => experience.scope.caseIds?.includes(id)) || holdoutIds.some((id) => experience.scope.caseIds?.includes(id))) {
+        softTrialOutput({ valid: false, status: "rejected", errors: ["Project proposal requires its verified failed agent check, scoped regression cases and an independent holdout"] });
+        return 1;
+      }
+      const childIntegrity = repository.verify(baselineId);
+      if (childIntegrity.status !== "verified" || childIntegrity.manifestHash !== check.childRun.manifestHash) {
+        softTrialOutput({ valid: false, status: "rejected", errors: ["Project child baseline evidence changed"] });
+        return 1;
+      }
     }
     const selectedResults = baseline.results.filter((result) => selectedIds.includes(result.caseId));
     const maxCases = parseBoundedInteger(flagValue(rest, "--max-cases"), "--max-cases") ?? selectedIds.length;
@@ -749,6 +877,7 @@ async function softTrialCommand(rest: string[], configPath?: string): Promise<nu
       baselineRunId: baselineId,
       experienceId,
       experienceContentHash: experience.contentHash,
+      experienceIdentityHash: experienceIdentityHash(experience),
       datasetIdentity: softTrialDatasetIdentity(selectedResults),
       regressionCaseIds,
       holdoutCaseIds: holdoutIds,
@@ -812,6 +941,7 @@ async function softTrialCommand(rest: string[], configPath?: string): Promise<nu
         caseIds: selectedIds,
         candidateOf: record.baselineRunId,
         experiences: isolated,
+        experienceContext: experience.provenance ? { checkId: experience.provenance.checkId, checkType: experience.scope.checkTypes?.[0] ?? "agent" } : undefined,
       });
       const candidate = executed.snapshot;
       const comparison = compareRuns(baselineSubset, candidate, holdoutCaseIds(candidate.results));
@@ -826,6 +956,13 @@ async function softTrialCommand(rest: string[], configPath?: string): Promise<nu
         candidateExitCode: executed.exitCode,
         comparisonArtifact: comparisonPath,
       });
+      if (experience.provenance) {
+        const loaded = candidate.experiences?.find((item) => item.id === experience.id && item.version === experience.version && item.contentHash === experience.contentHash);
+        if (!loaded || !record.regressionCaseIds.every((id) => loaded.selection?.caseIds?.includes(id)) || record.holdoutCaseIds.some((id) => loaded.selection?.caseIds?.includes(id))) {
+          validation.valid = false;
+          validation.reasons.push("Project experience was not loaded only for the regression cases");
+        }
+      }
       writeFileSync(
         resolve(softTrialDir(context, record.id), "validation.json"),
         JSON.stringify(validation, null, 2),
@@ -845,6 +982,10 @@ async function softTrialCommand(rest: string[], configPath?: string): Promise<nu
     }
   }
   if (action === "approve") {
+    if (experience.provenance) {
+      softTrialOutput({ valid: false, status: "rejected", errors: ["Project-derived approval requires the audited control-plane soft.approve action"] });
+      return 1;
+    }
     if (record.status !== "validated" || !record.validation?.valid) {
       softTrialOutput({
         valid: false,
@@ -870,7 +1011,12 @@ async function softTrialCommand(rest: string[], configPath?: string): Promise<nu
   }
   if (action === "run") {
     const { ControlPlane } = await import("@canary/control-plane");
-    new ControlPlane(context.projectRoot, context.artifactRoot).assertSoftApproval(trialId);
+    try {
+      new ControlPlane(context.projectRoot, context.artifactRoot).assertSoftApproval(trialId);
+    } catch (error) {
+      softTrialOutput({ valid: false, status: "rejected", errors: [error instanceof Error ? error.message : String(error)] });
+      return 1;
+    }
     if (record.status !== "approved" || record.authorization.status !== "approved") {
       softTrialOutput({
         valid: false,
@@ -880,6 +1026,10 @@ async function softTrialCommand(rest: string[], configPath?: string): Promise<nu
       return 1;
     }
     const prior = record.priorActive ?? store.activePointer(context.projectRoot);
+    if (experience.provenance && JSON.stringify(store.activePointer(context.projectRoot).entries) !== JSON.stringify(prior.entries)) {
+      softTrialOutput({ valid: false, status: "rejected", errors: ["Active experience pointer changed since trial preparation"] });
+      return 1;
+    }
     if (experience.status === "validated") store.activate(experience.id);
     let executed: RunCommandResult | undefined;
     try {
@@ -890,7 +1040,17 @@ async function softTrialCommand(rest: string[], configPath?: string): Promise<nu
         json: true,
         suppressOutput: true,
         caseIds: [...new Set([...record.regressionCaseIds, ...record.holdoutCaseIds])],
+        experienceContext: experience.provenance ? { checkId: experience.provenance.checkId, checkType: experience.scope.checkTypes?.[0] ?? "agent" } : undefined,
       });
+      if (experience.provenance) {
+        const loaded = executed.snapshot.experiences?.find((item) => item.id === experience.id && item.version === experience.version && item.contentHash === experience.contentHash);
+        if (executed.exitCode !== 0 || !loaded || !record.regressionCaseIds.every((id) => loaded.selection?.caseIds?.includes(id)) || record.holdoutCaseIds.some((id) => loaded.selection?.caseIds?.includes(id))) {
+          if (store.get(experience.id)?.status === "active") store.transition(experience.id, "validated", "Project trial activation failed");
+          store.restorePointer(prior);
+          softTrialOutput({ valid: false, action, errors: ["Activated project experience did not produce the required loaded regression evidence"] });
+          return 1;
+        }
+      }
       const next: SoftTrialRecord = { ...record, status: "activated", nextRunId: executed.runId };
       writeSoftTrial(context, next);
       softTrialOutput({
@@ -902,6 +1062,7 @@ async function softTrialCommand(rest: string[], configPath?: string): Promise<nu
       });
       return executed.exitCode;
     } catch (error) {
+      if (store.get(experience.id)?.status === "active") store.transition(experience.id, "validated", "Trial execution failed");
       store.restorePointer(prior);
       throw error;
     } finally {
@@ -909,6 +1070,10 @@ async function softTrialCommand(rest: string[], configPath?: string): Promise<nu
     }
   }
   if (action === "rollback") {
+    if (experience.provenance) {
+      softTrialOutput({ valid: false, status: "rejected", errors: ["Project-derived rollback requires the audited control-plane soft.rollback action"] });
+      return 1;
+    }
     if (record.status !== "activated") {
       softTrialOutput({ valid: false, status: "rejected", errors: ["Only an activated trial can be rolled back"] });
       return 1;

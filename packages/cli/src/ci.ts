@@ -53,7 +53,7 @@ export function classifyCiError(error: unknown, context: ProjectContext): CliFai
     "Preserve local artifacts and reproduce with a minimal trusted configuration; report the Canary and Node versions.",
   );
 }
-const valueFlags = new Set(["--config", "--case", "--tag", "--repetitions", "--entry", "--retry-of"]);
+const valueFlags = new Set(["--config", "--case", "--tag", "--repetitions", "--entry", "--retry-of", "--experience-check"]);
 const booleanFlags = new Set(["--ci", "--json", "--headless", "--no-open", "--agent-check"]);
 export function parseCiOptions(args: string[]): CliOptions {
   const options: CliOptions = { ci: true, headless: true, noOpen: true, suppressOutput: true };
@@ -82,6 +82,10 @@ export function parseCiOptions(args: string[]): CliOptions {
     if (flag === "--tag") (options.tags ??= []).push(value);
     if (flag === "--entry") options.entry = value;
     if (flag === "--retry-of") options.retryOf = value;
+    if (flag === "--experience-check") {
+      if (!/^[A-Za-z0-9][A-Za-z0-9_.-]*$/.test(value)) throw new CliFailure(2, "CLI_ARGUMENT", "Invalid internal check ID.", "Use a declared project check ID.");
+      options.experienceContext = { checkId: value, checkType: "agent" };
+    }
     if (flag === "--repetitions") {
       const count = Number(value);
       if (!Number.isSafeInteger(count) || count < 1)
@@ -94,6 +98,7 @@ export function parseCiOptions(args: string[]): CliOptions {
       options.repetitions = count;
     }
   }
+  if (options.experienceContext && !options.agentCheck) throw new CliFailure(2, "CLI_ARGUMENT", "Check context requires a project agent check.", "Run the project configuration instead.");
   return options;
 }
 
