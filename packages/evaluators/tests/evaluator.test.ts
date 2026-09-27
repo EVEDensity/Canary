@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { evaluateAgent, evaluateCoverageGates, evaluateHardGates, mergeQualityGates, exitCodeForRun, attributeFailure, DeterministicJudgeProvider, HttpJudgeProvider } from "../src/index.js";
 import type { CoverageSummary, EvalResult, Trajectory } from "@canary/core";
 
@@ -257,19 +257,22 @@ describe("coverage.atLeast and LLM-as-Judge", () => {
   it("aborts an in-flight HTTP judge request instead of only stopping the waiter", async () => {
     const { createServer } = await import("node:http");
     let aborted = false;
+    let received = false;
     const server = createServer((request, response) => {
+      received = true;
       request.on("aborted", () => { aborted = true; });
-      request.on("close", () => { if (!response.writableEnded) aborted = true; });
+      response.on("close", () => { if (!response.writableEnded) aborted = true; });
     });
     await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", () => resolve()));
     const address = server.address();
     const port = typeof address === "object" && address ? address.port : 0;
     try {
       const judge = new HttpJudgeProvider(`http://127.0.0.1:${port}/score`);
-      const scored = await judge.score({ input: "x", output: "y", timeoutMs: 30 });
+      const scoring = judge.score({ input: "x", output: "y", timeoutMs: 2000 });
+      await vi.waitFor(() => expect(received).toBe(true), { timeout: 1500 });
+      const scored = await scoring;
       expect(scored.verdict).toBe("timeout");
-      await new Promise((resolve) => setTimeout(resolve, 40));
-      expect(aborted).toBe(true);
+      await vi.waitFor(() => expect(aborted).toBe(true), { timeout: 1000 });
     } finally {
       await new Promise<void>((resolve) => server.close(() => resolve()));
     }

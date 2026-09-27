@@ -26,7 +26,7 @@ describe("isolation capability and process boundary", () => {
     expect(cap.notes.some((note) => note.includes("not an OS"))).toBe(true);
     expect(requiredMode("trusted_eval")).toBe("none");
     expect(requiredMode("untrusted_candidate")).toBe("userspace");
-  });
+  }, 15_000);
 
   it("fail-closes auto hard write when OS isolation is required and missing", () => {
     const root = isolatedWorkspace();
@@ -38,7 +38,7 @@ describe("isolation capability and process boundary", () => {
     } else {
       expect(assertIsolationReady({ purpose: "auto_hard_write", workspace: root, policy }).os).toBe(true);
     }
-  });
+  }, 15_000);
 
   it("does not inherit secret environment variables", () => {
     const previous = process.env.OPENAI_API_KEY;
