@@ -11,9 +11,11 @@ import {
 import {
   gateIssues,
   issueFromCheck,
+  linkAgentVerification,
   linkVerification,
   type ProjectIssue,
   type RetryCandidate,
+  type ReplayCandidate,
 } from "./project-issues.js";
 
 function summary(run: RunSnapshot) {
@@ -108,12 +110,32 @@ export class WorkspaceReader {
       }
     return retries;
   }
+  private replays(): ReplayCandidate[] {
+    const rows = this.list(Number.MAX_SAFE_INTEGER);
+    const known = new Set(rows.map((row) => row.runId));
+    const replays: ReplayCandidate[] = rows.filter((row) => row.replayOf);
+    const root = this.repository?.rootDir;
+    if (root && existsSync(root))
+      for (const entry of readdirSync(root, { withFileTypes: true })) {
+        if (!entry.isDirectory() || known.has(entry.name)) continue;
+        try {
+          const manifest = readArtifactManifest(safeArtifactPath(root, entry.name));
+          if (manifest?.lineage.replayOf)
+            replays.push({ runId: entry.name, replayOf: manifest.lineage.replayOf, startedAt: manifest.createdAt });
+        } catch {
+          /* A manifest is only a discovery hint; replay verification checks the sealed content. */
+        }
+      }
+    return replays;
+  }
   read(id: string) {
     const integrity = this.repository?.verify(id);
     if (integrity?.status === "invalid") throw new ArtifactIntegrityError(integrity);
     const run = this.store.get(id) ?? this.repository?.readRun(id);
     if (!run) return undefined;
     const issues: ProjectIssue[] = [...gateIssues(run)];
+    let replayRuns: ReplayCandidate[] | undefined;
+    const getReplayRuns = () => (replayRuns ??= this.replays());
     const retryRuns = run.checks?.some((check) => check.status === "failed" || check.status === "blocked")
       ? this.retries()
       : [];
@@ -122,6 +144,28 @@ export class WorkspaceReader {
       if (!loaded.has(runId)) loaded.set(runId, this.store.get(runId) ?? this.repository?.readRun(runId));
       return loaded.get(runId);
     };
+    const agentIssue = (source: RunSnapshot, result: RunSnapshot["results"][number]): ProjectIssue =>
+      linkAgentVerification(
+        {
+          id: `${source.runId}:case:${result.caseId}`,
+          runId: source.runId,
+          category: "agent",
+          title: result.caseId,
+          summary:
+            result.assertions.find((assertion) => !assertion.passed)?.message ??
+            result.failureCategory ??
+            "Agent 用例未通过",
+          advice: "进入关联用例检查断言和轨迹；修复后重放同一用例。",
+          target: "cases",
+          status: "open",
+        },
+        source,
+        getReplayRuns(),
+        this.repository,
+        loadRetry,
+      );
+    if (!run.checks)
+      for (const result of run.results.filter((item) => !item.passed)) issues.push(agentIssue(run, result));
     for (const check of run.checks ?? []) {
       if (check.status === "failed" || check.status === "blocked")
         issues.push(linkVerification(issueFromCheck(id, check), run, retryRuns, this.repository, loadRetry));
@@ -146,18 +190,7 @@ export class WorkspaceReader {
         const child = this.repository.readRun(check.childRun.runId);
         if (child) {
           issues.push(...gateIssues(child));
-          for (const result of child.results.filter((result) => !result.passed))
-            issues.push({
-              id: `${child.runId}:case:${result.caseId}`,
-              runId: child.runId,
-              category: "agent",
-              title: result.caseId,
-              summary:
-                result.assertions.find((a) => !a.passed)?.message ?? result.failureCategory ?? "Agent 用例未通过",
-              advice: "进入关联用例检查断言和轨迹，修复后重新评估。",
-              target: "cases",
-              status: "open",
-            });
+          for (const result of child.results.filter((result) => !result.passed)) issues.push(agentIssue(child, result));
         }
         sources.push({
           runId: check.childRun.runId,
@@ -190,6 +223,7 @@ export class WorkspaceReader {
       issues,
       activeCheck: run.activeCheck,
       checks: run.checks,
+      checkSelection: run.checkSelection,
       coverageSources: sources,
       integrity,
       evidence: run.evidence,

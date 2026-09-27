@@ -11,10 +11,14 @@ import {
   parseSuggestionDecision,
   SchemaValidationError,
   invalidInput,
+  type ProjectChecksConfig,
+  type CoverageManifest,
 } from "@canary/core";
 import { renderReport } from "@canary/reporters";
 import {
   compareRuns,
+  assessAgentComparison,
+  assessProjectComparison,
   decideSuggestion,
   holdoutCaseIds,
   writeRegressionDrafts,
@@ -26,8 +30,13 @@ import {
   redactRunSnapshot,
   redactValue,
   RunStore,
+  stableHash,
 } from "@canary/trace";
 import { renderWorkspace } from "./workspace-ui.js";
+import { linkCoverage, type StructureSnapshot, type StructureChange } from "@canary/structure";
+import { readStructureSource } from "./structure-source.js";
+import { checkLogs, mapCoverageToStructure, mapFailuresToStructure, type DiagnosticSource } from "./structure-diagnostics.js";
+import { issueFromCheck } from "./project-issues.js";
 import { WorkspaceReader } from "./workspace.js";
 
 export type { RunSnapshot } from "@canary/core";
@@ -199,6 +208,75 @@ async function handleRequest(
       writeJson(response, value ? 200 : 404, value ?? { error: "Run not found" });
       return;
     }
+    if (parts[0] === "api" && parts[1] === "structure" && (parts.length === 2 || (parts.length === 3 && parts[2] === "source"))) {
+      if (request.method !== "GET") { writeJson(response, 405, { error: "GET required" }); return; }
+      const runId = url.searchParams.get("runId");
+      if (!runId || !artifacts) { writeJson(response, 400, { error: "A saved runId and artifact repository are required" }); return; }
+      const integrity = artifacts.verify(runId);
+      if (integrity.status === "invalid") throw new ArtifactIntegrityError(integrity);
+      if (integrity.status !== "verified") { writeJson(response, 409, { error: `Structure evidence is ${integrity.status}` }); return; }
+      const structure = artifacts.readJson<StructureSnapshot>(runId, "structure.json");
+      if (!structure) { writeJson(response, 404, { error: "This run predates structure snapshots; current source cannot describe historical code" }); return; }
+      if (parts[2] === "source") {
+        const nodeId = url.searchParams.get("nodeId");
+        const center = Number(url.searchParams.get("line"));
+        const detail = nodeId ? readStructureSource(structure, nodeId, center) : undefined;
+        writeJson(response, detail ? 200 : 404, detail ?? { error: "Source node not found" });
+        return;
+      }
+      const run = artifacts.readRun(runId);
+      const coverage = run?.coverage ?? artifacts.readCoverage(runId);
+      const coverageLinks = coverage ? linkCoverage(structure, coverage, structure.source.projectRoot) : [];
+      const diagnosticSources: DiagnosticSource[] = [];
+      if (coverage) diagnosticSources.push({ runId, coverage, manifest: artifacts.readJson<CoverageManifest>(runId, "coverage-manifest.json") });
+      const checkLinks: Array<{ nodeId: string; checkId: string; runId: string; evidence: "coverage-observed" }> = [];
+      for (const check of run?.checks ?? []) {
+        if (!check.childRun) continue;
+        const childIntegrity = artifacts.verify(check.childRun.runId);
+        if (childIntegrity.status !== "verified" || childIntegrity.manifestHash !== check.childRun.manifestHash) continue;
+        const childCoverage = artifacts.readCoverage(check.childRun.runId);
+        if (!childCoverage) continue;
+        diagnosticSources.push({ runId: check.childRun.runId, checkId: check.id, coverage: childCoverage, manifest: artifacts.readJson<CoverageManifest>(check.childRun.runId, "coverage-manifest.json") });
+        for (const link of linkCoverage(structure, childCoverage, structure.source.projectRoot))
+          if (link.nodeId && link.provenance === "runtime") checkLinks.push({ nodeId: link.nodeId, checkId: check.id, runId: check.childRun.runId, evidence: "coverage-observed" });
+      }
+      const failures = mapFailuresToStructure(structure, workspace?.read(runId)?.issues ?? [], checkLogs(run?.checks));
+      // Historical markers are shown only when the old and selected file bytes share a sealed hash.
+      // A changed file remains in history but is never painted onto today's source.
+      const currentFiles = new Map(structure.nodes.filter((node) => node.kind === "file").map((node) => [node.path, node.sourceHash]));
+      let historicalRuns = 0;
+      for (const row of workspace?.list(12) ?? []) {
+        if (historicalRuns >= 3 || failures.length >= 60) break;
+        if (row.runId === runId || row.startedAt >= (run?.startedAt ?? structure.capturedAt) || row.status !== "failed") continue;
+        const previousIntegrity = artifacts.verify(row.runId);
+        if (previousIntegrity.status !== "verified") continue;
+        const previousStructure = artifacts.readJson<StructureSnapshot>(row.runId, "structure.json");
+        const previousRun = artifacts.readRun(row.runId);
+        if (!previousStructure || !previousRun || previousStructure.source.projectRoot !== structure.source.projectRoot) continue;
+        historicalRuns++;
+        const oldIssues = (previousRun.checks ?? []).filter((check) => check.status === "failed").map((check) => issueFromCheck(row.runId, check));
+        for (const failure of mapFailuresToStructure(previousStructure, oldIssues, checkLogs(previousRun.checks), true)) {
+          if (!failure.path || !failure.fileNodeId) continue;
+          const oldFile = previousStructure.nodes.find((node) => node.id === failure.fileNodeId);
+          if (oldFile?.sourceHash === currentFiles.get(failure.path)) failures.push(failure);
+        }
+      }
+      writeJson(response, 200, {
+        structure,
+        change: artifacts.readJson<StructureChange>(runId, "structure-change.json"),
+        analysis: artifacts.readJson(runId, "architecture-analysis.json"),
+        impact: artifacts.readJson(runId, "change-impact.json"),
+        ciPlan: artifacts.readJson(runId, "ci-plan.json"),
+        coverageLinks,
+        checkLinks,
+        diagnostics: {
+          measurements: mapCoverageToStructure(structure, diagnosticSources),
+          failures,
+        },
+        integrity: { status: integrity.status, manifestHash: integrity.manifestHash },
+      });
+      return;
+    }
     if (url.pathname === "/api/session/close") {
       if (request.method !== "POST" || !allowWrite(request, url, hooks)) {
         writeJson(response, 403, { error: "Write token required" });
@@ -245,8 +323,10 @@ async function handleRequest(
       for (const id of [baselineId, candidateId])
         if (artifacts?.verify(id).status === "invalid") throw new ArtifactIntegrityError(artifacts.verify(id));
       if (artifacts) for (const id of [baselineId, candidateId]) store.hydrateRun(artifacts, id);
-      const baseline = store.sanitize(store.get(baselineId));
-      const candidate = store.sanitize(store.get(candidateId));
+      // Assess original sealed values: redaction can collapse different inputs to the
+      // same placeholder and make unrelated cases appear identical. writeJson redacts output.
+      const baseline = store.get(baselineId);
+      const candidate = store.get(candidateId);
       if (!baseline || !candidate) {
         writeJson(response, 404, { error: "Both baseline and candidate runs must exist" });
         return;
@@ -257,10 +337,21 @@ async function handleRequest(
           return;
         }
         const ids = [...new Set([...baseline.checks, ...candidate.checks].map((check) => check.id))];
+        const baselinePlan = artifacts?.readJson<ProjectChecksConfig>(baselineId, "check-plan.json");
+        const candidatePlan = artifacts?.readJson<ProjectChecksConfig>(candidateId, "check-plan.json");
+        const assessment = assessProjectComparison(baseline, candidate, {
+          sealed:
+            artifacts?.verify(baselineId).status === "verified" && artifacts?.verify(candidateId).status === "verified",
+          samePlan: Boolean(baselinePlan && candidatePlan && stableHash(baselinePlan) === stableHash(candidatePlan)),
+          linkedRetry:
+            candidate.retryOf === baselineId &&
+            candidate.evidence?.lineage.parentManifestHash === artifacts?.verify(baselineId).manifestHash,
+        });
         writeJson(response, 200, {
           kind: "canary.project-comparison",
           baseline: baselineId,
           candidate: candidateId,
+          assessment,
           checks: ids.map((id) => ({
             id,
             before: baseline.checks!.find((check) => check.id === id)?.status ?? "not-run",
@@ -270,7 +361,8 @@ async function handleRequest(
         return;
       }
       const holdout = holdoutCaseIds([...baseline.results, ...candidate.results]);
-      writeJson(response, 200, compareRuns(baseline, candidate, holdout));
+      const comparison = compareRuns(baseline, candidate, holdout);
+      writeJson(response, 200, { ...comparison, assessment: assessAgentComparison(baseline, candidate, comparison) });
       return;
     }
     if (parts[0] === "api" && parts[1] === "runs" && parts.length === 2) {

@@ -33,6 +33,7 @@ export function issueFromCheck(runId: string, check: ProjectCheckResult): Projec
     check.stdout ?? "",
   ]
     .flatMap((line) => line.split("\n"))
+    .map((line) => line.replace(/\u001b\[[0-?]*[ -/]*[@-~]/g, ""))
     .filter((line) => line.trim() && !/^\[.*(?:omitted|redacted|recent output)/i.test(line));
   return {
     id: `${runId}:check:${check.id}`,
@@ -53,6 +54,77 @@ export function issueFromCheck(runId: string, check: ProjectCheckResult): Projec
 
 /** A passing unrelated run or manually assigned status can never close a project issue. */
 export type RetryCandidate = Pick<RunSnapshot, "runId" | "retryOf" | "startedAt"> & { checkIds: string[] };
+export type ReplayCandidate = Pick<RunSnapshot, "runId" | "replayOf" | "startedAt">;
+
+/** Agent replay verification is scoped to the same case and its original assertion/input snapshot. */
+export function linkAgentVerification(
+  issue: ProjectIssue,
+  source: RunSnapshot,
+  candidates: ReplayCandidate[],
+  repository?: FileArtifactRepository,
+  load?: (id: string) => RunSnapshot | undefined,
+): ProjectIssue {
+  if (!repository || issue.target !== "cases") return issue;
+  const caseId = issue.title;
+  const originals = source.results.filter((result) => result.caseId === caseId);
+  if (!originals.length || originals.some((result) => !result.sourceCase)) return issue;
+  const reachable = new Map<string, RunSnapshot>([[source.runId, source]]);
+  for (const header of [...candidates].sort((a, b) => a.startedAt.localeCompare(b.startedAt))) {
+    if (!header.replayOf || !reachable.has(header.replayOf)) continue;
+    const parent = reachable.get(header.replayOf)!;
+    const updated = { ...issue, verification: { runId: header.runId, reason: "" } };
+    try {
+      const replay = load?.(header.runId) ?? repository.readRun(header.runId);
+      if (!replay) throw new Error("Missing replay");
+      const parentIntegrity = repository.verify(parent.runId);
+      const integrity = repository.verify(replay.runId);
+      const lineage = replay.evidence?.lineage;
+      if (
+        parentIntegrity.status !== "verified" ||
+        replay.replayOf !== parent.runId ||
+        lineage?.replayOf !== parent.runId ||
+        lineage.parentManifestHash !== parentIntegrity.manifestHash
+      ) {
+        updated.status = "unverified";
+        updated.verification.reason = "重放谱系或来源证据不匹配";
+      } else if (replay.status === "running" && integrity.status !== "invalid") {
+        updated.status = "waiting";
+        updated.verification.reason = "关联重放尚未完成";
+      } else if (integrity.status !== "verified") {
+        updated.status = "unverified";
+        updated.verification.reason = "重放证据尚未封存或已损坏";
+      } else {
+        reachable.set(replay.runId, replay);
+        const results = replay.results.filter((result) => result.caseId === caseId);
+        const key = (result: RunSnapshot["results"][number]) =>
+          result.repetition === undefined ? "single" : `repeat:${result.repetition}`;
+        const originalByKey = new Map(originals.map((result) => [key(result), result]));
+        const sameCase =
+          results.length === originals.length &&
+          originalByKey.size === originals.length &&
+          new Set(results.map(key)).size === results.length &&
+          results.every(
+            (result) =>
+              result.sourceCase &&
+              originalByKey.has(key(result)) &&
+              stableHash(result.sourceCase) === stableHash(originalByKey.get(key(result))!.sourceCase),
+          );
+        updated.status =
+          sameCase && replay.status === "completed" && results.every((result) => result.passed) ? "verified" : "failed";
+        updated.verification.reason = !sameCase
+          ? "输入、断言或重复轮次变化；不能证明同一用例已修复"
+          : updated.status === "verified"
+            ? "同一 Agent 用例及断言通过，重放谱系和证据已校验；仅覆盖该用例"
+            : "关联重放中同一用例仍未通过";
+      }
+    } catch {
+      updated.status = "unverified";
+      updated.verification.reason = "无法读取完整重放证据";
+    }
+    issue = updated;
+  }
+  return issue;
+}
 export function linkVerification(
   issue: ProjectIssue,
   source: RunSnapshot,
