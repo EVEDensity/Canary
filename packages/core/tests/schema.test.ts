@@ -9,6 +9,8 @@ describe("Zod boundary validation", () => {
       coverage: { include: ["src/**/*.ts"], lines: 80 },
     });
     expect(config.agent.entry).toBe("./agent.ts");
+    expect(parseCanaryConfig({ agent: { adapter: "http", entry: "http://127.0.0.1:3000/agent", requestField: "message" }, cases: "./cases.ts", coverage: { include: ["src"] } }).agent.requestField).toBe("message");
+    expect(() => parseCanaryConfig({ agent: { adapter: "http", entry: "http://127.0.0.1:3000/agent", requestField: "bad.field" }, cases: "./cases.ts", coverage: { include: ["src"] } })).toThrow(SchemaValidationError);
     expect(() => parseCanaryConfig({ agent: { adapter: "function", entry: "./agent.ts" }, cases: "./cases.ts", coverage: { include: ["src"] }, extra: true })).toThrow(SchemaValidationError);
     expect(() => parseCanaryConfig({ agent: { adapter: "function", entry: "" }, cases: "./cases.ts", coverage: { include: ["src"] } })).toThrow(/CanaryConfig/);
     expect(parseCanaryConfig({

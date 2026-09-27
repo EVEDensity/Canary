@@ -105,7 +105,7 @@ export type CoverageProviderKind = "v8" | "istanbul";
 
 export interface CanaryConfig {
   artifacts?: ArtifactOptions;
-  agent: { adapter: AgentAdapterKind; entry: string; export?: string };
+  agent: { adapter: AgentAdapterKind; entry: string; export?: string; requestField?: string };
   cases: string | string[];
   coverage: { include: string[]; exclude?: string[]; sampleIntervalMs?: number; provider?: CoverageProviderKind } & CoverageThresholds;
   features?: FeatureDefinition[];
@@ -310,6 +310,7 @@ export type RunnerEvent =
 export interface RunSnapshot {
   activeCheck?: { id: string; startedAt: string };
   checks?: ProjectCheckResult[];
+  checkSelection?: import("./checks.js").ProjectCheckSelection;
   evidence?: RunEvidence;
   runId: string;
   status: RunStatus;

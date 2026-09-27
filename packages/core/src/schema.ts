@@ -38,6 +38,7 @@ export const canaryConfigSchema = z.object({
     adapter: adapterSchema,
     entry: z.string().min(1),
     export: z.string().min(1).optional(),
+    requestField: z.string().regex(/^[A-Za-z_][A-Za-z0-9_]*$/).optional(),
   }),
   cases: z.union([z.string().min(1), z.array(z.string().min(1)).min(1)]),
   coverage: z.object({

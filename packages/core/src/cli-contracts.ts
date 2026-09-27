@@ -89,6 +89,7 @@ export const ciResultSchema = z
       })
       .strict(),
     issues: z.array(cliIssueSchema),
+    selection: z.object({ requested: z.enum(["full", "affected"]), mode: z.enum(["full", "reduced"]), planned: z.number().int().nonnegative(), selected: z.number().int().nonnegative(), omitted: z.number().int().nonnegative(), fallbackReasons: z.array(z.string()) }).strict().optional(),
     runtime: versionSnapshotSchema,
     capabilities: z
       .object({ scope: z.enum(["configured-agent-cases", "project-checks"]), web: z.literal(false), automaticExport: z.literal(false) })
@@ -108,6 +109,8 @@ export const ciResultSchema = z
       context.addIssue({ code: "custom", path: ["outcome"], message: "Outcome does not match exitCode" });
     if (value.summary.passed + value.summary.failed > value.summary.total)
       context.addIssue({ code: "custom", path: ["summary"], message: "Counts exceed total" });
+    if (value.selection && value.selection.selected + value.selection.omitted !== value.selection.planned)
+      context.addIssue({ code: "custom", path: ["selection"], message: "Selection counts do not match the original plan" });
   });
 export type CiResult = z.infer<typeof ciResultSchema>;
 

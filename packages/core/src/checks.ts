@@ -12,6 +12,10 @@ const base = {
   cwd: z.string().default("."),
   timeoutMs: z.number().int().positive().max(3_600_000).default(60_000),
   envAllowlist: z.array(z.string().regex(/^[A-Za-z_][A-Za-z0-9_]*$/)).default([]),
+  impact: z.object({
+    paths: z.array(z.string().min(1).max(256).refine((path) => !path.startsWith("/") && !path.includes("..") && !path.includes("\\"), "Impact paths must be project-relative globs")).nonempty().max(64).optional(),
+    always: z.boolean().optional(),
+  }).strict().optional(),
 };
 const command = { command: z.string().min(1), args: z.array(z.string()).default([]) };
 export const projectCheckSchema = z.discriminatedUnion("type", [
@@ -74,6 +78,15 @@ export const projectChecksConfigSchema = z
   });
 export type ProjectCheck = z.infer<typeof projectCheckSchema>;
 export type ProjectChecksConfig = z.infer<typeof projectChecksConfigSchema>;
+export interface ProjectCheckSelection {
+  requested: "full" | "affected";
+  mode: "full" | "reduced";
+  planned: number;
+  selected: number;
+  omitted: number;
+  fallbackReasons: string[];
+  omittedChecks: Array<{ id: string; reason: string }>;
+}
 export function defineProjectConfig(input: z.input<typeof projectChecksConfigSchema>): ProjectChecksConfig {
   return projectChecksConfigSchema.parse(input);
 }
