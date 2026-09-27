@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { countJunitFailures, renderJunit, renderMarkdown, renderReport } from "../src/index.js";
-import type { EvalResult } from "@canary/core";
+import type { EvalResult, ProjectCheckResult } from "@canary/core";
 
 const result = (caseId: string, passed: boolean): EvalResult => ({
   runId: "run_1",
@@ -53,5 +53,14 @@ describe("run reporters", () => {
     expect(body).toContain("canary run_1");
     expect(body).toContain("PASS ok");
     expect(body).toContain("FAIL bad");
+  });
+  it("reports omitted incremental checks as skipped, never as passing results", () => {
+    const check: ProjectCheckResult = { id: "run", version: 1, type: "command", required: true, status: "passed", evidence: "verified", exitCode: 0, category: "none", retryable: false, durationMs: 10, cwd: ".", envAllowlist: [] };
+    const project = { ...run, status: "completed", checks: [check], results: [], checkSelection: { requested: "affected" as const, mode: "reduced" as const, planned: 2, selected: 1, omitted: 1, fallbackReasons: [], omittedChecks: [{ id: "omitted<&", reason: "declared-scope-unaffected" }] } };
+    const xml = renderJunit(project);
+    expect(xml).toContain('tests="2"'); expect(xml).toContain('skipped="1"');
+    expect(xml).toContain('name="omitted&lt;&amp;"'); expect(xml).toContain("not executed");
+    expect(JSON.parse(renderReport(project, "json")).selection.omitted).toBe(1);
+    expect(renderMarkdown(project)).toContain("not passed");
   });
 });

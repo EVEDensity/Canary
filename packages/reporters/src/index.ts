@@ -2,6 +2,7 @@
 
 export interface RunReportInput {
   checks?: import("@canary/core").ProjectCheckResult[];
+  checkSelection?: import("@canary/core").ProjectCheckSelection;
   runId: string;
   status: string;
   startedAt?: string;
@@ -26,7 +27,7 @@ export function toMarkdown(result: EvalResult): string {
 }
 
 export function renderJson(run: RunReportInput): string {
-  if (run.checks) return JSON.stringify({ v: 1, kind: "canary.project-report", runId: run.runId, status: run.status, checks: run.checks }, null, 2);
+  if (run.checks) return JSON.stringify({ v: 1, kind: "canary.project-report", runId: run.runId, status: run.status, checks: run.checks, ...(run.checkSelection ? { selection: run.checkSelection } : {}) }, null, 2);
   return JSON.stringify({
     runId: run.runId,
     status: run.status,
@@ -45,7 +46,7 @@ export function renderJson(run: RunReportInput): string {
 }
 
 export function renderMarkdown(run: RunReportInput): string {
-  if (run.checks) return `# Canary project run ${run.runId}\n\nStatus: ${run.status}\n\n${run.checks.map((check) => `- ${check.id}: ${check.status} (${check.category}, ${check.required ? "required" : "optional"}, ${check.durationMs}ms)`).join("\n")}\n`;
+  if (run.checks) return `# Canary project run ${run.runId}\n\nStatus: ${run.status}\n\n${projectScope(run)}\n\n${run.checks.map((check) => `- ${check.id}: ${check.status} (${check.category}, ${check.required ? "required" : "optional"}, ${check.durationMs}ms)`).join("\n")}${(run.checkSelection?.omittedChecks ?? []).map((check) => `\n- ${check.id}: omitted (${check.reason}; not passed)`).join("")}\n`;
   const failed = run.results.filter((result) => !result.passed);
   const coverage = run.coverage
     ? `lines ${run.coverage.lines.covered}/${run.coverage.lines.total} (${run.coverage.lines.pct}%)`
@@ -85,7 +86,7 @@ function caseLabel(result: EvalResult): string {
 }
 
 export function renderConsole(run: RunReportInput): string {
-  if (run.checks) return `canary ${run.runId}: ${run.status}\n${run.checks.map((check) => `${check.status.toUpperCase()} ${check.id} (${check.category}, ${check.durationMs}ms)`).join("\n")}`;
+  if (run.checks) return `canary ${run.runId}: ${run.status}\n${projectScope(run)}\n${run.checks.map((check) => `${check.status.toUpperCase()} ${check.id} (${check.category}, ${check.durationMs}ms)`).join("\n")}`;
   const failed = run.totalCases - run.passedCases;
   const coverage = run.coverage
     ? `${run.coverage.status} lines ${run.coverage.lines.covered}/${run.coverage.lines.total} (${run.coverage.lines.pct}%)`
@@ -104,6 +105,11 @@ export function renderConsole(run: RunReportInput): string {
   ].join("\n");
 }
 
+function projectScope(run: RunReportInput): string {
+  const plan = run.checkSelection;
+  return plan ? `Scope: ${plan.mode}; selected ${plan.selected}/${plan.planned}, omitted ${plan.omitted} (not passed)` : "Scope: configured checks";
+}
+
 function renderProjectJunit(run: RunReportInput, checks: NonNullable<RunReportInput["checks"]>): string {
   let failures = 0, errors = 0, skipped = 0;
   const rows = checks.map((check) => {
@@ -113,6 +119,7 @@ function renderProjectJunit(run: RunReportInput, checks: NonNullable<RunReportIn
     else if (check.exitCode === 1) { failures++; detail = `<failure message="${check.category}"/>`; }
     return `  <testcase name="${xmlEscape(check.id)}" classname="canary.${check.type}" time="${(check.durationMs / 1000).toFixed(3)}">${detail}</testcase>`;
   });
+  for (const omitted of run.checkSelection?.omittedChecks ?? []) { skipped++; rows.push(`  <testcase name="${xmlEscape(omitted.id)}" classname="canary.omitted" time="0"><skipped message="${xmlEscape(omitted.reason)}; not executed"/></testcase>`); }
   if (run.status !== "completed" && !errors && !failures) { errors++; rows.push('  <testcase name="project.gate"><error message="Project gate did not complete successfully"/></testcase>'); }
   return `<?xml version="1.0" encoding="UTF-8"?>\n<testsuite name="canary.project" tests="${rows.length}" failures="${failures}" errors="${errors}" skipped="${skipped}">\n${rows.join("\n")}\n</testsuite>\n`;
 }
