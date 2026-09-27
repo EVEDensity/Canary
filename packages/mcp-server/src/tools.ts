@@ -16,10 +16,21 @@ export interface CanaryMcpProposalInput {
   proposal: unknown;
 }
 
+export interface CanaryMcpStructureInput {
+  runId: string;
+  pathPrefix?: string;
+  offset?: number;
+  maxNodes?: number;
+  edgeOffset?: number;
+  unknownOffset?: number;
+  changeOffset?: number;
+}
+
 export interface CanaryMcpPorts {
   projectRoot: string;
   run(input: CanaryMcpRunInput, signal: AbortSignal): Promise<unknown>;
   evidence(input: CanaryMcpEvidenceInput): unknown;
+  structure(input: CanaryMcpStructureInput): unknown;
   submitProposal(input: CanaryMcpProposalInput): unknown;
 }
 
@@ -60,6 +71,18 @@ export function parseProposalArgs(args: unknown): CanaryMcpProposalInput {
   return { proposal: record.proposal };
 }
 
+export function parseStructureArgs(args: unknown): CanaryMcpStructureInput {
+  const record = assertToolArgs("canary.structure", args);
+  const runId = requiredString(record.runId, "runId");
+  const pathPrefix = optionalString(record.pathPrefix, "pathPrefix");
+  if (pathPrefix && (pathPrefix.startsWith("/") || pathPrefix.includes("..") || pathPrefix.includes("\\"))) throw invalid("pathPrefix must be project relative");
+  const offset = boundedOffset(record.offset, "offset");
+  const edgeOffset = boundedOffset(record.edgeOffset, "edgeOffset");
+  const unknownOffset = boundedOffset(record.unknownOffset, "unknownOffset");
+  const changeOffset = boundedOffset(record.changeOffset, "changeOffset");
+  return { runId, pathPrefix, offset, edgeOffset, unknownOffset, changeOffset, maxNodes: optionalBoundInt(record.maxNodes, "maxNodes", 200) };
+}
+
 export function toolList() {
   return {
     tools: [
@@ -85,6 +108,16 @@ export function toolList() {
             maxCases: { type: "integer", minimum: 1, maximum: 32 },
             maxEvents: { type: "integer", minimum: 1, maximum: 64 },
           },
+        },
+      },
+      {
+        name: "canary.structure",
+        description: "Read a bounded page of the sealed project structure for a run in the bound project. Never reconstructs old runs from current source.",
+        inputSchema: {
+          type: "object",
+          additionalProperties: false,
+          required: ["runId"],
+          properties: { runId: { type: "string" }, pathPrefix: { type: "string" }, offset: { type: "integer", minimum: 0, maximum: 1000000 }, edgeOffset: { type: "integer", minimum: 0, maximum: 1000000 }, unknownOffset: { type: "integer", minimum: 0, maximum: 1000000 }, changeOffset: { type: "integer", minimum: 0, maximum: 1000000 }, maxNodes: { type: "integer", minimum: 1, maximum: 200 } },
         },
       },
       {
@@ -126,5 +159,11 @@ function optionalBoundInt(value: unknown, field: string, max: number): number | 
   if (!Number.isInteger(value) || (value as number) < 1 || (value as number) > max) {
     throw invalid(`${field} must be an integer between 1 and ${max}`);
   }
+  return value as number;
+}
+
+function boundedOffset(value: unknown, field: string): number {
+  if (value === undefined) return 0;
+  if (!Number.isInteger(value) || (value as number) < 0 || (value as number) > 1_000_000) throw invalid(`${field} must be between 0 and 1000000`);
   return value as number;
 }

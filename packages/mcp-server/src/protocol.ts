@@ -13,7 +13,7 @@ export const MCP_INVALID_TOKEN = -32001;
 
 export const SERVER_INFO = { name: "canary-mcp-server", version: "0.1.0" } as const;
 
-export const TOOL_NAMES = ["canary.run", "canary.evidence", "canary.submit_proposal"] as const;
+export const TOOL_NAMES = ["canary.run", "canary.evidence", "canary.structure", "canary.submit_proposal"] as const;
 export type CanaryMcpToolName = (typeof TOOL_NAMES)[number];
 
 export const COMPATIBILITY_MATRIX = {

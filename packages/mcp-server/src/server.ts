@@ -20,7 +20,7 @@ import {
   type JsonRpcRequest,
   type JsonRpcResponse,
 } from "./protocol.js";
-import { isCanaryTool, parseEvidenceArgs, parseProposalArgs, parseRunArgs, toolList, type CanaryMcpPorts } from "./tools.js";
+import { isCanaryTool, parseEvidenceArgs, parseProposalArgs, parseRunArgs, parseStructureArgs, toolList, type CanaryMcpPorts } from "./tools.js";
 
 export interface CanaryMcpServerOptions {
   token: string;
@@ -237,6 +237,9 @@ export class CanaryMcpServer {
     }
     if (params.name === "canary.evidence") {
       return toolContent(this.ports.evidence(parseEvidenceArgs(args)));
+    }
+    if (params.name === "canary.structure") {
+      return toolContent(this.ports.structure(parseStructureArgs(args)));
     }
     return toolContent(this.ports.submitProposal(parseProposalArgs(args)));
   }

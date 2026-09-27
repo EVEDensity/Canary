@@ -31,6 +31,9 @@ function ports(overrides: Partial<CanaryMcpPorts> = {}): CanaryMcpPorts {
     evidence(input) {
       return { kind: "canary.host.evidence", untrustedEvidence: true, runId: input.runId };
     },
+    structure(input) {
+      return { kind: "canary.host.structure", runId: input.runId, page: { offset: input.offset, maxNodes: input.maxNodes } };
+    },
     submitProposal(input) {
       return { kind: "canary.host.proposal-validation", status: "recorded_unapproved", approval: { status: "not_approved" }, proposal: input.proposal };
     },
@@ -44,7 +47,7 @@ describe("S-02 compatibility matrix and dual-era protocol", () => {
     expect(COMPATIBILITY_MATRIX.sampling).toBe(false);
     expect(COMPATIBILITY_MATRIX.sourceWrite).toBe(false);
     expect(COMPATIBILITY_MATRIX.streamableHttpSession).toBe(false);
-    expect(COMPATIBILITY_MATRIX.tools).toEqual(["canary.run", "canary.evidence", "canary.submit_proposal"]);
+    expect(COMPATIBILITY_MATRIX.tools).toEqual(["canary.run", "canary.evidence", "canary.structure", "canary.submit_proposal"]);
   });
 
   it("serves a modern client with per-request _meta without initialize", async () => {
@@ -190,6 +193,16 @@ describe("S-02 compatibility matrix and dual-era protocol", () => {
       params: { name: "canary.evidence", arguments: { runId: "run_1" }, _meta: modernMeta() },
     });
     expect(JSON.stringify(evidence?.result)).toContain("untrustedEvidence");
+    const structure = await server.handleRequestAsync({
+      jsonrpc: "2.0", id: 11, method: "tools/call",
+      params: { name: "canary.structure", arguments: { runId: "run_1", pathPrefix: "src", offset: 2, maxNodes: 20 }, _meta: modernMeta() },
+    });
+    expect(structure?.result).toMatchObject({ structuredContent: { kind: "canary.host.structure", runId: "run_1", page: { offset: 2, maxNodes: 20 } } });
+    const invalidStructure = await server.handleRequestAsync({
+      jsonrpc: "2.0", id: 12, method: "tools/call",
+      params: { name: "canary.structure", arguments: { runId: "run_1", pathPrefix: "../outside" }, _meta: modernMeta() },
+    });
+    expect(invalidStructure?.error?.message).toMatch(/project relative/);
     const proposal = await server.handleRequestAsync({
       jsonrpc: "2.0", id: 2, method: "tools/call",
       params: {
