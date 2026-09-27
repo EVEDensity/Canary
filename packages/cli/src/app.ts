@@ -17,6 +17,8 @@ import {
 } from "@canary/runner";
 import { ArtifactIntegrityError, ArtifactPrivacyError, AsyncJsonlTraceStore, FileArtifactRepository, beginArtifacts, sealArtifacts, collectSecretValues, writePrivateJson, writePrivateText, type RunStore } from "@canary/trace";
 import { conclusionHash, recordEvidence } from "./evidence.js";
+import { buildStructure, compareStructure, analyzeArchitecture, analyzeImpact } from "@canary/structure";
+import { CliFailure } from "./ci.js";
 
 type ReporterFormat = "json" | "markdown" | "junit" | "console";
 
@@ -97,6 +99,7 @@ export interface EvaluationInput {
   ports?: RunnerPorts;
   experiences?: ExperienceStore;
   experienceContext?: { checkId: string; checkType: string };
+  baseRef?: string;
 }
 
 /** Shared run use-case used by CLI (and Web replay hooks). Does not start HTTP. */
@@ -118,9 +121,18 @@ export async function runEvaluation(input: EvaluationInput): Promise<{ runId: st
   const parent = parentId ? repository.verify(parentId) : undefined;
   if (parent && parent.status !== "verified" && parent.status !== "legacy") throw new ArtifactIntegrityError(parent);
   const manifest = createCoverageManifest({ rootDir: cwd, include: input.config.coverage.include, exclude: input.config.coverage.exclude, features: input.config.features });
+  let structure: ReturnType<typeof buildStructure>;
+  let structureChange: ReturnType<typeof compareStructure> | undefined;
+  try {
+    structure = buildStructure(cwd);
+    structureChange = input.baseRef ? compareStructure(cwd, structure, input.baseRef) : undefined;
+  } catch {
+    throw new CliFailure(2, "STRUCTURE_PREFLIGHT_BLOCKED", "Cannot capture a consistent project structure.", "Check canary.architecture.json, the Git --base ref and the documented source limits; retry if files changed during scanning.");
+  }
   const run = input.runId && input.store.get(input.runId)
     ? input.store.get(input.runId)!
     : input.store.create(plan.length, input.runId, input.replayOf);
+  structure.source.runId = run.runId;
   const experienceStore = input.experiences ?? new ExperienceStore(resolve(input.context.projectRoot, ".canary", "experiences"));
   const experienceByCase = new Map<string, ExperienceLoadResult>();
   const experienceRefs = new Map<string, ExperienceLoadRecord>();
@@ -208,6 +220,10 @@ export async function runEvaluation(input: EvaluationInput): Promise<{ runId: st
     input.store.setCoverage(run.runId, preparingCoverage(run.runId));
     writeLiveArtifacts(artifactDir, diskSnapshot(input.store, run.runId));
     writePrivateJson(resolve(artifactDir, "coverage-manifest.json"), manifest, privacy);
+    writePrivateJson(resolve(artifactDir, "structure.json"), structure, privacy);
+    if (structureChange) writePrivateJson(resolve(artifactDir, "structure-change.json"), structureChange, privacy);
+    writePrivateJson(resolve(artifactDir, "architecture-analysis.json"), analyzeArchitecture(structure), privacy);
+    writePrivateJson(resolve(artifactDir, "change-impact.json"), analyzeImpact(structure, structureChange), privacy);
     await mapLimit(plan, concurrency, async (item) => {
       if (input.signal?.aborted) { cancelled = true; return; }
       const result = await executor({

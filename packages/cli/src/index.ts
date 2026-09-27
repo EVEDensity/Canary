@@ -3,7 +3,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync, unlinkSync, statSyn
 import { randomUUID } from "node:crypto";
 import { missingConfigMessage, resolveProjectContext } from "./home.js";
 import { readdir } from "node:fs/promises";
-import { resolve } from "node:path";
+import { resolve, relative } from "node:path";
 import { pathToFileURL, fileURLToPath } from "node:url";
 import { createRequire } from "node:module";
 import type { RunSnapshot } from "@canary/core";
@@ -41,6 +41,7 @@ import { writeExport } from "./export.js";
 import { diagnosticSnapshot, pathsSnapshot, versionSnapshot } from "./diagnostics.js";
 import { CliFailure, printCiResult } from "./ci.js";
 import { ciExitCodeForRun } from "@canary/core";
+import { buildStructure, compareStructure, analyzeArchitecture, analyzeImpact, planAffectedChecks } from "@canary/structure";
 
 export interface CliOptions {
   /** Internal recursion guard for project agent subprocesses. */
@@ -59,14 +60,19 @@ export interface CliOptions {
   candidateOf?: string;
   retryOf?: string;
   entry?: string;
+  baseRef?: string;
+  affected?: boolean;
   signal?: AbortSignal;
   json?: boolean;
   experiences?: ExperienceStore;
   experienceContext?: { checkId: string; checkType: string };
   suppressOutput?: boolean;
 }
-const USAGE = `Usage: canary run [--ci] [--headless|--artifacts-only] [--no-open] [--json] [--case <id>] [--tag <tag>] [--repetitions <n>] [--port <number>] [--config <path>] [--entry <path>] [--retry-of <runId>]
+const USAGE = `Usage: canary run [--ci] [--affected --base <git-ref>] [--headless|--artifacts-only] [--no-open] [--json] [--case <id>] [--tag <tag>] [--repetitions <n>] [--port <number>] [--config <path>] [--entry <path>] [--retry-of <runId>]
        canary discover [--json] [--config <path>]
+       canary structure [--base <git-ref>] [--run <runId>] [--config <path>]
+       canary analyze [--run <runId>] [--config <path>]
+       canary impact [--base <git-ref> | --run <runId>] [--config <path>]
        canary runs
        canary show <runId>
        canary report <runId> [--format json|markdown|junit|console]
@@ -274,6 +280,7 @@ export interface RunCommandResult {
   artifactPath: string;
   uiUrl: string;
   snapshot: RunSnapshot;
+  selection?: import("@canary/core").CiResult["selection"];
   store: RunStore;
   close: () => Promise<void>;
 }
@@ -312,6 +319,7 @@ function selectCases(cases: TestCase[], options: CliOptions): TestCase[] {
 }
 
 export async function runCommandDetailed(options: CliOptions = {}): Promise<RunCommandResult> {
+  if (options.affected && !options.baseRef) throw new CliFailure(2, "AFFECTED_BASE_REQUIRED", "Incremental checks require an explicit Git baseline.", "Use --affected --base <git-ref>, or run the default full checks.");
   if (options.ci) options = { ...options, headless: true, noOpen: true, suppressOutput: true };
   const context = resolveProjectContext(options);
   let raw: unknown;
@@ -344,6 +352,7 @@ export async function runCommandDetailed(options: CliOptions = {}): Promise<RunC
       return { ...result, status: ci.exitCode === 0 ? "passed" : ci.exitCode === 1 ? "failed" : "blocked", exitCode: ci.exitCode, category: categories[ci.exitCode], ...(ci.runId && ci.artifactPath && integrity?.manifestHash ? { childRun: { runId: ci.runId, artifactPath: ci.artifactPath, manifestHash: integrity.manifestHash } } : {}) };
     }, openBrowser);
   }
+  if (options.affected) throw new CliFailure(2, "AFFECTED_PROJECT_REQUIRED", "Incremental check selection requires a project check configuration.", "Declare impact paths on project checks; Agent case selection remains explicit.");
   let config: CanaryConfig;
   let cases: TestCase[];
   let selected: TestCase[];
@@ -389,6 +398,7 @@ export async function runCommandDetailed(options: CliOptions = {}): Promise<RunC
     repetitions: options.repetitions,
     signal: options.signal,
     experiences: options.experiences,
+    baseRef: options.baseRef,
     experienceContext: options.experienceContext,
     consoleReporter: Boolean(config.reporters?.includes("console")),
     silent: options.json || options.suppressOutput || options.ci,
@@ -1246,6 +1256,42 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
       return discovery.status === "blocked" ? 2 : 0;
     } catch { console.error("Cannot read project discovery markers."); return 2; }
   }
+  if (["structure", "analyze", "impact"].includes(command!)) {
+    const allowed = new Set(["--base", "--run", "--config"]);
+    const seen = new Set<string>();
+    for (let index = 0; index < rest.length; index += 2) {
+      const flag = rest[index]!;
+      if (!allowed.has(flag) || seen.has(flag) || !rest[index + 1] || rest[index + 1]!.startsWith("--")) { console.error("Invalid structure arguments. Use canary help."); return 2; }
+      seen.add(flag);
+    }
+    if (rest.includes("--base") && rest.includes("--run")) { console.error("A saved run has its own immutable change snapshot."); return 2; }
+    try {
+      const context = resolveProjectContext({ configPath });
+      const runId = flagValue(rest, "--run");
+      if (runId) {
+        const repository = new FileArtifactRepository(context.artifactRoot);
+        const integrity = repository.verify(runId);
+        if (integrity.status !== "verified") { console.error(`Run evidence is ${integrity.status}; a sealed structure snapshot is required.`); return 2; }
+        const structure = repository.readJson(runId, "structure.json");
+        if (!structure) { console.error("This run has no structure snapshot; historical structure cannot be reconstructed from the current checkout."); return 2; }
+        const analysis = repository.readJson(runId, "architecture-analysis.json"), impact = repository.readJson(runId, "change-impact.json"), ciPlan = repository.readJson(runId, "ci-plan.json");
+        if ((command === "analyze" && !analysis) || (command === "impact" && !impact)) { console.error("This historical run has no saved analysis; start a new run to capture it."); return 2; }
+        console.log(JSON.stringify(command === "analyze" ? analysis : command === "impact" ? { impact, ciPlan } : { structure, analysis, impact, ciPlan, change: repository.readJson(runId, "structure-change.json"), integrity: { status: integrity.status, manifestHash: integrity.manifestHash } }, null, 2));
+        return 0;
+      }
+      const structure = buildStructure(context.projectRoot);
+      const base = flagValue(rest, "--base");
+      const change = base ? compareStructure(context.projectRoot, structure, base) : undefined;
+      const analysis = analyzeArchitecture(structure), impact = analyzeImpact(structure, change);
+      let ciPlan;
+      if (command === "impact") {
+        const config = projectChecksConfigSchema.parse(await loadRawConfig(context.configFile));
+        ciPlan = planAffectedChecks(structure, impact, config.checks, true, [relative(context.projectRoot, context.configFile).replaceAll("\\", "/")]);
+      }
+      console.log(JSON.stringify(command === "analyze" ? analysis : command === "impact" ? { impact, ciPlan } : { structure, analysis, impact, ...(change ? { change } : {}) }, null, 2));
+      return 0;
+    } catch (error) { console.error(error instanceof Error ? error.message : String(error)); return 2; }
+  }
   if (command === "host") return hostCommand(rest, configPath);
   if (command === "soft-trial") return softTrialCommand(rest, configPath);
   if (command === "experience") return experienceCommand(rest, configPath);
@@ -1525,6 +1571,8 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
   options.tags = flagValues(rest, "--tag");
   options.entry = flagValue(rest, "--entry");
   options.retryOf = flagValue(rest, "--retry-of");
+  options.baseRef = flagValue(rest, "--base");
+  options.affected = rest.includes("--affected");
   try {
     options.repetitions = parseRepetitions(flagValue(rest, "--repetitions"));
   } catch (error) {

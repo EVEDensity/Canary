@@ -53,14 +53,14 @@ export function classifyCiError(error: unknown, context: ProjectContext): CliFai
     "Preserve local artifacts and reproduce with a minimal trusted configuration; report the Canary and Node versions.",
   );
 }
-const valueFlags = new Set(["--config", "--case", "--tag", "--repetitions", "--entry", "--retry-of", "--experience-check"]);
-const booleanFlags = new Set(["--ci", "--json", "--headless", "--no-open", "--agent-check"]);
+const valueFlags = new Set(["--config", "--case", "--tag", "--repetitions", "--entry", "--retry-of", "--experience-check", "--base"]);
+const booleanFlags = new Set(["--ci", "--json", "--headless", "--no-open", "--agent-check", "--affected"]);
 export function parseCiOptions(args: string[]): CliOptions {
   const options: CliOptions = { ci: true, headless: true, noOpen: true, suppressOutput: true };
   const seen = new Set<string>();
   for (let i = 0; i < args.length; i++) {
     const flag = args[i]!;
-    if (booleanFlags.has(flag)) { if (flag === "--agent-check") options.agentCheck = true; continue; }
+    if (booleanFlags.has(flag)) { if (flag === "--agent-check") options.agentCheck = true; if (flag === "--affected") options.affected = true; continue; }
     if (!valueFlags.has(flag))
       throw new CliFailure(
         2,
@@ -82,6 +82,7 @@ export function parseCiOptions(args: string[]): CliOptions {
     if (flag === "--tag") (options.tags ??= []).push(value);
     if (flag === "--entry") options.entry = value;
     if (flag === "--retry-of") options.retryOf = value;
+    if (flag === "--base") options.baseRef = value;
     if (flag === "--experience-check") {
       if (!/^[A-Za-z0-9][A-Za-z0-9_.-]*$/.test(value)) throw new CliFailure(2, "CLI_ARGUMENT", "Invalid internal check ID.", "Use a declared project check ID.");
       options.experienceContext = { checkId: value, checkType: "agent" };
@@ -182,6 +183,7 @@ export async function executeCi(
                   "Inspect the local run.json and report.xml; correct the failing case or environment before re-running.",
               },
             ],
+      ...(result?.selection ? { selection: result.selection } : {}),
       runtime: versionSnapshot(),
       capabilities: { scope: (result?.snapshot.checks ?? recoveredSnapshot?.checks) ? "project-checks" : "configured-agent-cases", web: false, automaticExport: false },
     });

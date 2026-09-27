@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { lstatSync, rmSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { join, resolve, relative } from "node:path";
 import type { ProjectChecksConfig, ProjectCheckResult, ProjectContext, RunSnapshot, RunLineage } from "@canary/core";
 import {
   ArtifactPrivacyError,
@@ -15,6 +15,7 @@ import {
 } from "@canary/trace";
 import { createExecutionWorkspace, writeCheckpoint, recoverStaleRuns } from "@canary/runner";
 import { renderReport } from "@canary/reporters";
+import { buildStructure, compareStructure, analyzeArchitecture, analyzeImpact, planAffectedChecks } from "@canary/structure";
 import {
   blocked,
   checkEnvironment,
@@ -80,9 +81,30 @@ export async function runProjectChecks(
       "Inspect readable source files: at most 10,000 files, 16 MiB each and 256 MiB total; dependency/build directories are excluded.",
     );
   }
+  let structure: ReturnType<typeof buildStructure>;
+  let structureChange: ReturnType<typeof compareStructure> | undefined;
+  try {
+    structure = buildStructure(context.projectRoot);
+    structureChange = options.baseRef ? compareStructure(context.projectRoot, structure, options.baseRef) : undefined;
+  } catch {
+    throw new CliFailure(2, "STRUCTURE_PREFLIGHT_BLOCKED", "Cannot capture a consistent project structure.", "Check canary.architecture.json, the Git --base ref and the documented source limits; retry if files changed during scanning.");
+  }
+  structure.source.runId = runId;
+  const analysis = analyzeArchitecture(structure), impact = analyzeImpact(structure, structureChange);
+  const originalConfig = config;
+  const ciPlan = planAffectedChecks(structure, impact, config.checks, Boolean(options.affected && !session?.lineage?.retryOf), [relative(context.projectRoot, context.configFile).replaceAll("\\", "/")]);
+  const selectedIds = new Set(ciPlan.checks.filter((check) => check.action === "run").map((check) => check.id));
+  config = { ...config, checks: config.checks.filter((check) => selectedIds.has(check.id)) };
   const evidence = recordEvidence(config, context, [], session?.lineage ?? {}, stableHash(sources));
-  store.update(runId, { evidence, checks, ...(session?.lineage?.retryOf ? { retryOf: session.lineage.retryOf } : {}) });
+  const selection = { requested: ciPlan.requested, mode: ciPlan.mode, planned: ciPlan.checks.length, selected: ciPlan.selectedCount, omitted: ciPlan.omittedCount, fallbackReasons: ciPlan.fallbackReasons };
+  store.update(runId, { totalCases: config.checks.length, checkSelection: { ...selection, omittedChecks: ciPlan.checks.filter((check) => check.action === "omit").map(({ id, reason }) => ({ id, reason })) }, evidence, checks, ...(session?.lineage?.retryOf ? { retryOf: session.lineage.retryOf } : {}) });
   beginArtifacts(artifactDir, session?.lineage);
+  writePrivateJson(join(artifactDir, "structure.json"), structure, privacy);
+  if (structureChange) writePrivateJson(join(artifactDir, "structure-change.json"), structureChange, privacy);
+  writePrivateJson(join(artifactDir, "architecture-analysis.json"), analysis, privacy);
+  writePrivateJson(join(artifactDir, "change-impact.json"), impact, privacy);
+  writePrivateJson(join(artifactDir, "ci-plan.json"), ciPlan, privacy);
+  writePrivateJson(join(artifactDir, "ci-original-plan.json"), originalConfig, privacy);
   const workspace = createExecutionWorkspace({ artifactDir, runId });
   const start = monotonicNow();
   const checkpoint = (status: "running" | "completed" | "failed" | "cancelled") => {
@@ -261,6 +283,7 @@ export async function runProjectChecks(
     uiUrl: "",
     store,
     snapshot,
+    selection,
     close: async () => {},
   };
 }
