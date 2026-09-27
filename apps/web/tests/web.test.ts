@@ -3,7 +3,10 @@ import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { request } from "node:http";
+import { execFileSync } from "node:child_process";
 import { createWebServer, FileArtifactRepository, RunStore } from "../src/index.js";
+import { beginArtifacts, sealArtifacts, writePrivateJson } from "@canary/trace";
+import { buildStructure } from "@canary/structure";
 
 function get(url: string): Promise<{ status: number; body: string }> {
   return new Promise((resolvePromise, reject) => {
@@ -29,6 +32,76 @@ function coverage(runId: string, status: "provisional" | "final" = "final", cove
 }
 
 describe("web run store and HTTP/SSE", () => {
+  it("serves the sealed historical structure and rejects a damaged graph", async () => {
+    const root = mkdtempSync(join(tmpdir(), "canary-web-structure-"));
+    writeFileSync(join(root, "index.ts"), "export function value() { return 1; }\n");
+    const git = (...args: string[]) => execFileSync("git", args, { cwd: root, windowsHide: true, stdio: "ignore" });
+    git("init", "-q"); git("add", "."); git("-c", "user.name=Canary Test", "-c", "user.email=test@example.com", "commit", "-qm", "source");
+    const store = new RunStore();
+    const run = store.create(1, "run_structure_history");
+    const artifactRoot = join(root, ".canary", "artifacts");
+    const dir = join(artifactRoot, run.runId);
+    mkdirSync(dir, { recursive: true });
+    const structure = buildStructure(root);
+    beginArtifacts(dir);
+    writePrivateJson(join(dir, "run.json"), run);
+    writePrivateJson(join(dir, "structure.json"), structure);
+    sealArtifacts(dir);
+    const web = createWebServer(new RunStore(), "127.0.0.1", 0, artifactRoot);
+    const listening = await web.listen();
+    try {
+      const response = await get(`${listening.url}/api/structure?runId=${run.runId}`);
+      expect(response.status).toBe(200);
+      expect(JSON.parse(response.body).structure.source.inventoryHash).toBe(structure.source.inventoryHash);
+      expect(JSON.parse(response.body).integrity.status).toBe("verified");
+      const fileId = structure.nodes.find((node) => node.kind === "file" && node.path === "index.ts")!.id;
+      const sourceUrl = `${listening.url}/api/structure/source?runId=${run.runId}&nodeId=${encodeURIComponent(fileId)}`;
+      expect(JSON.parse((await get(sourceUrl)).body).availability).toBe("current-hash-match");
+      writeFileSync(join(root, "index.ts"), "export function value() { return 2; }\n");
+      const historical = JSON.parse((await get(sourceUrl)).body);
+      expect(historical.availability).toBe("git-hash-match");
+      expect(historical.lines.join("\n")).toContain("return 1");
+      writeFileSync(join(dir, "structure.json"), "{damaged");
+      expect((await get(`${listening.url}/api/structure?runId=${run.runId}`)).status).toBe(409);
+      expect((await get(sourceUrl)).status).toBe(409);
+    } finally { await close(web.server); }
+  });
+  it("links checks to source only through a verified child coverage hash", async () => {
+    const root = mkdtempSync(join(tmpdir(), "canary-web-check-links-"));
+    writeFileSync(join(root, "index.ts"), "export function value() { return 1; }\n");
+    const structure = buildStructure(root);
+    const file = structure.nodes.find((node) => node.kind === "file" && node.path === "index.ts")!;
+    const artifactRoot = join(root, ".canary", "artifacts");
+    const store = new RunStore();
+    const child = store.create(1, "run_check_link_child");
+    const childDir = join(artifactRoot, child.runId);
+    mkdirSync(childDir, { recursive: true });
+    beginArtifacts(childDir);
+    writePrivateJson(join(childDir, "run.json"), child);
+    writePrivateJson(join(childDir, "coverage.json"), {
+      ...coverage(child.runId),
+      files: [{ filePath: join(root, "index.ts"), sourceHash: file.sourceHash, status: "covered", lines: { covered: 1, total: 1, pct: 100 }, branches: { covered: 0, total: 0, pct: 0 } }],
+    });
+    sealArtifacts(childDir);
+    const childHash = new FileArtifactRepository(artifactRoot).verify(child.runId).manifestHash!;
+    const parent = store.create(1, "run_check_link_parent");
+    store.update(parent.runId, { checks: [{ id: "agent.regression", type: "agent", version: 1, required: true, status: "passed", evidence: "verified", exitCode: 0, category: "none", retryable: true, durationMs: 1, cwd: root, envAllowlist: [], childRun: { runId: child.runId, artifactPath: join(childDir, "run.json"), manifestHash: childHash } }] });
+    const parentDir = join(artifactRoot, parent.runId);
+    mkdirSync(parentDir, { recursive: true });
+    beginArtifacts(parentDir);
+    writePrivateJson(join(parentDir, "run.json"), store.get(parent.runId));
+    writePrivateJson(join(parentDir, "structure.json"), structure);
+    sealArtifacts(parentDir);
+    const web = createWebServer(new RunStore(), "127.0.0.1", 0, artifactRoot);
+    const listening = await web.listen();
+    try {
+      const url = `${listening.url}/api/structure?runId=${parent.runId}`;
+      const first = JSON.parse((await get(url)).body);
+      expect(first.checkLinks).toEqual([{ nodeId: file.id, checkId: "agent.regression", runId: child.runId, evidence: "coverage-observed" }]);
+      writeFileSync(join(childDir, "coverage.json"), "{damaged");
+      expect((await get(url)).status).toBe(409);
+    } finally { await close(web.server); }
+  });
   it("keeps unrelated Agent histories out of the project page polling response", async () => {
     const store = new RunStore();
     store.create(1, "run_agent_history");
@@ -297,9 +370,35 @@ describe("web run store and HTTP/SSE", () => {
       const compared = await get(`${listening.url}/api/compare?baseline=${baseline.runId}&candidate=${candidate.runId}`);
       expect(compared.status).toBe(200);
       expect(JSON.parse(compared.body).verdict).toBe("reject");
+      expect(JSON.parse(compared.body).assessment).toMatchObject({ level: "insufficient", sample: { matched: 1 }, changes: { regressions: 1 } });
       const events = store.eventLog(baseline.runId).map((event) => event.type);
       expect(events).toContain("case.started");
       expect(events).toContain("case.finished");
+    } finally { await close(web.server); }
+  });
+
+  it("compares original case identities before response redaction collapses secret values", async () => {
+    const store = new RunStore();
+    for (const [runId, secret] of [["run_secret_before", "sk-case-one"], ["run_secret_after", "sk-case-two"]]) {
+      store.create(1, runId);
+      store.appendEvent(runId, {
+        type: "execution.finished", executionId: `${runId}-execution`,
+        result: {
+          runId, executionId: `${runId}-execution`, caseId: "task", passed: true,
+          assertions: [{ id: "state.equals", passed: true }], coverage: coverage(runId),
+          sourceCase: { id: "task", input: { apiKey: secret }, assertions: [{ type: "state.equals", value: { done: true } }] },
+        },
+      });
+      store.finish(runId);
+    }
+    const web = createWebServer(store);
+    const listening = await web.listen();
+    try {
+      const response = await get(`${listening.url}/api/compare?baseline=run_secret_before&candidate=run_secret_after`);
+      expect(response.status).toBe(200);
+      expect(response.body).not.toContain("sk-case-one");
+      expect(response.body).not.toContain("sk-case-two");
+      expect(JSON.parse(response.body).assessment.uncertainty.join(" ")).toMatch(/用例输入/);
     } finally { await close(web.server); }
   });
 

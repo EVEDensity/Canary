@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { ProjectCheckResult, RunSnapshot } from "@canary/core";
+import type { EvalResult, ProjectCheckResult, RunSnapshot } from "@canary/core";
 import { projectChecksConfigSchema } from "@canary/core";
 import { beginArtifacts, sealArtifacts, writePrivateJson, FileArtifactRepository, RunStore } from "@canary/trace";
 import { WorkspaceReader } from "../src/workspace.js";
@@ -159,5 +159,78 @@ describe("project issue verification", () => {
     f.save("run_half", "completed", "run_original");
     writeFileSync(join(f.root, "run_half", "run.json"), "{");
     expect(f.issue()).toMatchObject({ status: "unverified", verification: { runId: "run_half" } });
+  });
+});
+
+describe("Agent case replay verification", () => {
+  it("keeps the original failure and verifies only a sealed replay of the same case and assertions", () => {
+    const root = mkdtempSync(join(tmpdir(), "canary-agent-issues-"));
+    roots.push(root);
+    const repo = new FileArtifactRepository(root);
+    const sourceCase = { id: "calculate", input: "2+3", assertions: [{ type: "state.equals", value: 5 }] };
+    const result = (runId: string, passed: boolean): EvalResult => ({
+      runId,
+      executionId: `${runId}-execution`,
+      caseId: "calculate",
+      passed,
+      assertions: [{ id: "state.equals", passed, message: passed ? undefined : "expected 5" }],
+      coverage: {
+        runId,
+        sourceHash: "fixture",
+        status: "unavailable",
+        lines: { covered: 0, total: 0, pct: 0 },
+        statements: { covered: 0, total: 0, pct: 0 },
+        functions: { covered: 0, total: 0, pct: 0 },
+        branches: { covered: 0, total: 0, pct: 0 },
+        featureChains: [],
+      },
+      sourceCase,
+    });
+    const source: RunSnapshot = {
+      runId: "run_agent_failed",
+      status: "failed",
+      startedAt: "2026-09-25T00:00:00.000Z",
+      totalCases: 1,
+      completedCases: 1,
+      passedCases: 0,
+      results: [result("run_agent_failed", false)],
+      events: [],
+    };
+    beginArtifacts(join(root, source.runId));
+    writePrivateJson(join(root, source.runId, "run.json"), source);
+    sealArtifacts(join(root, source.runId));
+    const replay: RunSnapshot = {
+      ...source,
+      runId: "run_agent_replay",
+      status: "completed",
+      startedAt: "2026-09-25T00:01:00.000Z",
+      passedCases: 1,
+      results: [result("run_agent_replay", true)],
+      replayOf: source.runId,
+      evidence: {
+        v: 1,
+        lineage: { replayOf: source.runId, parentManifestHash: repo.verify(source.runId).manifestHash! },
+      } as RunSnapshot["evidence"],
+    };
+    beginArtifacts(join(root, replay.runId), replay.evidence!.lineage);
+    writePrivateJson(join(root, replay.runId, "run.json"), replay);
+    sealArtifacts(join(root, replay.runId));
+    const reader = new WorkspaceReader(new RunStore(), repo);
+    expect(reader.read(source.runId)!.issues.find((issue) => issue.title === "calculate")).toMatchObject({
+      status: "verified",
+      verification: { runId: replay.runId },
+    });
+    const changed: RunSnapshot = {
+      ...replay,
+      runId: "run_agent_changed",
+      startedAt: "2026-09-25T00:02:00.000Z",
+      results: [{ ...result("run_agent_changed", true), sourceCase: { ...sourceCase, input: "other task" } }],
+    };
+    beginArtifacts(join(root, changed.runId), changed.evidence!.lineage);
+    writePrivateJson(join(root, changed.runId, "run.json"), changed);
+    sealArtifacts(join(root, changed.runId));
+    expect(reader.read(source.runId)!.issues.find((issue) => issue.title === "calculate")!.status).toBe("failed");
+    writeFileSync(join(root, changed.runId, "run.json"), "{}");
+    expect(reader.read(source.runId)!.issues.find((issue) => issue.title === "calculate")!.status).toBe("unverified");
   });
 });
