@@ -27,12 +27,12 @@ export function createFunctionAdapter(agent: (input: unknown, context: AgentCont
   };
 }
 
-export async function runHttpAgent(url: string, input: unknown, timeoutMs = 10_000, signal?: AbortSignal): Promise<unknown> {
+export async function runHttpAgent(url: string, input: unknown, timeoutMs = 10_000, signal?: AbortSignal, requestField = "input"): Promise<unknown> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   const combined = signal ? AbortSignal.any([controller.signal, signal]) : controller.signal;
   try {
-    const response = await fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ input }), signal: combined });
+    const response = await fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ [requestField]: input }), signal: combined });
     if (!response.ok) throw new Error(`HTTP agent failed with status ${response.status}`);
     return await response.json();
   } finally { clearTimeout(timer); }
