@@ -61,7 +61,10 @@
                                                                         "packages/control-plane/src/index.ts"
                                                                     ],
                                           "@canary/exporter-core":  [
-                                                                      "packages/exporter-core/src/index.ts"
+                                                                   "packages/exporter-core/src/index.ts"
+                                                                  ],
+                                          "@canary/structure":  [
+                                                                   "packages/structure/src/index.ts"
                                                                   ]
                                       },
                             "declaration":  true,

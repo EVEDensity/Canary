@@ -53,6 +53,9 @@ importers:
       '@canary/reporters':
         specifier: workspace:*
         version: link:../../packages/reporters
+      '@canary/structure':
+        specifier: workspace:*
+        version: link:../../packages/structure
       '@canary/trace':
         specifier: workspace:*
         version: link:../../packages/trace
@@ -116,6 +119,9 @@ importers:
       '@canary/runner':
         specifier: workspace:*
         version: link:../runner
+      '@canary/structure':
+        specifier: workspace:*
+        version: link:../structure
       '@canary/trace':
         specifier: workspace:*
         version: link:../trace
@@ -282,6 +288,12 @@ importers:
       tsx:
         specifier: ^4.19.0
         version: 4.23.13
+
+  packages/structure:
+    dependencies:
+      typescript:
+        specifier: ^5.7.0
+        version: 5.9.3
 
   packages/trace:
     dependencies:
