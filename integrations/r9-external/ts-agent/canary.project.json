@@ -1,0 +1,9 @@
+{
+  "kind": "canary.project",
+  "version": 1,
+  "budgetMs": 120000,
+  "checks": [
+    { "id": "agent.tests", "type": "command", "command": "node", "args": ["--run", "test"], "timeoutMs": 60000 },
+    { "id": "agent.http", "type": "agent", "config": "canary.config.ts", "timeoutMs": 30000 }
+  ]
+}

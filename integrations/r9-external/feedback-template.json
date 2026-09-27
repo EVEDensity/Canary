@@ -1,0 +1,17 @@
+{
+  "kind": "canary.external-onboarding-feedback",
+  "v": 1,
+  "status": "template-not-observed",
+  "participantId": null,
+  "project": { "url": null, "commit": null, "authorization": null },
+  "environment": { "platform": null, "node": null, "canaryCommit": null },
+  "dependenciesReadyAt": null,
+  "onboardingStartedAt": null,
+  "firstRealReportAt": null,
+  "configEditCount": null,
+  "runIds": [],
+  "obstacles": [],
+  "failureLocatedIndependently": null,
+  "reused": null,
+  "abandonmentReason": null
+}

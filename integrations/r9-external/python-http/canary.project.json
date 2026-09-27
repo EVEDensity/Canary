@@ -1,0 +1,15 @@
+{
+  "kind": "canary.project",
+  "version": 1,
+  "budgetMs": 120000,
+  "checks": [
+    {
+      "id": "python.tests",
+      "type": "command",
+      "command": "./.venv/Scripts/python.exe",
+      "args": ["-m", "pytest", "-q"],
+      "timeoutMs": 60000
+    },
+    { "id": "python.http", "type": "agent", "config": "canary.config.ts", "timeoutMs": 30000 }
+  ]
+}
