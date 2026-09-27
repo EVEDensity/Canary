@@ -30,6 +30,9 @@ CLI 在非 headless 时先分配 runId、监听并打印 UI 地址，再执行�
 
 默认发现使用最近配置目录，同目录 `canary.project.json` 优先于 `canary.config.ts`，显式 `--config` 优先；错误配置不隐式回退。R4 新增 `canary.project` 配置分支：`discoverProject` 只读发现，`runProjectChecks` 按显式依赖串行编排 command/http/filesystem/process/docker/agent。项目运行使用独立 `checks` 结果、环境白名单与单调预算，复用 RunStore、checkpoint、R3 manifest；agent 子检查使用子 CLI 的 CI 契约并绑定 manifestHash。R5 普通项目模式通过 `runProjectSession` 在执行前创建回环页面，SSE 推送检查快照；重跑调用相同执行器并记录谱系。headless/CI 不创建页面，新增 resources 检查采样内存和磁盘。见 [R5 指南](../guides/r5-local-report.md)。详细边界见 [R4 使用说明](../guides/r4-project-checks.md)。
 
+R10 在运行开始前由 `@canary/structure` 扫描目标项目，输出 `structure.json` 和可选 `structure-change.json` 并纳入 manifest。CLI、Web API 和 MCP 只读工具读取这份结构；覆盖文件先校验源文件哈希再关联节点。历史运行只使用当次封存的结构，不以当前工作树重建。具体格式与语言范围见 [R10 结构指南](../guides/project-structure.md)。
+R11 将同一封存结构接入首页入口、二维地图和 CSS 透视三维分层视图。节点详情只显示已确认的静态关系和经哈希匹配的覆盖关联；源码片段先比对当前文件或历史 Git 对象的 SHA-256。交互与限制见 [R11 地图指南](../guides/architecture-map.md)。
+
 ## 2. 包的实际职责与耦合
 
 | 位置                   | 已有职责                                                                                                                        | 尚未完成的目标                                                                |
@@ -42,6 +45,7 @@ CLI 在非 headless 时先分配 runId、监听并打印 UI 地址，再执行�
 | `packages/coverage`    | V8、源码映射、manifest、fragment、可选 Istanbul instrumentation、feature chain                                                  | 各 provider 精度不同；覆盖率不是语义质量或权限隔离证明                        |
 | `packages/evaluators`  | 断言 dispatcher、EvaluatorRegistry、显式 Judge 注入、Metric/admission                                                           | 没有统计显著性；admission 默认 hold，不是自动发布                             |
 | `packages/trace`       | JSONL v1、输出脱敏、原子持久化、artifact manifest/hash/history、校验、尾行恢复、历史清理、RunStore                              | SSE 游标不跨重启；无签名或外部可信锚                                          |
+| `packages/structure`   | R10 节点、静态关系、未知关系、架构分层、Git 工作树变更及覆盖节点关联                                                            | 动态与跨语言调用、运行时拓扑仍未实现                                          |
 | `packages/improvement` | trial 对账、holdout 标签/数据集、可序列化草稿、独立 admission                                                                   | 不修改 Agent；没有统计显著性和发布/回滚                                       |
 | `packages/reporters`   | JSON / Markdown / JUnit / console                                                                                               | 不等于独立安全准入控制器                                                      |
 | `packages/cli`         | ProjectContext、runEvaluation 应用服务；headless 不加载 Web；doctor 导入受信任配置做 schema/权限/根冲突诊断，不自动改写用户文件 | R5 页面已整合；R6 已有 Windows/Ubuntu 容器 Node 24/22 证据，macOS/Pi 等待补齐 |
@@ -71,3 +75,11 @@ R3 在运行目录维护 `manifest.json` 和内容寻址的 manifest 历史，�
 ```
 
 `verified` 是建议状态，不证明候选行为有效；`compare` 的 improve/keep/reject 不是发布许可。缺口由 [任务总表](../roadmap/README.md) 追踪。
+
+## 6. R12 地图诊断
+
+Web 的 `/api/structure` 在运行 manifest 核验后读取结构、覆盖和覆盖 manifest，再按源码哈希映射文件及 JS/TS 符号的行、函数和分支分母。父运行与 Agent 子运行分别保留测量来源，不把不同分母平均。普通命令的错误堆栈可以映射到已校验源码中的路径与行号；该路径不证明命令执行时的全部字节。页面的覆盖、失败和变更颜色模式使用不同图例，未采集、黑盒和哈希不一致显示未知。细节见[地图指南](../guides/architecture-map.md)与[R12 证据](../evidence/r12-execution.md)。
+
+## 7. R13–R15 架构与 CI
+
+`@canary/structure` 产出确定性的架构诊断和变更影响，CLI 在检查前生成选择计划，全部封存在本次 manifest 内。增量只有显式请求且输入范围足够时才省略检查；前置项重新执行，未知或全局配置变化回退全量。静态风险不自动改变现有门禁；省略项不计为通过。页面、历史 CLI 及有界 MCP 读取同一运行的结果，不复算旧记录。契约与边界见[架构与 CI 指南](../guides/architecture-ci.md)。

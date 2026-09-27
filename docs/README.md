@@ -1,7 +1,7 @@
 # Canary 文档导航
 
 > **代码与可复现结果决定现状；设计描述目标；任务文件描述未完成工作。** 不以历史 RFC、测试数量或模型总结替代源码核对。
-> 当前代码以 Git 工作区为准；阶段状态以 [R0–R8 总表](roadmap/README.md)及对应执行记录为准，历史验证日期不代表当前全部能力。
+> 当前代码以 Git 工作区为准；阶段状态以 [任务总表](roadmap/README.md)及对应执行记录为准，历史验证日期不代表当前全部能力。
 
 ## 按目的阅读
 
@@ -17,7 +17,16 @@
 | 查看实测数据与旧报告                          | [本轮验证](evidence/validation-baseline.md) / [R0](evidence/r0-execution.md) / [R1](evidence/r1-execution-record.md) / [R2](evidence/r2-execution-record.md) / [历史数据索引](evidence/historical-results.md) |
 | 查资料与旧设计来由                            | [研究资料](research/agent-evolution.md) / [历史档案](archive/README.md)                                                                                                                                       |
 
-R6 平台与 Agent fixture 见 [指南](guides/r6-platform-fixtures.md)和 [实际执行记录](evidence/r6-execution-record.md)，macOS/Pi 仍有阻塞。
+R6 平台与 Agent fixture 见 [指南](guides/r6-platform-fixtures.md)和 [实际执行记录](evidence/r6-execution-record.md)。Pi 固定运行时及一次受限真实推理已验证；macOS 与原生 Ubuntu 延后。当前能力边界见[支持与证据矩阵](guides/support-matrix.md)。
+
+R9 的可复现交付与三个外部项目试点见 [执行记录](evidence/r9-00-01-execution.md) 和 [试点配置](../integrations/r9-external/README.md)。
+R9 的确定性比较证据等级和页面诊断路径见 [R9-03/04 执行记录](evidence/r9-03-04-execution.md)。
+R10 的项目结构、Git 变更及历史运行绑定见[使用指南](guides/project-structure.md)和[执行记录](evidence/r10-execution.md)。
+R11 的交互架构地图见[使用指南](guides/architecture-map.md)、[阶段计划](roadmap/10-r11-architecture-map.md)与[执行记录](evidence/r11-execution.md)。
+R12 的覆盖、分支和失败地图联动见[使用指南](guides/architecture-map.md)、[阶段计划](roadmap/11-r12-map-diagnostics.md)与[执行记录](evidence/r12-execution.md)。
+R13–R15 的架构诊断、变更影响与增量 CI 见[操作与 Schema](guides/architecture-ci.md)、[阶段计划](roadmap/12-r13-r15-architecture-ci.md)与[执行记录](evidence/r13-r15-execution.md)。R9 剩余真实数据和参与者输入见[外部验证](guides/external-validation.md)。
+
+**下一阶段：** [R16–R21：变更验证与修复产品路线](roadmap/13-r16-r21-change-verification.md)。依次规划统一故障证据、GitHub PR 接入、复现、修复有效性验证、变更验证缺口和完整交付；全部为待实施，首项 R16-01。既有 R13–R15 保留，不重复开发。
 
 R4/R5 默认入口、完整项目门禁与真实全局启动验收见 [入口收尾记录](evidence/entry-execution-record.md)。
 
@@ -57,6 +66,6 @@ docs/
 3. 当前行为变更同步更新 `current/`、相关 `guides/` 和 `evidence/`；未来目标只改 `design/`；任务安排只在 `roadmap/` 维护，避免三份路线图漂移。
 4. 原始轨迹不直接提交；证据目录只保存经检查的本地测试日志或脱敏摘要。历史数值保留日期、范围、原始出处，不合并成当前总成绩。
 5. 文件链接采用仓库内相对路径，方便跨机器阅读；终端交付时报告绝对路径。新增文档必须从导航可达。
-6. 本轮只重构文档、修复文档引用并验证已有实现；不授予任何后续代码修改、模型消费、push 或部署权限。
+6. 后续任务以用户当轮授权范围为准，阶段文档不会自动授权模型消费、远端发布或部署。
 
 旧文件位置与处理方式见 [文档迁移记录](evidence/document-migration.md)。
