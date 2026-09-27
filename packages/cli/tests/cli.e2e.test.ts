@@ -738,7 +738,7 @@ describe("S-02 CLI MCP server", () => {
     expect(payload.protocols).toEqual(["2026-07-28", "2025-11-25"]);
     expect(payload.sampling).toBe(false);
     expect(payload.sourceWrite).toBe(false);
-    expect(payload.tools).toEqual(["canary.run", "canary.evidence", "canary.submit_proposal"]);
+    expect(payload.tools).toEqual(["canary.run", "canary.evidence", "canary.structure", "canary.submit_proposal"]);
   });
 
   it("refuses mcp serve when no token is configured", async () => {
