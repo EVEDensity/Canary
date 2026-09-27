@@ -2,7 +2,7 @@
 
 ## 仓库内运行（本轮实际验证的路径）
 
-要求来自根 package.json：Node.js ≥22、pnpm 10.15.0；安装脚本另需 Git。本轮测试环境与范围见 [验证记录](../evidence/validation-baseline.md)。
+要求来自根 package.json：Node.js ≥22、pnpm 10.15.0；安装脚本另需 Git。已验证的平台、Agent 和覆盖率边界见[支持与证据矩阵](support-matrix.md)。
 
 ```powershell
 pnpm install --frozen-lockfile
@@ -38,6 +38,8 @@ curl -fsSL https://raw.githubusercontent.com/EVEDensity/Canary/main/install.sh |
 2. 在该项目目录执行 `canary run`，或从任意目录传入 `--config <path>`（相对路径相对调用目录）。
 3. 相对 entry/cases/coverage 路径及 artifacts 以配置所在目录为根。运行后核对终端打印的 artifact 路径。
 4. 历史命令可加同样的 `--config`，读写同一产物根。
+
+HTTP Agent 默认收到 `{ "input": <case input> }`。现有服务若只接受 `{ "message": ... }`，在 Agent 配置中加入 `requestField: "message"`；它只替换顶层字段名，不转换输入值或响应结构。已有的三个公开项目接入配置见 [R9 试点](../../integrations/r9-external/README.md)。
 
 ## 无交互 CI 契约
 
