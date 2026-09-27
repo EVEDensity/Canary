@@ -86,7 +86,14 @@ export default async () => {
 };`,
       "utf8",
     );
-    const result = await runExecution({ ...options(cwd), timeoutMs: 400, killGraceMs: 120 });
+    const running = runExecution({ ...options(cwd), timeoutMs: 3000, killGraceMs: 120 });
+    let grandchildStarted = false;
+    for (let attempt = 0; attempt < 100; attempt += 1) {
+      if (existsSync(pidFile)) { grandchildStarted = true; break; }
+      await new Promise((resolve) => setTimeout(resolve, 25));
+    }
+    const result = await running;
+    expect(grandchildStarted).toBe(true);
     expect(result.failureCategory).toBe("timeout");
     expect(result.trajectory?.termination).toBe("timeout");
     const grand = Number(readFileSync(pidFile, "utf8"));

@@ -177,6 +177,31 @@ describe("http black-box adapter", () => {
       await new Promise<void>((resolve) => server.close(() => resolve()));
     }
   });
+
+  it("maps an HTTP agent case into the configured request field", async () => {
+    const server = createServer((request, response) => {
+      let body = "";
+      request.on("data", (chunk) => { body += chunk; });
+      request.on("end", () => {
+        response.writeHead(200, { "content-type": "application/json" });
+        response.end(JSON.stringify({ answer: JSON.parse(body).message }));
+      });
+    });
+    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", () => resolve()));
+    const address = server.address();
+    const port = typeof address === "object" && address ? address.port : 0;
+    try {
+      const result = await runConfiguredCase({
+        config: { agent: { adapter: "http", entry: `http://127.0.0.1:${port}/agent`, requestField: "message" }, cases: "none", coverage: { include: [] } },
+        runId: "run_http_message",
+      }, { id: "http-message", input: "hello", assertions: [{ type: "output.exists" }] });
+      expect(result.passed).toBe(true);
+      expect(result.output).toEqual({ answer: "hello" });
+      expect(result.coverage.status).toBe("unavailable");
+    } finally {
+      await new Promise<void>((resolve) => server.close(() => resolve()));
+    }
+  });
 });
 
 describe("mcp agent adapter and process pool", () => {

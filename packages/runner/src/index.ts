@@ -36,6 +36,7 @@ export interface ExecutionOptions {
   maxBudget?: number;
   nodeExecutable?: string;
   entry: string;
+  requestField?: string;
   exportName?: string;
   input: unknown;
   runId: string;
@@ -287,7 +288,7 @@ export async function runHttpExecution(options: ExecutionOptions): Promise<EvalR
   const timedOut = { current: false };
   const timer = setTimeout(() => { timedOut.current = true; }, options.timeoutMs ?? 10_000);
   try {
-    output = await runHttpAgent(options.entry, options.input, options.timeoutMs ?? 10_000, options.signal);
+    output = await runHttpAgent(options.entry, options.input, options.timeoutMs ?? 10_000, options.signal, options.requestField);
     emit({ type: "http.response", timestamp: new Date().toISOString() });
   } catch (error) {
     const aborted = error instanceof Error && (error.name === "AbortError" || /abort/i.test(error.message));
@@ -365,6 +366,7 @@ export async function runConfiguredCase(options: RunOptions, testCase: TestCase)
     reproducibility: options.config.artifacts?.reproducibility,
     cwd: options.cwd,
     entry: options.config.agent.entry,
+    requestField: options.config.agent.requestField,
     exportName: options.config.agent.export,
     input: testCase.input,
     runId: options.runId,
