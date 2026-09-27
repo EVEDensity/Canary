@@ -75,6 +75,7 @@ export function proposeCoverageGap(featureId: string): ImprovementSuggestion {
 export { attributeFailure };
 export { assessSoftTrial, softTrialDatasetIdentity, type SoftTrialAuthorization, type SoftTrialRecord, type SoftTrialStatus, type SoftTrialValidation } from "./soft-trial.js";
 export { compareProjectRuns, type ProjectComparisonInput } from "./project-comparison.js";
+export { assessAgentComparison, assessProjectComparison, type ComparisonAssessment } from "./evidence-assessment.js";
 
 function isPlainJson(value: unknown): boolean {
   if (value === null || ["string", "number", "boolean"].includes(typeof value)) return true;
