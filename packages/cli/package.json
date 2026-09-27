@@ -31,7 +31,8 @@
     "@canary/loop": "workspace:*",
     "@canary/mcp-server": "workspace:*",
     "@canary/control-plane": "workspace:*",
-    "@canary/exporter-core": "workspace:*"
+    "@canary/exporter-core": "workspace:*",
+    "@canary/structure": "workspace:*"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
