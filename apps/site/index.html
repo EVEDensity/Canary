@@ -19,7 +19,9 @@
     <link rel="icon" href="assets/favicon.svg" type="image/svg+xml" />
     <link rel="preload" href="assets/inter-latin.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="stylesheet" href="site.css" />
-    <script src="site.js" defer></script>
+    <link rel="stylesheet" href="playground.css" />
+    <link rel="stylesheet" href="workspace-tour.css" />
+    <script src="site.js" type="module"></script>
   </head>
   <body>
     <svg class="svg-library" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
@@ -32,6 +34,8 @@
         />
       </symbol>
       <symbol id="icon-check" viewBox="0 0 24 24"><path d="m5 12 4 4L19 6" /></symbol>
+      <symbol id="icon-play" viewBox="0 0 24 24"><path d="m8 5 11 7-11 7V5Z" /></symbol>
+      <symbol id="icon-pause" viewBox="0 0 24 24"><path d="M8 5v14M16 5v14" /></symbol>
       <symbol id="icon-copy" viewBox="0 0 24 24">
         <rect x="9" y="9" width="12" height="12" rx="2" />
         <path d="M15 9V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h4" />
@@ -60,6 +64,7 @@
       >
       <nav class="desktop-nav" aria-label="Main navigation">
         <a href="#how-it-works" data-i18n="navHow">How it works</a
+        ><a href="#playground" data-i18n="navDemo">Try a fix</a
         ><a href="#workspace" data-i18n="navWorkspace">The workspace</a
         ><a href="#why-canary" data-i18n="navWhy">Why Canary</a>
       </nav>
@@ -81,6 +86,7 @@
       </div>
       <nav id="mobile-nav" class="mobile-nav" aria-label="Mobile navigation" hidden>
         <a href="#how-it-works" data-i18n="navHow">How it works</a
+        ><a href="#playground" data-i18n="navDemo">Try a fix</a
         ><a href="#workspace" data-i18n="navWorkspace">The workspace</a
         ><a href="#why-canary" data-i18n="navWhy">Why Canary</a
         ><a href="#get-started" data-i18n="navStart">Get started</a>
@@ -118,10 +124,20 @@
             ><span data-i18n="heroMeta">Your project. Your evidence.</span>
           </div>
         </div>
-        <div class="signal-demo" id="signal-demo" data-stage="detect">
+        <div class="signal-demo" id="signal-demo" data-stage="detect" data-view="3d">
           <div class="demo-heading">
             <span class="eyebrow" data-i18n="signalMap">THE SIGNAL MAP</span
             ><span class="sample-label" data-i18n="sample">Interactive example</span>
+          </div>
+          <div class="map-toolbar">
+            <div class="map-view-controls" role="group" aria-label="Map view">
+              <button type="button" data-map-view="2d" aria-pressed="false">2D</button>
+              <button type="button" data-map-view="3d" aria-pressed="true">3D</button>
+            </div>
+            <button type="button" class="walkthrough-button" id="play-walkthrough" aria-pressed="false">
+              <svg class="walkthrough-icon" aria-hidden="true"><use href="#icon-play" /></svg>
+              <span id="walkthrough-label">Follow the signal</span>
+            </button>
           </div>
           <div class="map-scene" aria-label="Interactive project layers">
             <svg class="signal-orbit" viewBox="0 0 600 470" aria-hidden="true">
@@ -136,8 +152,11 @@
                 ><span class="layer-number">03</span>
               </div>
               <div class="plane-grid">
-                <span class="map-node"><span class="node-dot"></span>cart.test.ts</span
-                ><span class="map-node"><span class="node-dot"></span>manifest.json</span>
+                <button type="button" class="map-node" data-map-node="test" aria-pressed="false">
+                  <span class="node-dot"></span>cart.test.ts</button
+                ><button type="button" class="map-node" data-map-node="manifest" aria-pressed="false">
+                  <span class="node-dot"></span>manifest.json
+                </button>
               </div>
               <span class="layer-connector"></span>
             </div>
@@ -151,10 +170,14 @@
                   type="button"
                   class="map-node issue-node"
                   id="issue-node"
+                  data-map-node="checkout"
+                  aria-pressed="false"
                   aria-label="Inspect checkout.ts failure"
                 >
                   <span class="node-dot"></span>checkout.ts<svg><use href="#icon-diagonal" /></svg></button
-                ><span class="map-node"><span class="node-dot"></span>pricing.ts</span>
+                ><button type="button" class="map-node" data-map-node="pricing" aria-pressed="false">
+                  <span class="node-dot"></span>pricing.ts
+                </button>
               </div>
               <span class="layer-connector"></span>
             </div>
@@ -164,16 +187,19 @@
                 ><span class="layer-number">01</span>
               </div>
               <div class="plane-grid">
-                <span class="map-node"><span class="node-dot"></span>cart.tsx</span
-                ><span class="map-node"><span class="node-dot"></span>api.ts</span>
+                <button type="button" class="map-node" data-map-node="cart" aria-pressed="false">
+                  <span class="node-dot"></span>cart.tsx</button
+                ><button type="button" class="map-node" data-map-node="api" aria-pressed="false">
+                  <span class="node-dot"></span>api.ts
+                </button>
               </div>
             </div>
-            <div class="signal-callout" aria-live="polite">
-              <span class="callout-icon" id="callout-icon">!</span>
-              <div>
-                <strong id="signal-title">One check needs attention</strong
-                ><span id="signal-detail">cart.test.ts → checkout.ts</span>
-              </div>
+          </div>
+          <div class="signal-callout" aria-live="polite">
+            <span class="callout-icon" id="callout-icon">!</span>
+            <div>
+              <strong id="signal-title">One check needs attention</strong
+              ><span id="signal-detail">cart.test.ts → checkout.ts</span>
             </div>
           </div>
           <div class="demo-controls" role="tablist" aria-label="Example workflow">
@@ -195,7 +221,12 @@
               <span id="source-number">24</span><code id="source-code">return subtotal + shipping;</code>
             </div>
           </div>
-          <span class="demo-hint" data-i18n="demoHint">Follow a signal. Click the layers or step through above.</span>
+          <div class="demo-footer">
+            <span class="demo-hint" data-i18n="demoHint">Select a node. Switch perspectives. Follow the signal.</span>
+            <a class="demo-try-link" href="#playground"
+              ><span data-i18n="tryExample">Try the fix yourself</span><svg><use href="#icon-arrow" /></svg
+            ></a>
+          </div>
         </div>
       </section>
 
@@ -269,6 +300,8 @@
           </article>
         </div>
       </section>
+
+      <section id="playground" class="section-shell reveal"></section>
 
       <section id="workspace" class="workspace-section reveal">
         <div class="section-shell">

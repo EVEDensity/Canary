@@ -1,7 +1,11 @@
+import { mountPlayground } from "./playground.js";
+import { mountWorkspaceTour } from "./workspace-tour.js";
+
 const messages = {
   en: {
     skip: "Skip to content",
     navHow: "How it works",
+    navDemo: "Try a fix",
     navWorkspace: "The workspace",
     navWhy: "Why Canary",
     navStart: "Get started",
@@ -20,7 +24,21 @@ const messages = {
     detect: "Detect",
     locate: "Locate",
     verify: "Verify",
-    demoHint: "Follow a signal. Click the layers or step through above.",
+    demoHint: "Select a node. Switch perspectives. Follow the signal.",
+    tryExample: "Try the fix yourself",
+    mapView: "Map perspective",
+    followSignal: "Follow the signal",
+    pauseSignal: "Pause walkthrough",
+    nodeSelected: "Selected node",
+    sourcePreview: "SOURCE PREVIEW",
+    nodeDescriptions: {
+      cart: "The interface submits a cart to the API. Follow its dependency into the checkout logic.",
+      api: "The request handler delegates the cart total to checkout.ts. It connects the interface and application layers.",
+      checkout: "The total omits the discount. cart.test.ts records the failing assertion at line 18.",
+      pricing: "The pricing helper supplies the discount. The value exists, but checkout.ts does not subtract it.",
+      test: "The fixed example asserts a total of 100 and receives 110. Follow the failing call into checkout.ts.",
+      manifest: "The manifest ties the original check, source snapshot and content hash to the same recorded run.",
+    },
     stripLabel: "One entry point for your project checks",
     workflowEyebrow: "01 / A SHORTER PATH TO CLARITY",
     workflowTitle: "Less searching.\nMore understanding.",
@@ -127,6 +145,7 @@ const messages = {
   "zh-CN": {
     skip: "跳转至正文",
     navHow: "工作流程",
+    navDemo: "修复演示",
     navWorkspace: "验证工作台",
     navWhy: "为什么叫 Canary",
     navStart: "开始使用",
@@ -145,7 +164,21 @@ const messages = {
     detect: "发现问题",
     locate: "定位源码",
     verify: "验证重跑",
-    demoHint: "点击架构层，或切换上方步骤，跟随一条问题线索。",
+    demoHint: "选择节点，切换视角，跟随问题线索。",
+    tryExample: "亲手试一次修复",
+    mapView: "地图视角",
+    followSignal: "跟随问题线索",
+    pauseSignal: "暂停导览",
+    nodeSelected: "已选择节点",
+    sourcePreview: "源码预览",
+    nodeDescriptions: {
+      cart: "界面将购物车提交到 API，可以沿依赖关系进入结算逻辑。",
+      api: "请求处理器把金额计算交给 checkout.ts，连接界面与应用逻辑。",
+      checkout: "金额计算遗漏了折扣，cart.test.ts 的第 18 行保留了失败断言。",
+      pricing: "价格辅助函数提供折扣值，但 checkout.ts 没有将它从金额中减去。",
+      test: "固定示例断言预期金额为 100，实际得到 110。沿失败调用进入 checkout.ts。",
+      manifest: "Manifest 将原始检查、源码快照和内容哈希关联到同一次运行。",
+    },
     stripLabel: "一个入口，运行项目已有检查",
     workflowEyebrow: "01 / 更短的问题定位路径",
     workflowTitle: "少一点寻找。\n多一点理解。",
@@ -265,12 +298,54 @@ const installCommands = {
   windows: "iwr -useb https://raw.githubusercontent.com/EVEDensity/Canary/main/scripts/install/install.ps1 | iex",
 };
 let toastTimeout;
+let inspectedNode = null;
+let walkthroughTimer;
+let walkthroughRunning = false;
+const nodeMetadata = {
+  cart: { file: "cart.tsx:32", line: "32", code: "submitCart(cart);", neighbors: ["api"] },
+  api: { file: "api.ts:16", line: "16", code: "return checkout(cart);", neighbors: ["cart", "checkout"] },
+  checkout: {
+    file: "checkout.ts:24",
+    line: "24",
+    code: "return subtotal + shipping;",
+    neighbors: ["api", "pricing", "test"],
+  },
+  pricing: { file: "pricing.ts:8", line: "8", code: "return cart.discount;", neighbors: ["checkout"] },
+  test: {
+    file: "cart.test.ts:18",
+    line: "18",
+    code: "expect(checkout(cart)).toBe(100);",
+    neighbors: ["checkout", "manifest"],
+  },
+  manifest: { file: "manifest.json", line: "—", code: '"parentRunId": "example-failed-run"', neighbors: ["test"] },
+};
 
-function setStage(next) {
-  if (!Object.hasOwn(messages.en.stages, next)) return;
-  stage = next;
-  demo.dataset.stage = stage;
-  const data = messages[locale].stages[stage];
+function updateWalkthrough() {
+  get("#walkthrough-label").textContent = messages[locale][walkthroughRunning ? "pauseSignal" : "followSignal"];
+  get("#play-walkthrough").setAttribute("aria-pressed", String(walkthroughRunning));
+  get(".walkthrough-icon use").setAttribute("href", walkthroughRunning ? "#icon-pause" : "#icon-play");
+}
+
+function stopWalkthrough() {
+  clearTimeout(walkthroughTimer);
+  walkthroughRunning = false;
+  updateWalkthrough();
+}
+
+function renderDemo() {
+  const selected = inspectedNode ?? { detect: "test", locate: "checkout", verify: "manifest" }[stage];
+  const node = nodeMetadata[selected];
+  const data = inspectedNode
+    ? {
+        title: `${messages[locale].nodeSelected} · ${node.file.split(":")[0]}`,
+        detail: node.neighbors.map((id) => nodeMetadata[id].file.split(":")[0]).join(" ↔ "),
+        status: messages[locale].sourcePreview,
+        file: node.file,
+        message: messages[locale].nodeDescriptions[selected],
+        line: node.line,
+        code: node.code,
+      }
+    : messages[locale].stages[stage];
   for (const [id, field] of [
     ["signal-title", "title"],
     ["signal-detail", "detail"],
@@ -281,7 +356,22 @@ function setStage(next) {
     ["source-code", "code"],
   ])
     get(`#${id}`).textContent = data[field];
-  get("#callout-icon").textContent = stage === "verify" ? "✓" : stage === "locate" ? "↗" : "!";
+  get("#callout-icon").textContent = inspectedNode ? "↗" : stage === "verify" ? "✓" : stage === "locate" ? "↗" : "!";
+  all("[data-map-node]").forEach((button) => {
+    const id = button.dataset.mapNode;
+    button.setAttribute("aria-pressed", String(id === selected));
+    button.classList.toggle("is-related", node.neighbors.includes(id));
+    button.classList.toggle("is-muted", !!inspectedNode && id !== selected && !node.neighbors.includes(id));
+  });
+}
+
+function setStage(next, manual = true) {
+  if (!Object.hasOwn(messages.en.stages, next)) return;
+  if (manual) stopWalkthrough();
+  inspectedNode = null;
+  stage = next;
+  demo.dataset.stage = stage;
+  renderDemo();
   all(".demo-controls button").forEach((button) => {
     button.setAttribute("aria-selected", String(button.dataset.stage === stage));
     button.tabIndex = button.dataset.stage === stage ? 0 : -1;
@@ -339,7 +429,11 @@ function setLocale(next, persist = false) {
   }
   get(".art-caption").textContent = locale === "en" ? "a small bird. an early signal." : "一只小鸟，一条早期信号。";
   for (const button of all("[data-copy]")) button.setAttribute("aria-label", text[`${button.dataset.copy}Aria`]);
-  setStage(stage);
+  renderDemo();
+  updateWalkthrough();
+  get(".map-view-controls").setAttribute("aria-label", text.mapView);
+  playground.setLocale(locale);
+  workspaceTour.setLocale(locale);
   if (persist) {
     try {
       localStorage.setItem("canary.site.locale", locale);
@@ -364,6 +458,7 @@ function setOs(next) {
 
 function keyboardTabs(container, select, property) {
   container.addEventListener("keydown", (event) => {
+    if (event.ctrlKey || event.metaKey || event.altKey) return;
     if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
     const buttons = [...container.querySelectorAll('[role="tab"]')];
     const index = buttons.indexOf(document.activeElement);
@@ -396,14 +491,22 @@ all(".demo-controls button").forEach((button) =>
 keyboardTabs(get(".demo-controls"), setStage, "stage");
 all("[data-os]").forEach((button) => button.addEventListener("click", () => setOs(button.dataset.os)));
 keyboardTabs(get(".install-tabs"), setOs, "os");
-get("#issue-node").addEventListener("click", (event) => {
-  event.stopPropagation();
-  setStage("locate");
-});
+function selectNode(id) {
+  stopWalkthrough();
+  setStage(id === "test" || id === "manifest" ? "detect" : "locate", false);
+  inspectedNode = id;
+  renderDemo();
+}
+all("[data-map-node]").forEach((button) =>
+  button.addEventListener("click", (event) => {
+    event.stopPropagation();
+    selectNode(button.dataset.mapNode);
+  }),
+);
 for (const [selector, selection] of [
-  [".plane-top", "detect"],
-  [".plane-middle", "locate"],
-  [".plane-base", "verify"],
+  [".plane-top", "cart"],
+  [".plane-middle", "checkout"],
+  [".plane-base", "test"],
 ]) {
   const plane = get(selector);
   const label = plane.querySelector(".plane-label");
@@ -412,8 +515,31 @@ for (const [selector, selection] of [
   button.className = `${label.className} plane-select`;
   button.replaceChildren(...label.childNodes);
   label.replaceWith(button);
-  plane.addEventListener("click", () => setStage(selection));
+  plane.addEventListener("click", () => selectNode(selection));
 }
+all("[data-map-view]").forEach((button) =>
+  button.addEventListener("click", () => {
+    demo.dataset.view = button.dataset.mapView;
+    all("[data-map-view]").forEach((item) => item.setAttribute("aria-pressed", String(item === button)));
+  }),
+);
+get("#play-walkthrough").addEventListener("click", () => {
+  if (walkthroughRunning) return stopWalkthrough();
+  walkthroughRunning = true;
+  setStage("detect", false);
+  updateWalkthrough();
+  const steps = ["locate", "verify"];
+  const advance = () => {
+    const next = steps.shift();
+    if (!next) return stopWalkthrough();
+    setStage(next, false);
+    walkthroughTimer = setTimeout(advance, 2800);
+  };
+  walkthroughTimer = setTimeout(advance, 2800);
+});
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden) stopWalkthrough();
+});
 
 all("[data-copy]").forEach((button) =>
   button.addEventListener("click", async () => {
@@ -518,12 +644,12 @@ if ("IntersectionObserver" in window) {
     },
     { rootMargin: "-20% 0px -55% 0px", threshold: 0 },
   );
-  all("#how-it-works, #workspace, #why-canary").forEach((section) => observer.observe(section));
+  all("#how-it-works, #playground, #workspace, #why-canary").forEach((section) => observer.observe(section));
 }
 const scene = get(".map-scene");
 let animationFrame;
 scene.addEventListener("pointermove", (event) => {
-  if (reducedMotion.matches || event.pointerType !== "mouse") return;
+  if (reducedMotion.matches || event.pointerType !== "mouse" || demo.dataset.view === "2d") return;
   cancelAnimationFrame(animationFrame);
   animationFrame = requestAnimationFrame(() => {
     const bounds = scene.getBoundingClientRect();
@@ -539,5 +665,8 @@ scene.addEventListener("pointerleave", () => {
   scene.style.setProperty("--lean-x", "0deg");
   scene.style.setProperty("--lean-y", "0deg");
 });
+const playground = mountPlayground(get("#playground"), locale);
+const workspaceTour = mountWorkspaceTour(get(".workspace-frame"), locale);
 setOs(os);
+setStage("detect", false);
 setLocale(locale);

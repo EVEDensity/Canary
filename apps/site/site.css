@@ -25,6 +25,8 @@
 html {
   scroll-behavior: smooth;
   scroll-padding-top: 102px;
+  scrollbar-width: thin;
+  scrollbar-color: #b6baad var(--paper);
 }
 body {
   margin: 0;
@@ -2201,4 +2203,232 @@ html[lang="zh-CN"] .eyebrow {
 }
 .plane {
   cursor: pointer;
+}
+
+/* Interactive architecture preview */
+.map-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin: 14px 8px 0;
+  gap: 12px;
+}
+.map-view-controls {
+  display: flex;
+  padding: 3px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  gap: 3px;
+}
+.map-view-controls button {
+  min-width: 43px;
+  min-height: 34px;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 12px;
+  transition:
+    background 0.2s,
+    box-shadow 0.2s;
+}
+.map-view-controls button[aria-pressed="true"] {
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: 0 1px 4px #292c2510;
+}
+.walkthrough-button {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding: 6px 9px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 12px;
+}
+.walkthrough-button:hover,
+.walkthrough-button[aria-pressed="true"] {
+  color: var(--coral-dark);
+}
+.walkthrough-icon {
+  font-size: 18px;
+  width: 18px;
+}
+.plane-grid {
+  gap: 8px;
+  margin-top: 8px;
+}
+.map-node {
+  min-height: 38px;
+  background: transparent;
+  border-radius: 6px;
+  padding: 5px 7px;
+  margin: 0 -3px;
+  transition:
+    opacity 0.3s,
+    background 0.3s,
+    box-shadow 0.3s;
+}
+.map-node:hover {
+  background: #e8e7dc;
+}
+.map-node[aria-pressed="true"] {
+  box-shadow: inset 0 0 0 1px var(--coral);
+  background: var(--coral-soft);
+  color: var(--ink);
+}
+.map-node.is-related {
+  background: #ffffff80;
+}
+.map-node.is-muted {
+  color: var(--muted);
+}
+.plane-select {
+  min-height: 26px;
+}
+.signal-callout {
+  position: relative;
+  right: auto;
+  bottom: auto;
+  transform: none;
+  margin: 7px 5px 0 auto;
+  padding: 10px 14px;
+  width: fit-content;
+  max-width: calc(100% - 10px);
+}
+.signal-callout div {
+  min-width: 0;
+}
+.signal-callout div > span {
+  display: block;
+  overflow-wrap: anywhere;
+  line-height: 1.6;
+}
+.demo-evidence p {
+  font-size: 13px;
+  line-height: 1.7;
+}
+.demo-evidence {
+  min-height: 144px;
+}
+.signal-demo[data-view="2d"] .plane {
+  left: 5%;
+  width: 90%;
+  max-width: none;
+  height: 106px;
+  transform: none !important;
+}
+.signal-demo[data-view="2d"] .plane-top {
+  top: 18px;
+}
+.signal-demo[data-view="2d"] .plane-middle {
+  top: 131px;
+}
+.signal-demo[data-view="2d"] .plane-base {
+  top: 244px;
+}
+.signal-demo[data-view="2d"] .signal-orbit,
+.signal-demo[data-view="2d"] .layer-connector {
+  opacity: 0;
+}
+.demo-footer {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 9px;
+  margin: 10px 5px 0;
+}
+.demo-footer .demo-hint {
+  margin: 0;
+  font-size: 11px !important;
+}
+.demo-try-link {
+  min-height: 36px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--coral-dark);
+  font-size: 12px;
+  font-weight: 550;
+}
+.demo-try-link svg {
+  width: 15px;
+  height: 15px;
+}
+.hero {
+  padding-top: 40px;
+}
+
+@media (max-width: 800px) {
+  .map-view-controls button {
+    min-height: 38px;
+  }
+  .map-node {
+    min-height: 44px;
+  }
+}
+@media (max-width: 480px) {
+  .map-toolbar {
+    margin-inline: 0;
+  }
+  .map-scene {
+    height: 344px;
+  }
+  .plane {
+    height: 110px;
+    padding: 12px 10px;
+  }
+  .plane-top {
+    top: 25px;
+  }
+  .plane-middle {
+    top: 124px;
+  }
+  .plane-base {
+    top: 223px;
+  }
+  .plane-grid {
+    margin-top: 3px;
+    gap: 4px;
+  }
+  .map-node {
+    font-size: 10px;
+    padding: 5px;
+    gap: 5px;
+  }
+  .plane-label {
+    font-size: 8px;
+  }
+  .signal-demo[data-view="2d"] .plane-top {
+    top: 8px;
+  }
+  .signal-demo[data-view="2d"] .plane-middle {
+    top: 118px;
+  }
+  .signal-demo[data-view="2d"] .plane-base {
+    top: 228px;
+  }
+  .signal-demo[data-view="2d"] .plane {
+    padding: 12px 18px;
+  }
+  .signal-callout {
+    margin-top: 5px;
+    padding: 10px 13px;
+  }
+  .signal-callout strong {
+    font-size: 12px;
+  }
+  .signal-callout div > span {
+    font-size: 10px;
+  }
+  .demo-footer {
+    margin-top: 4px;
+  }
+  .walkthrough-button {
+    font-size: 11px;
+  }
+  .hero {
+    padding-top: 48px;
+  }
 }

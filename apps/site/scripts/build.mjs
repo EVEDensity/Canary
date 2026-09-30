@@ -5,6 +5,15 @@ import { fileURLToPath } from "node:url";
 const siteRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const repoRoot = resolve(siteRoot, "../..");
 const output = join(siteRoot, "dist");
+const pageFiles = [
+  "index.html",
+  "site.css",
+  "site.js",
+  "playground.js",
+  "playground.css",
+  "workspace-tour.js",
+  "workspace-tour.css",
+];
 
 // Keep clean builds strictly inside this app's own generated directory.
 if (relative(siteRoot, output) !== "dist") {
@@ -20,7 +29,7 @@ const sharedAssets = [
 ];
 
 // Validate source files before removing the previous build.
-for (const file of ["index.html", "site.css", "site.js"]) {
+for (const file of pageFiles) {
   await stat(join(siteRoot, file));
 }
 for (const [source] of sharedAssets) {
@@ -29,7 +38,7 @@ for (const [source] of sharedAssets) {
 
 await rm(output, { recursive: true, force: true });
 await mkdir(join(output, "assets"), { recursive: true });
-for (const file of ["index.html", "site.css", "site.js"]) {
+for (const file of pageFiles) {
   await cp(join(siteRoot, file), join(output, file));
 }
 
