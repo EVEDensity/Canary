@@ -29,6 +29,8 @@ if (command === "add") {
         errors.push(`${filename}: missing ${JSON.stringify(key)}`);
       else if (placeholders(messages[key]) !== placeholders(source[key]))
         errors.push(`${filename}: placeholder mismatch ${JSON.stringify(key)}`);
+      else if (filename === "en.json" && /[\u3400-\u9fff]/.test(messages[key]))
+        errors.push(`${filename}: untranslated Chinese value ${JSON.stringify(key)}`);
     }
     for (const key of Object.keys(messages))
       if (!(key in source)) errors.push(`${filename}: unexpected key ${JSON.stringify(key)}`);
@@ -42,14 +44,15 @@ if (command === "add") {
         const segments = ts.isTemplateExpression(node)
           ? [node.head.text, ...node.templateSpans.map((span) => span.literal.text)]
           : [node.text];
-        const markup = segments.join("");
+        const markup = segments.join("").replace(/<script\b[^>]*>[\s\S]*?<\/script>/g, "");
         if (
           markup.includes("<!doctype") ||
           (ts.isVariableDeclaration(node.parent) && node.parent.name.getText(file).endsWith("Markup"))
         ) {
-          for (const match of markup.matchAll(/>([^<>]*[\u3400-\u9fff][^<>]*)</g)) {
+          for (const match of markup.matchAll(/>([^<>]*(?:[\u3400-\u9fff]|[A-Za-z]{3})[^<>]*)</g)) {
             const key = match[1].trim();
-            if (key && !(key in source)) errors.push(`${name}: unregistered static message ${JSON.stringify(key)}`);
+            if (key && !["canary", "Agent"].includes(key) && !(key in source))
+              errors.push(`${name}: unregistered static message ${JSON.stringify(key)}`);
           }
           for (const match of markup.matchAll(/(?:title|aria-label|placeholder)="([^"]*[\u3400-\u9fff][^"]*)"/g))
             if (!(match[1] in source))
@@ -95,6 +98,38 @@ if (command === "add") {
       ts.forEachChild(node, visit);
     }
     visit(file);
+  }
+  // UI explanations also originate in server-side issue and comparison builders.
+  for (const path of [
+    "apps/web/src/project-issues.ts",
+    "apps/web/src/workspace.ts",
+    "apps/web/src/structure-diagnostics.ts",
+    "packages/improvement/src/evidence-assessment.ts",
+  ]) {
+    const file = ts.createSourceFile(path, readFileSync(path, "utf8"), ts.ScriptTarget.Latest, true);
+    function scanServer(node) {
+      if (ts.isStringLiteral(node) && /[\u3400-\u9fff]/.test(node.text) && !(node.text in source))
+        errors.push(`${path}: unregistered server explanation ${JSON.stringify(node.text)}`);
+      if (ts.isTemplateExpression(node) && /[\u3400-\u9fff]/.test(node.getText(file))) {
+        let key = node.head.text;
+        for (const span of node.templateSpans) {
+          const expression = span.expression.getText(file);
+          const name = ["missing.size", "matched.length"].includes(expression)
+            ? "count"
+            : expression === "MIN_MATCHED"
+              ? "minimum"
+              : expression === "check.exitCode"
+                ? "code"
+                : ts.isConditionalExpression(span.expression)
+                  ? "status"
+                  : undefined;
+          key += `{${name ?? expression}}` + span.literal.text;
+        }
+        if (!(key in source)) errors.push(`${path}: unregistered server template ${JSON.stringify(key)}`);
+      }
+      ts.forEachChild(node, scanServer);
+    }
+    scanServer(file);
   }
   if (errors.length) {
     console.error(errors.join("\n"));

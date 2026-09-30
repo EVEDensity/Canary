@@ -151,6 +151,8 @@ export class WorkspaceReader {
           runId: source.runId,
           category: "agent",
           title: result.caseId,
+          summaryIsGenerated:
+            !result.assertions.find((assertion) => !assertion.passed)?.message && !result.failureCategory,
           summary:
             result.assertions.find((assertion) => !assertion.passed)?.message ??
             result.failureCategory ??
@@ -205,6 +207,7 @@ export class WorkspaceReader {
           checkId: check.id,
           category: "artifact",
           title: check.id,
+          summaryIsGenerated: true,
           summary: "子运行证据缺失、损坏或谱系不匹配",
           advice: "重新生成并核验关联 Agent 证据。",
           target: "coverage",

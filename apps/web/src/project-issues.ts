@@ -8,6 +8,8 @@ export interface ProjectIssue {
   category: string;
   title: string;
   summary: string;
+  /** Built-in fallback explanation, rather than an excerpt of original evidence. */
+  summaryIsGenerated?: boolean;
   advice: string;
   target: "check" | "evidence" | "coverage" | "cases";
   status: "open" | "verified" | "waiting" | "failed" | "unverified";
@@ -35,14 +37,19 @@ export function issueFromCheck(runId: string, check: ProjectCheckResult): Projec
     .flatMap((line) => line.split("\n"))
     .map((line) => line.replace(/\u001b\[[0-?]*[ -/]*[@-~]/g, ""))
     .filter((line) => line.trim() && !/^\[.*(?:omitted|redacted|recent output)/i.test(line));
+  const excerpt = (lines.find((line) => /error|fail|exception|timeout|错误|失败/i.test(line)) ?? lines[0])?.slice(
+    0,
+    1600,
+  );
   return {
     id: `${runId}:check:${check.id}`,
     runId,
     checkId: check.id,
     category: check.category,
     title: check.id,
+    summaryIsGenerated: !excerpt,
     summary:
-      (lines.find((line) => /error|fail|exception|timeout|错误|失败/i.test(line)) ?? lines[0])?.slice(0, 1600) ??
+      excerpt ??
       (check.outputTruncated
         ? "日志已截断，当前证据不足以定位根因。"
         : `检查${check.status === "blocked" ? "阻塞" : "失败"}，退出码 ${check.exitCode}。`),

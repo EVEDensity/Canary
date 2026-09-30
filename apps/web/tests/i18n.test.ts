@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { Script, runInNewContext } from "node:vm";
 import { i18nClient, readCatalogs, translateMessage } from "../src/i18n.js";
 import { renderWorkspace } from "../src/workspace-ui.js";
+import { dashboardClient } from "../src/dashboard-ui.js";
 
 describe("workspace localization", () => {
   const catalogs = readCatalogs();
@@ -26,6 +27,90 @@ describe("workspace localization", () => {
     const script = html.match(/<script>([\s\S]*?)<\/script>/)?.[1];
     expect(script).toBeDefined();
     expect(() => new Script(script!)).not.toThrow();
+  });
+  it("localizes built-in server explanations and numeric comparison templates", () => {
+    const picker = { value: "", append: () => {}, onchange: () => {} };
+    const value = runInNewContext(
+      i18nClient() +
+        `
+      ({ advice:tm('关联重跑尚未完成'),
+         sample:tm('仅 3 项配对检查，少于探索性门槛 5'),
+         missing:tm('2 个用例或重复轮次未配对'),
+         unknown:tm('用户自定义说明：保留原文'),
+         labels:localizedValues(()=>({status:t('通过')})) })`,
+      {
+        document: {
+          title: "Canary",
+          body: {},
+          documentElement: {},
+          createTreeWalker: () => ({ nextNode: () => false }),
+          querySelectorAll: () => [],
+          getElementById: () => picker,
+          createElement: () => ({}),
+        },
+        location: { search: "?lang=en" },
+        navigator: { languages: ["en"] },
+        localStorage: { getItem: () => null },
+        NodeFilter: { SHOW_TEXT: 4 },
+        URLSearchParams,
+      },
+    );
+    expect(value.advice).toBe("The linked rerun is not complete");
+    expect(value.sample).toBe("Only 3 paired checks, below the exploratory threshold of 5");
+    expect(value.missing).toBe("2 cases or repetitions are unpaired");
+    expect(value.unknown).toBe("用户自定义说明：保留原文");
+    expect(value.labels.status).toBe("Passed");
+  });
+  it("invalidates trend and run-selector caches when only the language changes", () => {
+    const element = () => ({
+      textContent: "",
+      clientWidth: 640,
+      hidden: false,
+      dataset: {},
+      value: "",
+      children: [] as unknown[],
+      append(...nodes: unknown[]) {
+        this.children.push(...nodes);
+      },
+      replaceChildren(...nodes: unknown[]) {
+        this.children = nodes;
+      },
+    });
+    const elements = Object.fromEntries(
+      ["run-selector", "trend-chart", "trend-tooltip", "trend-title", "trend-value", "trend-description"].map((id) => [
+        id,
+        element(),
+      ]),
+    );
+    const context = {
+      canaryLocale: "en",
+      rows: [{ runId: "run_test", startedAt: "2026-09-30", status: "completed" }],
+      selected: "run_test",
+      trendMetric: "rate",
+      dashboardStamp: "",
+      labels: { completed: "Completed" },
+      $: (id: string) => elements[id],
+      document: { createElement: element },
+      text: (_tag: string, value: string) => ({ ...element(), textContent: value }),
+      historyDay: () => "2026-09-30",
+      historyClock: () => "12:00",
+      parentFor: () => undefined,
+      runName: () => (context.canaryLocale === "en" ? "Project checks" : "项目检查"),
+      short: () => "test",
+      t: (key: string) => catalogs[context.canaryLocale][key] ?? key,
+    };
+    const selector = dashboardClient.match(/^function updateRunSelector\(\).*$/m)![0];
+    const trend = dashboardClient.match(/^function renderTrend\(items\).*$/m)![0];
+    const code = `${selector}\n${trend}\nupdateRunSelector();renderTrend([]);`;
+    runInNewContext(code, context);
+    expect(elements["trend-title"].textContent).toBe(catalogs.en["检查通过率趋势"]);
+    const first = elements["run-selector"].children;
+    context.canaryLocale = "zh-CN";
+    context.labels.completed = "已完成";
+    runInNewContext(code, context);
+    expect(elements["trend-title"].textContent).toBe("检查通过率趋势");
+    expect(elements["run-selector"].children).not.toBe(first);
+    expect(elements["run-selector"].value).toBe("run_test");
   });
   it("switches repeatedly without navigation, translating only registered UI bindings", () => {
     const title = { nodeValue: " 项目结构 ", isConnected: true, parentElement: { closest: () => false } };

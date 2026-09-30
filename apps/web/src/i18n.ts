@@ -38,6 +38,15 @@ const browserLocale=browserLocales.map(value=>Object.keys(canaryCatalogs).find(l
 let canaryLocale=[requestedLocale,storedLocale,browserLocale,'en'].find(locale=>Object.hasOwn(canaryCatalogs,locale));
 const t=key=>canaryCatalogs[canaryLocale][key]??canaryCatalogs['zh-CN'][key]??key;
 const tfmt=(key,values)=>t(key).replace(/\{([a-zA-Z][a-zA-Z0-9_]*)\}/g,(match,name)=>Object.hasOwn(values,name)?String(values[name]):match);
+// Built-in server explanations only; source, logs and user assertions remain verbatim.
+const serverTemplates=[
+ ['{count} 个用例或重复轮次未配对',/^(\d+) 个用例或重复轮次未配对$/,['count']],
+ ['{count} 项检查未配对',/^(\d+) 项检查未配对$/,['count']],
+ ['仅 {count} 个配对样本，少于探索性门槛 {minimum}',/^仅 (\d+) 个配对样本，少于探索性门槛 (\d+)$/,['count','minimum']],
+ ['仅 {count} 项配对检查，少于探索性门槛 {minimum}',/^仅 (\d+) 项配对检查，少于探索性门槛 (\d+)$/,['count','minimum']],
+ ['检查{status}，退出码 {code}。',/^检查(阻塞|失败)，退出码 (-?\d+)。$/,['status','code']],
+];
+function tm(value){if(typeof value!=='string')return value;for(const [key,pattern,names] of serverTemplates){const match=value.match(pattern);if(match)return tfmt(key,Object.fromEntries(names.map((name,index)=>[name,name==='status'?t(match[index+1]):match[index+1]])))}return t(value)}
 function localizedValues(factory){let locale=canaryLocale,values=factory();return Object.defineProperties({},Object.fromEntries(Object.keys(values).map(key=>[key,{enumerable:true,get(){if(locale!==canaryLocale){values=factory();locale=canaryLocale}return values[key]}}])))}
 const originalTitle=document.title,staticBindings=[];
 const staticText=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT);
