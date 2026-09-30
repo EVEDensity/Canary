@@ -23,25 +23,36 @@ See the [support matrix](docs/guides/support-matrix.md) and [verification record
 
 ## Quick start
 
-Use **Node.js 24, Git and pnpm 10.15.0**:
+Use **Node.js 22+ (24 recommended) and Git**, then run one installation command for your platform:
 
-```bash
-git clone https://github.com/EVEDensity/Canary.git
-cd Canary
-pnpm install --frozen-lockfile
-pnpm build
-pnpm canary run --port 4318 --no-open
+**Windows / PowerShell**
+
+```powershell
+iwr -useb https://raw.githubusercontent.com/EVEDensity/Canary/main/scripts/install/install.ps1 | iex
 ```
 
-Open [localhost:4318](http://127.0.0.1:4318/?lang=en) to view live checks, architecture maps and run history. Switch between English and Simplified Chinese in the language menu; your preference is remembered.
+**macOS / Linux**
 
-The repository includes six project checks. Run `pnpm demo` for the Agent evaluation example.
+```bash
+curl -fsSL https://raw.githubusercontent.com/EVEDensity/Canary/main/scripts/install/install.sh | bash
+```
+
+Open a new terminal and run from your project or any subdirectory. No Canary configuration is required:
+
+```bash
+canary run --ci                  # Discover and execute project checks
+canary run --port 4318 --no-open  # Open an interactive report
+```
+
+Open [localhost:4318](http://127.0.0.1:4318/?lang=en). From another directory, use `canary run --ci --project <directory>`.
+
+Canary discovers Node build, type check, lint, formatting and test scripts, plus standard Python, Go and Rust test entry points. It uses the project's declared package manager; project dependencies and test services must be ready. See [automatic checks](docs/guides/automatic-checks.md).
 
 ## Use with your project
 
-Run `node scripts/install-global.mjs` from a clean Canary source checkout, then open a new terminal to use `canary`.
+Automatic discovery is the default. Add a configuration for custom commands, timeouts or Agent cases; existing configurations always take priority.
 
-Prepare your project's dependencies and add `canary.project.json` at its root. This example runs existing `build` and `test` scripts:
+For custom checks, add `canary.project.json` at your project's root. This example runs existing `build` and `test` scripts:
 
 ```json
 {

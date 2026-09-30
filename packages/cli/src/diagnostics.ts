@@ -4,6 +4,7 @@ import { dirname, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { randomUUID } from "node:crypto";
 import { spawnSync } from "node:child_process";
+import { automaticProjectConfig } from "./auto-project.js";
 import {
   CLI_EXIT,
   doctorSnapshotSchema,
@@ -125,6 +126,9 @@ function hasWhitespace(path: string): boolean {
 
 async function inspectTrustedConfig(context: ProjectContext, issues: CliIssue[]): Promise<void> {
   if (!existsSync(context.configFile)) {
+    if (context.source !== "config") {
+      try { automaticProjectConfig(context.projectRoot); return; } catch { /* Report absent or unsupported checks below. */ }
+    }
     issues.push({
       code: "CONFIG_NOT_FOUND",
       severity: "error",

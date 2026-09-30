@@ -4,6 +4,8 @@
 
 R4 增加独立项目检查配置和 `project-checks` scope，原有 agent 输出仍保持 `configured-agent-cases`；新增行为见 [项目检查指南](r4-project-checks.md)。
 
+自动项目检查入口现已支持：没有 Canary 配置时，从项目声明生成检查计划；子目录自动定位项目，`canary run --ci --project <directory>` 支持跨目录执行。规则和优先级见[自动项目检查](automatic-checks.md)。下文 R0 范围描述保留阶段历史。
+
 ## 范围与兼容边界
 
 R0 固定现有 Agent case 执行路径的入口契约，不实现通用语言项目发现或自动运行任意仓库脚本。Node/Python/Go/Rust 等 required/optional 检查编排属于 R4。进程树清理、崩溃恢复和 tmp/lock/port 隔离已在 [R1](../evidence/r1-execution-record.md) 的 Windows Node 24 范围落地；Ubuntu/macOS 仍为 declared。当前仓库的 CI 配置运行 15 个本地示例 case，不等于执行完整的 pnpm check。

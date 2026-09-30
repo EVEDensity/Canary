@@ -10,6 +10,8 @@
 
 中英文切换、新语言贡献与自动检查流程见[界面语言](guides/localization.md)。
 
+全局安装、无配置运行与跨目录检查见[自动项目检查](guides/automatic-checks.md)。
+
 ## 按目的阅读
 
 | 我想做什么                                    | 从这里开始                                                                                                                                                                                                    |

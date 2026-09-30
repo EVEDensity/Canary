@@ -23,25 +23,36 @@
 
 ## 快速开始
 
-准备 **Node.js 24、Git 和 pnpm 10.15.0**：
+准备 **Node.js 22+（推荐 24）和 Git**，按系统执行一条安装命令：
 
-```bash
-git clone https://github.com/EVEDensity/Canary.git
-cd Canary
-pnpm install --frozen-lockfile
-pnpm build
-pnpm canary run --port 4318 --no-open
+**Windows / PowerShell**
+
+```powershell
+iwr -useb https://raw.githubusercontent.com/EVEDensity/Canary/main/scripts/install/install.ps1 | iex
 ```
 
-打开 [localhost:4318](http://127.0.0.1:4318)，查看实时检查、项目地图和运行历史。界面支持中英文切换，并记住语言偏好。
+**macOS / Linux**
 
-仓库内置六项项目检查；`pnpm demo` 可运行 Agent 评估示例。
+```bash
+curl -fsSL https://raw.githubusercontent.com/EVEDensity/Canary/main/scripts/install/install.sh | bash
+```
+
+安装后新开终端，在项目目录或其子目录执行，无需 Canary 配置：
+
+```bash
+canary run --ci                  # 自动识别并执行项目检查
+canary run --port 4318 --no-open  # 展示交互式报告
+```
+
+打开 [localhost:4318](http://127.0.0.1:4318)。也可从任意目录使用 `canary run --ci --project <项目目录>`。
+
+自动识别 Node 项目的构建、类型检查、lint、格式检查与测试脚本，以及 Python、Go、Rust 的标准测试入口。沿用项目声明的包管理器；项目依赖和测试所需服务需已就绪。详见[自动检查](docs/guides/automatic-checks.md)。
 
 ## 接入自己的项目
 
-在干净的 Canary 源码目录执行 `node scripts/install-global.mjs`，新开终端即可使用 `canary`。
+默认自动识别即可运行。需要自定义命令、超时或 Agent 用例时，可添加配置；已有配置始终优先。
 
-准备被测项目的依赖，在其根目录添加 `canary.project.json`。以下示例执行已有的 `build` 与 `test` 脚本：
+如需自定义检查，在项目根目录添加 `canary.project.json`。以下示例执行已有的 `build` 与 `test` 脚本：
 
 ```json
 {

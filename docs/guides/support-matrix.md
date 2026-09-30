@@ -13,7 +13,7 @@
 | MCP stdio 工具                    | 外部 `get-sum` 用例 verified         | 参考服务的单项工具调用通过；不宣称所有 MCP 生命周期、传输或宿主兼容                                                          |
 | MCP Agent adapter                 | Demo 范围 verified                   | 当前固定调用名为 `run` 的工具；不同 MCP 工具可由函数 Agent 的 `tools.adapter` 接入                                           |
 | MCP HTTP 工具                     | Demo 范围 verified                   | JSON-RPC POST/SSE body，尚不是完整 Streamable HTTP session 实现                                                              |
-| `canary run --ci`                 | 选定项目 verified                    | 全局启动器可跨目录调用；只执行目标项目显式计划，不自动扫描电脑或代替远端 GitHub CI                                           |
+| `canary run --ci`                 | 自动 Node/Python 入口 verified       | 项目及子目录自动识别，支持 `--project`；已有 Canary 配置优先，Go/Rust 自动计划已实现，平台执行按记录范围验收                 |
 | 本地报告页面                      | R5/R8 范围 verified                  | 项目检查和 Agent 运行共用工作台；页面指标依据已采集数据，未采集项显示不可用                                                  |
 | 项目结构与 Git 变更               | R10 Windows fixture verified         | JS/TS 与可用 Python 符号；Go/Rust 暂到包和文件，动态/跨语言调用明确未知；旧运行只读封存快照                                  |
 | 交互架构地图                      | R11 Windows Edge headless verified   | 本仓库封存运行的二维/三维、搜索、过滤、状态恢复和源码哈希保护；非 JS/TS 页面只到目录/文件，静态图不代表运行时拓扑            |

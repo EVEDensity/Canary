@@ -33,12 +33,17 @@ if (process.argv.slice(2).some((arg) => arg !== "--working-tree"))
   fail("Unknown installation option. Supported: --working-tree");
 if (workingTree && requestedRef) fail("--working-tree cannot be combined with CANARY_REF.");
 let sourceDirty = false;
+let pinnedPnpm = false;
 
 function fail(message) {
   console.error(`Canary installation failed: ${message}`);
   process.exit(1);
 }
 function run(command, args) {
+  if (command === "pnpm" && pinnedPnpm) {
+    command = "npm";
+    args = ["exec", "--yes", "--package", `pnpm@${expectedPnpm}`, "--", "pnpm", ...args];
+  }
   const result = spawnSync(command, args, { cwd: repoRoot, stdio: "inherit", shell: isWin });
   if (result.status !== 0) fail(`${command} ${args.join(" ")} exited with ${result.status ?? 1}`);
 }
@@ -52,14 +57,10 @@ function ensureRuntime() {
   const git = probe("git", ["--version"]);
   if (git.status !== 0) fail("Git is required but was not found on PATH.");
   const pnpm = probe("pnpm", ["--version"]);
-  if (pnpm.status !== 0) {
-    console.log("pnpm was not found; enabling Corepack…");
-    run("corepack", ["enable"]);
-    run("corepack", ["prepare", `pnpm@${expectedPnpm}`, "--activate"]);
-  } else if (pnpm.stdout.trim() !== expectedPnpm) {
-    fail(
-      `pnpm ${expectedPnpm} is required; found ${pnpm.stdout.trim()}. Set up Corepack or install the pinned version.`,
-    );
+  if (pnpm.status !== 0 || pnpm.stdout.trim() !== expectedPnpm) {
+    if (probe("npm", ["--version"]).status !== 0) fail("npm is required to prepare the pinned build runtime.");
+    pinnedPnpm = true;
+    console.log(`Using pnpm ${expectedPnpm} through npm exec for this installation.`);
   }
 }
 function assertCheckout() {

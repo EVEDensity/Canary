@@ -3,6 +3,7 @@ import { homedir } from "node:os";
 import { dirname, basename, relative, resolve, isAbsolute } from "node:path";
 import { fileURLToPath } from "node:url";
 import { projectContextSchema, type ProjectContext } from "@canary/core";
+import { hasProjectMarker, hasWorkspaceMarker } from "./auto-project.js";
 
 export const CANARY_HOME_FILE = resolve(homedir(), ".canary", "home.json");
 export const RUNTIME_INSTALL_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
@@ -13,7 +14,7 @@ export function invocationRoot(cwd?: string): string {
     process.env.npm_package_name === "@canary/cli" &&
     ["canary", "dev"].includes(process.env.npm_lifecycle_event ?? "") &&
     canonicalPath(process.cwd()) === canonicalPath(resolve(RUNTIME_INSTALL_ROOT, "packages/cli"));
-  return resolve(cwd ?? (packageScript ? process.env.INIT_CWD : undefined) ?? process.cwd());
+  return resolve((packageScript ? process.env.INIT_CWD : undefined) ?? process.cwd(), cwd ?? ".");
 }
 export function canonicalPath(path: string): string {
   const absolute = resolve(path);
@@ -73,6 +74,8 @@ export function resolveProjectContext(options: { cwd?: string; configPath?: stri
   let source: "config" | "walk" | "cwd" = options.configPath ? "config" : "cwd";
   if (!options.configPath) {
     let dir = invocation;
+    let automaticRoot: string | undefined;
+    let workspaceRoot: string | undefined;
     while (true) {
       // Artifact/tmp projects must never inherit the owning project's plan.
       if (basename(dir).toLowerCase() === ".canary") break;
@@ -82,9 +85,16 @@ export function resolveProjectContext(options: { cwd?: string; configPath?: stri
         source = "walk";
         break;
       }
+      if (!automaticRoot && hasProjectMarker(dir)) automaticRoot = dir;
+      if (hasWorkspaceMarker(dir)) workspaceRoot = dir;
+      if (existsSync(resolve(dir, ".git"))) break;
       const parent = dirname(dir);
       if (parent === dir) break;
       dir = parent;
+    }
+    if (source === "cwd" && (workspaceRoot || automaticRoot)) {
+      configFile = resolve(workspaceRoot ?? automaticRoot!, "canary.config.ts");
+      source = "walk";
     }
   }
   configFile = canonicalPath(configFile);

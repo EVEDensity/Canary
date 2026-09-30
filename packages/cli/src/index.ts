@@ -11,6 +11,7 @@ import { FileArtifactRepository, RunStore, applyRetention, planRetention, verify
 import { projectChecksConfigSchema, ciResultSchema } from "@canary/core";
 import { runProjectSession } from "./project-session.js";
 import { discoverProject } from "./discovery.js";
+import { automaticProjectConfig, hasProjectMarker } from "./auto-project.js";
 import { blocked, runCheckProcess } from "./check-executor.js";
 import { runEvaluation } from "./app.js";
 import { renderReport } from "@canary/reporters";
@@ -68,7 +69,7 @@ export interface CliOptions {
   experienceContext?: { checkId: string; checkType: string };
   suppressOutput?: boolean;
 }
-const USAGE = `Usage: canary run [--ci] [--affected --base <git-ref>] [--headless|--artifacts-only] [--no-open] [--json] [--case <id>] [--tag <tag>] [--repetitions <n>] [--port <number>] [--config <path>] [--entry <path>] [--retry-of <runId>]
+const USAGE = `Usage: canary run [--ci] [--project <directory>] [--affected --base <git-ref>] [--headless|--artifacts-only] [--no-open] [--json] [--case <id>] [--tag <tag>] [--repetitions <n>] [--port <number>] [--config <path>] [--entry <path>] [--retry-of <runId>]
        canary discover [--json] [--config <path>]
        canary structure [--base <git-ref>] [--run <runId>] [--config <path>]
        canary analyze [--run <runId>] [--config <path>]
@@ -323,8 +324,13 @@ export async function runCommandDetailed(options: CliOptions = {}): Promise<RunC
   if (options.ci) options = { ...options, headless: true, noOpen: true, suppressOutput: true };
   const context = resolveProjectContext(options);
   let raw: unknown;
-  if (!existsSync(context.configFile)) throw new CliFailure(2, "CONFIG_NOT_FOUND", missingConfigMessage(context.configFile), "Use canary paths --json and pass --config <existing-canary.config.ts> from the tested project.");
-  try { raw = await loadRawConfig(context.configFile); } catch {
+  if (!existsSync(context.configFile) && options.configPath) throw new CliFailure(2, "CONFIG_NOT_FOUND", missingConfigMessage(context.configFile), "Use --config with an existing configuration, or omit it for automatic detection.");
+  if (!existsSync(context.configFile)) {
+    if (!hasProjectMarker(context.projectRoot)) throw new CliFailure(2, "CONFIG_NOT_FOUND", missingConfigMessage(context.configFile), "Run inside a project, or pass --project <directory>.");
+    try { raw = automaticProjectConfig(context.projectRoot); } catch {
+      throw new CliFailure(2, "AUTO_CHECKS_UNAVAILABLE", "No usable automatic check plan could be read from this project.", "Use a valid package.json with build/test/lint/typecheck scripts, Python test declarations, go.mod or Cargo.toml; advanced projects may supply --config.");
+    }
+  } else try { raw = await loadRawConfig(context.configFile); } catch {
     throw new CliFailure(2, "CONFIG_INVALID", "Cannot load project configuration.", missingConfigMessage(context.configFile));
   }
   if (raw && typeof raw === "object" && "kind" in raw && raw.kind === "canary.project") {
@@ -1562,11 +1568,16 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
     console.log(USAGE);
     return 1;
   }
+  if (rest.includes("--project") && (!flagValue(rest, "--project") || flagValue(rest, "--project")!.startsWith("--"))) {
+    console.error("--project requires a directory.");
+    return 2;
+  }
   const options: CliOptions = {
     headless: rest.includes("--headless") || rest.includes("--artifacts-only"),
     noOpen: rest.includes("--no-open"),
     json: rest.includes("--json"),
   };
+  options.cwd = flagValue(rest, "--project");
   options.caseId = flagValue(rest, "--case");
   options.tags = flagValues(rest, "--tag");
   options.entry = flagValue(rest, "--entry");

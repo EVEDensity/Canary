@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { lstatSync, rmSync } from "node:fs";
+import { existsSync, lstatSync, rmSync } from "node:fs";
 import { join, resolve, relative } from "node:path";
 import type { ProjectChecksConfig, ProjectCheckResult, ProjectContext, RunSnapshot, RunLineage } from "@canary/core";
 import {
@@ -72,6 +72,7 @@ export async function runProjectChecks(
   let discovery;
   try {
     discovery = discoverProject(context.projectRoot);
+    if (!existsSync(context.configFile)) discovery = { ...discovery, automaticExecution: true, reason: "Executing automatic checks from project declarations; the sealed check plan records the exact commands." };
     sources = projectSourceInventory(context.projectRoot);
   } catch {
     throw new CliFailure(

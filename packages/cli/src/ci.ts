@@ -53,7 +53,7 @@ export function classifyCiError(error: unknown, context: ProjectContext): CliFai
     "Preserve local artifacts and reproduce with a minimal trusted configuration; report the Canary and Node versions.",
   );
 }
-const valueFlags = new Set(["--config", "--case", "--tag", "--repetitions", "--entry", "--retry-of", "--experience-check", "--base"]);
+const valueFlags = new Set(["--project", "--config", "--case", "--tag", "--repetitions", "--entry", "--retry-of", "--experience-check", "--base"]);
 const booleanFlags = new Set(["--ci", "--json", "--headless", "--no-open", "--agent-check", "--affected"]);
 export function parseCiOptions(args: string[]): CliOptions {
   const options: CliOptions = { ci: true, headless: true, noOpen: true, suppressOutput: true };
@@ -78,6 +78,7 @@ export function parseCiOptions(args: string[]): CliOptions {
       );
     seen.add(flag);
     if (flag === "--config") options.configPath = value;
+    if (flag === "--project") options.cwd = value;
     if (flag === "--case") options.caseId = value;
     if (flag === "--tag") (options.tags ??= []).push(value);
     if (flag === "--entry") options.entry = value;

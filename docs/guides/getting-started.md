@@ -28,11 +28,19 @@ curl -fsSL https://raw.githubusercontent.com/EVEDensity/Canary/main/scripts/inst
 
 安装脚本完成源码获取、依赖准备、构建和用户级命令注册。克隆目录可用 `CANARY_DIR` 配置。安装当前工作树时使用 `node scripts/install-global.mjs --working-tree`，该模式记录源码状态与 CLI 哈希；更新后重新构建和安装。
 
-全局命令自动发现调用目录最近的项目配置，同目录优先 `canary.project.json`，其次 `canary.config.ts`。运行和报告均属于配置对应的项目，产物存放在该项目 `.canary/artifacts`。缺少配置时提供配置提示（CI 退出码 2）。各历史与报告命令使用相同项目上下文，也可通过 `--config` 指定配置。
+全局命令可在项目目录或任意子目录执行。已有配置优先 `canary.project.json`，其次 `canary.config.ts`；没有配置时自动识别项目标记、workspace 和检查脚本，不生成额外配置。运行产物存放在被测项目 `.canary/artifacts`。没有可执行检查时明确报错，不会把发现项目当作验证通过。
 
 ## 接入另一个项目
 
-完整的构建与测试配置示例见[README 快速开始](../../README.md#接入自己的项目)。先准备项目依赖，再声明检查步骤。覆盖率按适配器和采集配置呈现，详见[评估与覆盖率](evaluation-and-coverage.md)。
+准备项目自身依赖后即可执行，无需 Canary 配置：
+
+```bash
+canary run --ci
+canary run --port 4318 --no-open
+canary run --ci --project /path/to/project
+```
+
+识别规则见[自动项目检查](automatic-checks.md)。覆盖率按实际采集配置呈现，详见[评估与覆盖率](evaluation-and-coverage.md)。以下步骤适用于自定义检查和 Agent 用例；配置示例见[README](../../README.md#接入自己的项目)。
 
 1. 普通项目放置 `canary.project.json`，参考 [项目检查指南](r4-project-checks.md)；Agent 项目也可使用 `canary.config.ts`，参考 [适配器说明](adapters-and-environment.md)。
 2. 在该项目目录执行 `canary run`，或从任意目录传入 `--config <path>`（相对路径相对调用目录）。
@@ -60,7 +68,7 @@ Windows 的 `scripts/install/uninstall.ps1` 与 macOS/Linux 的 `scripts/install
 ## 首次运行问题
 
 - **找不到 canary：** 全局安装后新开终端，或在源码仓库使用 `pnpm canary`。
-- **找不到配置：** 在被测项目放置 `canary.project.json`，或显式传入 `--config`；先用 `canary paths --json` 核对选择。
+- **未识别检查：** 核对项目已有脚本及语言标记，用 `--project` 指定被测目录；特殊检查可显式传入 `--config`。
 - **缺 dist/包导出：** 在 Canary 源码仓库先执行 `pnpm build`；目标项目依赖需单独准备。
 - **端口被占用：** 关闭旧页面服务或换一个 `--port`。页面仅监听回环地址。
 - **覆盖率不可用：** 核对测量来源和声明范围；普通命令通过不意味着全仓覆盖率已采集。
