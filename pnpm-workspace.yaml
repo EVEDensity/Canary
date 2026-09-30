@@ -2,3 +2,7 @@
   - "packages/*"
   - "apps/*"
   - "examples/*"
+
+# Patch the affected 5.x transitive dependency without overriding other majors.
+overrides:
+  "brace-expansion@>=5.0.0 <5.0.12": "5.0.12"

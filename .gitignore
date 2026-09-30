@@ -14,6 +14,16 @@ dist/
 !.canary/artifacts/.gitkeep
 *.log
 .DS_Store
+
+# Local credentials and environment files; tracked historical evidence is retained.
+.env
+.env.*
+!.env.example
+!.env.sample
+*.pem
+*.key
+*.p12
+*.pfx
  
 # Build artifacts 
 dist/ 

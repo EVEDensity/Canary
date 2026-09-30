@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "license": "Apache-2.0",
-  "description": "Local Agent evaluation, runtime coverage, and improvement workspace.",
+  "description": "Local project checks, architecture maps, and evidence-backed verification workspace.",
   "packageManager": "pnpm@10.15.0",
   "engines": {
     "node": ">=22"
@@ -47,6 +47,6 @@
     "tsx": "^4.19.0",
     "typescript": "^5.7.0",
     "typescript-eslint": "^8.70.0",
-    "vitest": "^3.0.0"
+    "vitest": "^4.1.11"
   }
 }

@@ -1,196 +1,121 @@
 <div align="center">
-  <img src="docs/images/logo-hero.png" height="200" align="middle" />
-
-  <p><strong>像跑单元测试一样测试你的 AI Agent。</strong><br>
-  本地执行 · V8 源码覆盖率 · 可回放 · 可对比 · 可导出</p>
-
-  <div>
-    <a href="https://github.com/EVEDensity/Canary/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/EVEDensity/Canary/ci.yml?label=ci&style=flat-square" alt="CI" /></a>
-    <a href="https://github.com/EVEDensity/Canary/releases/latest"><img src="https://img.shields.io/github/v/release/EVEDensity/Canary?color=76bad9&style=flat-square" alt="Release" /></a>
-    <img src="https://img.shields.io/badge/license-Apache--2.0-blue?style=flat-square" alt="License: Apache-2.0" />
-    <img src="https://img.shields.io/badge/pnpm-10-orange?logo=pnpm&style=flat-square" alt="pnpm" />
-    <img src="https://img.shields.io/badge/node-%E2%89%A522-green?logo=node.js&style=flat-square" alt="Node ≥22" />
-    <a href="https://github.com/EVEDensity/Canary/stargazers"><img src="https://img.shields.io/github/stars/EVEDensity/Canary?style=flat-square" alt="Stars" /></a>
-  </div>
-
-  <p>
-    <a href="docs/guides/getting-started.md">🚀 快速开始</a> ｜
-    <a href="docs/current/architecture.md">架构</a> ｜
-    <a href="docs/guides/evaluation-and-coverage.md">特性矩阵</a> ｜
-    <a href="docs/guides/improvement.md">回归分析</a> ｜
-    <a href="docs/guides/ci-and-validation.md">CI 集成</a> ｜
-    <a href="https://github.com/EVEDensity/Canary/issues">Issue</a>
-  </p>
+  <img src="docs/images/logo-hero.png" height="160" alt="Canary" />
+  <p><strong>看清项目检查结果、代码结构和验证证据。</strong><br>
+  本地项目检查 · 交互架构地图 · 覆盖与失败定位 · 可追溯重跑</p>
+  <p><a href="docs/guides/getting-started.md">快速开始</a> · <a href="docs/guides/support-matrix.md">支持范围</a> · <a href="docs/roadmap/README.md">任务路线</a> · <a href="CONTRIBUTING.md">参与开发</a></p>
 </div>
 
-![Canary 工作台早期页面截图；当前界面以运行后的本地页面为准](docs/images/ui-overview.png)
+Canary 是面向普通软件项目与 Agent 应用的本地验证工作台。它执行你声明的构建、类型检查和测试，保存原始失败与运行证据，并把项目结构、覆盖率和错误位置放进同一页面。人和编码 Agent 可通过 CLI、报告和现有 MCP 接口读取对应信息。
 
----
+**当前为 0.1.0 Preview。** 已实现的重点是本地执行、证据和地图；后续方向是现有 CI 上面的变更验证与修复工具。GitHub PR 诊断、隔离复现、同一回归测试的修复前后验证，以及显式行为契约仍属于 [R16–R21 待实施任务](docs/roadmap/13-r16-r21-change-verification.md)。
 
-> 当前执行状态见[阶段总表](docs/roadmap/README.md)及[支持与证据矩阵](docs/guides/support-matrix.md)。R0–R5 已在指定 Windows Node 24 范围验收；R6 有 Windows、Ubuntu 容器、固定 Pi 运行时和一次受限真实推理证据，macOS 与原生 Ubuntu 延后；R7 完成初步维护；R8 的本机受控经验闭环已验收。R9 已验证可复现交付、三个外部项目接入，以及确定性比较和失败诊断流程；真实故障数据集与模型评分人工校准仍待补齐，见[交付记录](docs/evidence/r9-00-01-execution.md)和[比较与诊断记录](docs/evidence/r9-03-04-execution.md)。
+## 现有能力
 
-## 🎯 为什么用 Canary？
+- **项目检查：** 显式配置 build、typecheck、lint、test 等命令，输出稳定退出码和 JSON/JUnit/Markdown 报告；还支持文件、进程、HTTP、资源、Docker 状态与 Agent 检查。
+- **失败定位：** 查看分类、脱敏日志和可识别的堆栈/源码位置，保留原始失败，再关联修复后的重跑和前后比较。
+- **架构地图：** 二维层级与三维分层视图支持搜索、导航、节点详情和上下游过滤。JS/TS 提供精细结构，其他语言支持范围见[支持矩阵](docs/guides/support-matrix.md)。
+- **覆盖与证据：** 对已采集且源码匹配的数据显示覆盖分母、未覆盖区域和分支位置；黑盒、未采集及映射不准确部分显示不可用或未知。
+- **静态分析：** 显示循环依赖、维护者声明的分层违规和 Git 变更的潜在消费者影响。显式启用增量检查时保留选择理由，信息不足执行全量，省略项不计通过。
+- **Agent 评估：** 函数、HTTP 和 MCP 相关适配器支持用例、断言、轨迹、回放及比较；已有经验/Skill 流程采用受控操作。
 
-> 后续产品路线已扩展到普通软件项目的 **CI 变更验证与修复**：故障证据 → PR 接入 → 复现 → 修复验证 → 变更验证缺口。见 [R16–R21 任务计划](docs/roadmap/13-r16-r21-change-verification.md)。这些新增任务尚待实施；下文仍描述现有 Agent 使用场景。
+代码被执行不等于行为有充分断言；同一检查重跑通过也不等于新增回归测试已证明修复前失败、修复后通过。当前结论和未验证边界见[支持矩阵](docs/guides/support-matrix.md)。
 
-你在构建一个 AI Agent，但你敢回答这些问题吗：
+## 快速开始
 
-- 你的 Agent **真的**执行了正确的工具链吗？
-- 改了一行 prompt，之前通过的 case 会不会悄悄挂掉？
-- 你能拿到 Agent 的 **源码覆盖率**，而不是只看返回值对不对？
-- 你能把一次执行 **完整回放** 给同事看吗？
-
-Canary 就是为回答这些问题而生的。它像 Jest 之于单元测试，只是测试对象换成了 Agent。
-
-> Like a canary in a coal mine — early signal, precise localization, auditable trail.
-
----
-
-## ✨ 核心特性
-
-|     |                                                                                                     |
-| --- | --------------------------------------------------------------------------------------------------- |
-| 🎯  | **V8 源码覆盖率** — 执行时实时采样，合并行/分支/函数/语句覆盖；适配不支持时诚实地标记 `unavailable` |
-| 🔌  | **多适配器** — 本地函数、HTTP 黑盒、MCP stdio/HTTP，一套 CLI 覆盖                                   |
-| 🔁  | **多次重复** — `--repetitions N` 自动跑 N 次，捕获非确定性波动                                      |
-| 🛠️  | **Mock 环境** — 内存 StateStore + 快照/恢复 + MockToolAdapter，零外部依赖                           |
-| 🧪  | **7 类 Evaluator** — 断言 / 状态 / 工具 / 策略 / 循环 / 覆盖率 / 覆盖率门禁                         |
-| 🏷️  | **回放 & 对比** — 完整重跑历史 case，baseline vs candidate diff 一目了然                            |
-| 🧠  | **回归归因** — 失败 → 归因 → 生成候选 → 对比报告，全链路可审计                                      |
-| 🖼️  | **统一验证工作台** — 项目检查、Agent 用例、覆盖率、轨迹、证据、比较和改进建议按运行类型展示         |
-
----
-
-## 🚀 快速开始
-
-默认示例不需要模型 API Key；真实 HTTP 服务或模型由被测项目自行启动和配置。
-
-> ⚠️ 需要 Node ≥ 22 和 Git。
-
-**Windows (PowerShell):**
-
-```powershell
-iwr -useb https://raw.githubusercontent.com/EVEDensity/Canary/main/install.ps1 | iex
-```
-
-**macOS / Linux:**
+源码安装建议使用 **Node.js 24、Git 和 pnpm 10.15.0**。根运行时声明为 Node ≥22，但当前开发工具链中的 ESLint 10 要求 Node 22.13+ 或 Node 24+；首次安装请使用 Node 24。macOS 和原生 Ubuntu 按计划在开源后补验。
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/EVEDensity/Canary/main/install.sh | bash
-```
-
-新开一个终端，然后：
-
-```bash
-canary run --ci                  # 执行当前项目的显式检查计划
-canary run --port 4318           # 运行并展示本地端口页面
-canary run --port 4318 --no-open # 保留页面服务，手动打开 URL
-canary report <runId>            # 导出该项目运行的 markdown 报告
-canary structure --base HEAD      # 查看当前结构与 Git 基线差异
-```
-
-目标项目需配置 `canary.project.json` 或 `canary.config.ts`。同目录优先项目 JSON；缺配置会报错，不执行安装目录 Demo。仓库默认计划包含 build、typecheck、lint、格式检查、全仓测试与 Agent 回归。Agent demo 可使用 `pnpm demo`，Agent replay/compare 使用显式 Agent 配置。详见 [默认入口与全局验收](docs/evidence/entry-execution-record.md)。
-
-运行产物写在被测项目的 `.canary/artifacts/<runId>/`。项目检查保存检查证据和报告；Agent 子运行另有轨迹。只有已采集的覆盖率才显示数值，HTTP 黑盒和独立 MCP 服务的源码覆盖率会标为不可用。
-
-运行时会保存项目结构快照。使用 `canary run --ci --base HEAD` 可同时记录相对 Git 基线的文件变更；`canary structure --run <runId>` 读取经 manifest 校验的历史结构。页面“项目结构”和只读 MCP `canary.structure` 共用该快照。分层配置与语言边界见 [R10 使用指南](docs/guides/project-structure.md)。
-页面首页的“探索项目地图”可进入二维层级图或三维分层视图，从项目逐级定位到 JS/TS 文件、类与函数。操作、搜索、上下游过滤和历史源码保护见 [R11 架构地图指南](docs/guides/architecture-map.md)。
-覆盖率指标可以定位到地图中的文件与函数；未覆盖分支可跳转到源码，失败堆栈单独标记为错误证据。未采集或源码无法核对时显示未知，使用方法与边界见 [R12 地图诊断](docs/roadmap/11-r12-map-diagnostics.md)。
-
-架构地图还提供循环依赖、显式分层违规和变更消费者的解释。`canary impact --base HEAD` 预览检查选择；`canary run --ci --affected --base HEAD` 根据项目声明的输入范围执行增量检查，未知情况保守全量，省略不计通过。配置与边界见[架构诊断及增量 CI](docs/guides/architecture-ci.md)。
-
----
-
-## 🧑‍💻 适用场景
-
-| 场景                  | 怎么用                                                         |
-| --------------------- | -------------------------------------------------------------- |
-| **本地 Agent 开发**   | `function` 适配器直接 import 你的 TS 入口，拿真实 V8 覆盖率    |
-| **远程 Agent / SaaS** | `http` 适配器 + 断言 evaluator，黑盒也能测回归                 |
-| **MCP Server**        | 直接测 stdio/HTTP 的 MCP tools，验证工具行为稳定性             |
-| **CI/CD 门禁**        | headless 模式 + coverage-gate evaluator，低于阈值直接 fail     |
-| **实验对比**          | 同一 case 跑 baseline 和 candidate，`compare` 出 markdown diff |
-
-内置 6 个 example agent 覆盖以上所有场景：`local-agent` · `mcp-agent` · `http-agent` · `loop-agent` · `recovery-agent` · `improvement-demo`。
-
----
-
-## 📦 项目结构
-
-```
-Canary/
-├── packages/
-│   ├── core/           # 领域类型 + Zod Schema + IPC 协议
-│   ├── coverage/       # V8 采集 + Istanbul 回退 + fragments 合并
-│   ├── evaluators/     # Evaluator 套件 + 归因引擎 + LLM Judge 接口
-│   ├── adapters/       # Agent 适配器: function / http / mcp
-│   ├── environment/    # 内存 StateStore + MockTool
-│   ├── runner/         # 编排 · repetitions · cancel · 流式 artifact
-│   ├── reporters/      # json · markdown · junit · console
-│   ├── improvement/    # Compare · 回归归因 · 候选建议
-│   ├── trace/          # JSONL 持久化存储
-│   └── cli/            # run / runs / show / report / compare / replay / improve
-├── apps/web/           # 统一验证工作台与控制面页面
-├── cases/              # smoke / regression / holdout
-├── examples/           # 6 个可直接跑的 demo agent
-└── .github/workflows/  # CI · Release
-```
-
----
-
-## 🔌 适配器 & 覆盖率支持矩阵
-
-| Target        | Adapter                  | Coverage                                                 |
-| ------------- | ------------------------ | -------------------------------------------------------- |
-| 本地 TS Agent | `function`               | V8 行/分支/函数/语句，限配置范围                         |
-| HTTP Agent    | `http`                   | `unavailable`（黑盒）；`requestField` 可指定顶层请求字段 |
-| MCP Agent     | `mcp` stdio              | `unavailable`（独立进程）；当前固定调用 `run` 工具       |
-| MCP Tools     | `mcp-stdio` / `mcp-http` | 工具层；HTTP 尚非完整 Streamable HTTP session            |
-| Bun           | CLI smoke 仅             | 未宣称覆盖率支持                                         |
-
----
-
-## 🗺️ 路线图
-
-- **R9 外部项目试点** — [三个公开项目接入配置](integrations/r9-external/README.md)与可复现交付
-- **评估可信度** — 真实故障集、修复前后配对比较与不确定性呈现，见[下一阶段评估](docs/strategy/2026-09-25-next-stage-assessment.md)
-- **平台补验** — macOS、原生 Ubuntu 与持续运行证据，按实际开源和使用范围安排
-
-> 默认本地检查不会自动调用模型；显式配置的远端 Agent、Judge 或宿主可发起网络请求。Canary 不提供 OS 级沙箱，外部项目需在可信环境中执行。
-
----
-
-## ❤️ 贡献
-
-欢迎 Issue 和 PR。大改动请先开 Issue 讨论。
-
-```bash
-git clone https://github.com/EVEDensity/Canary
+git clone https://github.com/EVEDensity/Canary.git
 cd Canary
-pnpm install
-pnpm build          # 编译所有 packages
-pnpm check          # format + lint + typecheck + test
-pnpm demo:headless  # 显式运行 Agent demo，独立于项目完整门禁
+pnpm install --frozen-lockfile
+pnpm build
+pnpm canary run --port 4318 --no-open
 ```
 
----
+在浏览器打开 `http://127.0.0.1:4318`。本仓库的计划执行构建、类型检查、lint、格式检查、全仓测试和 Agent 回归；首次运行需等待完成，终端打印实际 runId 和产物目录。只想先看内置 Agent 示例可运行 `pnpm demo`，其数据范围与全仓检查不同。
 
-## 🌍 社区
+### 全局命令
 
-<a href="https://github.com/EVEDensity/Canary/discussions">💬 Discussions</a> ｜
-<a href="https://github.com/EVEDensity/Canary/issues">🐛 Issue Tracker</a> ｜
-<a href="docs/guides/ci-and-validation.md">✅ 10 分钟验收</a>
+从干净的 Canary 源码目录执行：
 
----
+```bash
+node scripts/install-global.mjs
+```
 
-## 📄 License
+安装会构建源码、注册用户级启动器并修改用户 PATH。新开终端后，可在被测项目目录使用 `canary`。这是源码安装方式；更新、固定版本、卸载和排查见[安装与启动](docs/guides/getting-started.md)。
 
-[Apache-2.0](./LICENSE)
+### 接入自己的项目
 
----
+先准备被测项目的依赖，再在其根目录创建 `canary.project.json`。以下配置适用于 package.json 中已有 `build` 和 `test` 脚本的 Node 项目，请替换为实际检查命令：
 
-<div align="center">
+```json
+{
+  "kind": "canary.project",
+  "version": 1,
+  "checks": [
+    {
+      "id": "project.build",
+      "type": "command",
+      "command": "node",
+      "args": ["--run", "build"],
+      "timeoutMs": 120000
+    },
+    {
+      "id": "project.test",
+      "type": "command",
+      "command": "node",
+      "args": ["--run", "test"],
+      "timeoutMs": 120000
+    }
+  ]
+}
+```
 
-如果这个项目对你有帮助，**点个 ⭐ 吧！** 你的 star 是我持续迭代的燃料 🧪
+这里使用 Node 的 `--run` 执行脚本，避免 Windows 的 npm/pnpm `.cmd` 入口无法直接启动。`--run` 不运行 npm 的 pre/post 生命周期；依赖它们的项目需声明完整步骤，或按[检查指南](docs/guides/r4-project-checks.md)使用显式运行时入口。
 
-</div>
+在被测项目目录执行：
+
+```bash
+canary paths --json                  # 核对项目与产物目录
+canary doctor --json                 # 检查配置和运行条件
+canary run --ci                      # 无页面执行，输出机器结果
+canary run --port 4318 --no-open      # 执行并展示本地页面
+```
+
+跨目录可用 `canary run --config <配置路径> --port 4318`。默认发现向上查找最近配置，同目录优先 `canary.project.json`；缺配置时提示缺失。Canary 执行显式检查，不自动运行未知项目的全部脚本。更多类型和依赖配置见[项目检查指南](docs/guides/r4-project-checks.md)。
+
+普通 `command` 检查不会自动获得整个项目的代码覆盖率。现有函数 Agent 的 V8 覆盖限于声明范围；HTTP/独立 MCP 黑盒通常无法采集源码覆盖。普通项目 Istanbul/LCOV 导入与差异覆盖属于 R20 计划。
+
+## 报告与地图
+
+运行产物写到**被测项目**的 `.canary/artifacts/<runId>/`，包含检查结果、报告与完整性 manifest；Agent 子运行有独立身份和轨迹。维护测试日志写到本仓库 `.canary/logs/`。
+
+```bash
+canary runs
+canary report <runId>
+canary structure --base HEAD
+canary structure --run <runId>
+canary impact --base <baseline-commit>
+```
+
+页面的“检查与日志”提供原始错误证据，地图提供结构/覆盖/源码下钻，“改进建议”承载现有问题处理和受控 Agent 建议。历史运行读取封存结构；源码无法恢复或核对时显示未知。
+
+完整声明检查输入范围后，可用 `canary run --ci --affected --base <baseline-commit>`。默认全量；增量计划保留执行/省略理由，不承诺普遍提速。见[架构与 CI](docs/guides/architecture-ci.md)。
+
+## 数据与安全
+
+默认确定性检查不需要模型密钥。你配置的命令、Agent、Judge、宿主和工具可以自行访问网络并消耗模型费用。Canary 不提供操作系统安全沙箱，请在可信环境中执行可信项目。
+
+脱敏不能替代分享前检查：日志、源码快照、报告和截图可能包含业务数据与本机路径。将 `.canary/` 加入目标项目忽略规则；密钥通过本地环境或受控凭据方式注入。漏洞报告方式见 [SECURITY.md](SECURITY.md)。
+
+## 支持与后续
+
+Windows/Node 24 是主要本机证据范围。Ubuntu 容器、Pi 和外部项目各有限定的历史结果，不能推导为所有平台或宿主兼容。当前远端 CI 未形成最新版本的通过证据，开源后补验；workflow 存在不代表已通过。
+
+[R16–R21](docs/roadmap/13-r16-r21-change-verification.md) 将补齐公共故障证据、PR 入口、复现、修复有效性、变更验证缺口和统一交付。真实故障数据、独立用户与模型评分校准仍有缺口，状态统一见[任务总表](docs/roadmap/README.md)。
+
+开发和维护见 [CONTRIBUTING.md](CONTRIBUTING.md)。普通问题使用 [Issue 模板](https://github.com/EVEDensity/Canary/issues/new/choose)，提供版本、系统、命令和脱敏复现；安全细节按 SECURITY.md 的渠道处理。
+
+更多文档：[导航](docs/README.md) · [当前架构](docs/current/architecture.md) · [支持矩阵](docs/guides/support-matrix.md) · [Agent 接入](docs/guides/adapters-and-environment.md)。
+
+源码采用 [Apache-2.0](LICENSE)。随包字体保留 OFL，Lucide 图标保留其许可证声明，见对应 assets 与许可证文件。
