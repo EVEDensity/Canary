@@ -42,6 +42,8 @@ importers:
         specifier: ^4.1.11
         version: 4.1.11(@types/node@22.20.2)(vite@7.3.6(@types/node@22.20.2)(tsx@4.23.13)(yaml@2.9.1))
 
+  apps/site: {}
+
   apps/web:
     dependencies:
       '@canary/control-plane':

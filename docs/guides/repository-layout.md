@@ -5,6 +5,7 @@ Canary 采用 pnpm 工作区组织应用与核心模块。根目录保留产品�
 ```text
 Canary/
 ├── apps/web/               # 交互式报告与架构地图
+├── apps/site/              # 中英文产品展示页与 GitHub Pages 构建
 ├── packages/               # CLI、执行、评估、覆盖率、证据与控制模块
 ├── examples/               # 可运行示例及其用例
 │   └── local-agent/cases/  # smoke、regression、holdout
