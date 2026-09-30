@@ -2,7 +2,7 @@
   <img src="docs/images/logo-hero.png" height="150" alt="Canary" />
   <h3>Explore your architecture. Diagnose failures. Verify every fix.</h3>
   <p>Project checks · Interactive architecture maps · Coverage analysis · Traceable evidence</p>
-  <p><a href="README.md">简体中文</a> · <strong>English</strong></p>
+  <p><strong>English</strong> · <a href="README.cn.md">简体中文</a></p>
   <p><a href="#quick-start">Quick start</a> · <a href="docs/README.md">Docs</a> · <a href="docs/roadmap/README.md">Roadmap</a> · <a href="https://github.com/EVEDensity/Canary/issues/new/choose">Report an issue</a></p>
   <p><a href="LICENSE">Apache-2.0</a> · Node.js 24 recommended · pnpm 10.15.0</p>
 </div>
@@ -86,6 +86,12 @@ canary run --port 4318 --no-open  # Run checks with an interactive report
 ```
 
 Checks follow your project configuration. Coverage requires a configured collector. Artifacts are stored in your project's `.canary/` directory; add it to `.gitignore`.
+
+## Why Canary?
+
+The name comes from the canary in the coal mine: an early warning signal. Canary brings that idea to software—run checks early, make failures visible, and verify fixes with traceable evidence.
+
+**Catch problems early. Understand failures. Verify fixes.**
 
 ## Documentation & contributing
 

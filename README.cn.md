@@ -2,7 +2,7 @@
   <img src="docs/images/logo-hero.png" height="150" alt="Canary" />
   <h3>看清项目结构，定位失败，验证每一次修复。</h3>
   <p>项目检查 · 交互式架构地图 · 覆盖率分析 · 可追溯证据</p>
-  <p><strong>简体中文</strong> · <a href="README.en.md">English</a></p>
+  <p><a href="README.md">English</a> · <strong>简体中文</strong></p>
   <p><a href="#快速开始">快速开始</a> · <a href="docs/README.md">文档</a> · <a href="docs/roadmap/README.md">路线图</a> · <a href="https://github.com/EVEDensity/Canary/issues/new/choose">反馈问题</a></p>
   <p><a href="LICENSE">Apache-2.0</a> · Node.js 24 推荐 · pnpm 10.15.0</p>
 </div>
@@ -86,6 +86,12 @@ canary run --port 4318 --no-open  # 执行并展示交互式报告
 ```
 
 检查按项目配置执行。覆盖率需配置相应采集方式；运行产物保存于被测项目的 `.canary/`，请将其加入 `.gitignore`。
+
+## 为什么叫 Canary？
+
+名字源于矿井中的金丝雀：它是危险的早期预警信号。Canary 将这一理念带到软件开发——尽早运行检查，让问题清晰可见，并用可追溯证据验证修复。
+
+**早发现，早检测，让修复有据可查。**
 
 ## 文档与参与
 
