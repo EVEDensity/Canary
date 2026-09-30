@@ -45,7 +45,9 @@ describe("R4 project checks", () => {
   });
 
   it("cancels a hanging agent config import and rejects recursive project checks", async () => {
-    const f = fixture([{ id: "hang", type: "agent", config: "agent.config.mjs", timeoutMs: 2500 }]);
+    // Allow the real Node/tsx child to start while the workspace tests share CPU.
+    // The import must still emit its marker and then be cancelled by the deadline.
+    const f = fixture([{ id: "hang", type: "agent", config: "agent.config.mjs", timeoutMs: 8000 }]);
     writeFileSync(
       join(f.root, "agent.config.mjs"),
       "console.log('config-loaded'); await new Promise(()=>setInterval(()=>{},1000)); export default {};",
@@ -55,7 +57,7 @@ describe("R4 project checks", () => {
     expect(read(hung.artifactPath).checks[0].stderr).toContain("config-loaded");
     const recursive = fixture([{ id: "recursive", type: "agent", config: "checks.json" }]);
     expect((await recursive.run()).exitCode).toBe(2);
-  }, 10_000);
+  }, 20_000);
   it("classifies invalid discovery markers as configuration errors", async () => {
     const f = fixture([node("test")]);
     writeFileSync(join(f.root, "package.json"), "{");

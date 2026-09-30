@@ -23,10 +23,10 @@
 
 ## 验证
 
-- 构建和 typecheck 通过：[构建](logs/issue-closure/issue-closure-build.txt)、[typecheck 所在的首次完整检查](logs/issue-closure/issue-closure-check.txt)。
-- 全仓按包顺序执行 **363 项测试通过**：[完整测试](logs/issue-closure/issue-closure-tests-serial.txt)。包含真实进程噪声输出→封存→Web API、跨分块脱敏、谱系、配置不匹配、缺失依赖、损坏及半写入重跑证据，以及真实修复→重跑→原问题验证关联。
-- 首次并行全仓检查中，既有 R1 的 400 ms 超时 fixture 在创建孙进程前超时，缺少 `grand.pid`；原始失败保留。独立 12 项复核通过：[复核](logs/issue-closure/issue-closure-runner-retest.txt)，随后全套按包顺序通过。未放宽超时或删除断言。
-- lint 通过：[日志](logs/issue-closure/issue-closure-lint.txt)。页面脚本语法、读写鉴权、项目隔离和脱敏 API 通过自动化验证。格式检查见 [日志](logs/issue-closure/issue-closure-format.txt)；两份被 SHA-256 引用的原始 Pi JSON 在 `.prettierignore` 中按精确路径保留字节，其余新文档及报告正常格式化。
+- 构建和 typecheck 通过：[构建（归档）](logs/README.md)、[typecheck 所在的首次完整检查（归档）](logs/README.md)。
+- 全仓按包顺序执行 **363 项测试通过**：[完整测试（归档）](logs/README.md)。包含真实进程噪声输出→封存→Web API、跨分块脱敏、谱系、配置不匹配、缺失依赖、损坏及半写入重跑证据，以及真实修复→重跑→原问题验证关联。
+- 首次并行全仓检查中，既有 R1 的 400 ms 超时 fixture 在创建孙进程前超时，缺少 `grand.pid`；原始失败保留。独立 12 项复核通过：[复核（归档）](logs/README.md)，随后全套按包顺序通过。未放宽超时或删除断言。
+- lint 通过：[日志（归档）](logs/README.md)。页面脚本语法、读写鉴权、项目隔离和脱敏 API 通过自动化验证。格式检查见 [日志（归档）](logs/README.md)；两份被 SHA-256 引用的原始 Pi JSON 在 `.prettierignore` 中按精确路径保留字节，其余新文档及报告正常格式化。
 - R6 四个可用平台组合各 10 项通过，Pi 真实推理一次通过。当前阶段状态及解除条件：[R6 状态](logs/r6/r6-closure-status.json)。
 
 ## 主线审计与边界

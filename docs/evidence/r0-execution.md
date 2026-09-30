@@ -34,15 +34,15 @@
 
 ## 3. 验收与原始证据
 
-| 命令/检查                                          | 结果                                                  | 证据                                                                        |
-| -------------------------------------------------- | ----------------------------------------------------- | --------------------------------------------------------------------------- |
-| pnpm build                                         | exit 0                                                | [构建日志](logs/r0/r0-build.txt)                                            |
-| pnpm check                                         | exit 0；typecheck、全量 test、lint、format:check 通过 | [完整检查日志](logs/r0/r0-check.txt)                                        |
-| pnpm verify:r0                                     | exit 0；真实临时 launcher 与 pnpm 的 CI 各 15/15      | [命令输出](logs/r0/r0-verify.txt)、[结构化记录](logs/r0/r0-acceptance.json) |
-| canary run --ci --config 不存在的配置              | exit 2；CONFIG_NOT_FOUND；不创建 fixture artifact     | 同上                                                                        |
-| canary paths/doctor --json、version --plain/--json | runtime schema 与字段断言通过                         | 完整检查中的 r0-ci.test.ts 及结构化记录                                     |
-| 219 个源码/脚本/配置文件 SHA-256 前后比对          | 无变化；包含受跟踪和本轮新增文件                      | 结构化记录 sourceHashes 与最后一项检查                                      |
-| git diff --check                                   | 无空白错误                                            | 最终收尾执行                                                                |
+| 命令/检查                                          | 结果                                                  | 证据                                                                         |
+| -------------------------------------------------- | ----------------------------------------------------- | ---------------------------------------------------------------------------- |
+| pnpm build                                         | exit 0                                                | [构建日志（归档）](logs/README.md)                                           |
+| pnpm check                                         | exit 0；typecheck、全量 test、lint、format:check 通过 | [完整检查日志（归档）](logs/README.md)                                       |
+| pnpm verify:r0                                     | exit 0；真实临时 launcher 与 pnpm 的 CI 各 15/15      | [命令输出（归档）](logs/README.md)、[结构化记录](logs/r0/r0-acceptance.json) |
+| canary run --ci --config 不存在的配置              | exit 2；CONFIG_NOT_FOUND；不创建 fixture artifact     | 同上                                                                         |
+| canary paths/doctor --json、version --plain/--json | runtime schema 与字段断言通过                         | 完整检查中的 r0-ci.test.ts 及结构化记录                                      |
+| 219 个源码/脚本/配置文件 SHA-256 前后比对          | 无变化；包含受跟踪和本轮新增文件                      | 结构化记录 sourceHashes 与最后一项检查                                       |
+| git diff --check                                   | 无空白错误                                            | 最终收尾执行                                                                 |
 
 最后一次 launcher CI runId：**run_767ef928-a4ea-4f38-9fa7-fe113e999a00**。每次验收独立生成 runId；历史执行未被覆盖。ci.json、run.json、report.json、report.xml 的 SHA-256 在结构化记录中保留，实际运行产物位于被 Git 忽略的 .canary/artifacts 中。记录内临时 launcher 路径在验收结束后已清理，用户 PATH/注册文件未变更。
 
@@ -75,7 +75,7 @@
 
 ### 调试期间发现并修复的问题
 
-初次全量失败保存在 [原始失败日志](logs/r0/r0-check-initial.txt)，不是最终状态：
+初次全量失败保存在 [原始失败日志（归档）](logs/README.md)，不是最终状态：
 
 1. Vitest 中 import.meta.resolve 不可用，改用 createRequire + file URL 解析测试 loader。
 2. Windows 临时目录的 8.3 短路径与 realpath 后长路径不一致，测试 fixture 和授权上下文改用实际路径，没有撤销路径规范化来“过测试”。

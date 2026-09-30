@@ -52,10 +52,10 @@ canary run --config canary.config.ts
 
 ## 本轮结果
 
-- Windows / Node 24.18.0，实际全局安装与 `pnpm verify:entry --self` 成功，七组入口验收全部 verified：[结构化结果](logs/entry/entry-acceptance.json)、[运行日志](logs/entry/entry-verify.txt)、[安装日志](logs/entry/entry-install.txt)。
+- Windows / Node 24.18.0，实际全局安装与 `pnpm verify:entry --self` 成功，七组入口验收全部 verified：[结构化结果](logs/entry/entry-acceptance.json)、[运行日志（归档）](logs/README.md)、[安装日志（归档）](logs/README.md)。
 - 从 `packages/cli` 子目录启动默认项目门禁，runId 为 `run_0d01f3f2-367d-4db2-a53a-d2eeb6b11bf3`，六项 required checks 全部 passed，manifest 校验 verified。build / typecheck / lint / format / test / Agent 分别约 9.6 / 9.2 / 4.8 / 2.4 / 73.3 / 57.1 秒。
 - 指定端口 57606 的运行中页面及 API 验证通过；跨项目读取返回 404，关闭服务后进程正常退出、证据封存通过。该端口仅用于验收，现已关闭。
-- 隔离环境下 R0/R2 的 36 项测试通过，含缺配置、脱敏、安装根隔离与诊断：[日志](logs/entry/entry-doctor-tests.txt)。Windows 超长路径的真实全局 CI 回归通过：[日志](logs/entry/entry-longpath.txt)。
+- 隔离环境下 R0/R2 的 36 项测试通过，含缺配置、脱敏、安装根隔离与诊断：[日志（归档）](logs/README.md)。Windows 超长路径的真实全局 CI 回归通过：[日志（归档）](logs/README.md)。
 - 旧 R0 兼容验收通过：显式 Agent 配置、pnpm 入口、缺配置退出及执行前后源码哈希核对均 verified：[结果](logs/entry/entry-r0.json)。
 - 完整门禁的测试输出超过 64 KiB，持久化输出按已有规则标记 omitted；通过结论依据进程退出码及已封存 check 结果，不声称该 artifact 保存了全部测试控制台日志。
 

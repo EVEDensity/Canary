@@ -34,13 +34,13 @@
 
 本机命令：`pnpm build`、`pnpm check`、`pnpm verify:r6`；Node 22 使用临时 npm exec 固定 `node@22.23.2`，未替换全局 Node。Ubuntu 基于已存在的 `mcr.microsoft.com/playwright:v1.60.0-jammy`，独立容器复制源文件后冻结 lockfile 安装和构建，以非 root 执行脚本。源工作区只读挂载。容器和临时证据保留供审计，没有停止其他项目的服务。
 
-构建通过，见 [构建日志](logs/r6/r6-build.txt)。完整回归重跑的 typecheck、340 项测试和 lint 通过，见 [检查日志](logs/r6/r6-check.txt)；当次 format 检查仅发现新生成的四份 JSON 格式差异，格式化后单独复核通过，见 [最终格式检查](logs/r6/r6-format.txt)。超时测试的 [16 项复核](logs/r6/r6-retest.txt)通过。
+构建通过，见 [构建日志（归档）](logs/README.md)。完整回归重跑的 typecheck、340 项测试和 lint 通过，见 [检查日志（归档）](logs/README.md)；当次 format 检查仅发现新生成的四份 JSON 格式差异，格式化后单独复核通过，见 [最终格式检查（归档）](logs/README.md)。超时测试的 [16 项复核（归档）](logs/README.md)通过。
 
 四组绑定相同源码树哈希 `ede4843ee22f44d388885607faef087f23b2563ce9b78a7903f99400c39ab7dc`，共 40 项 verified 检查。Linux 两组已实际验证 CI artifact 导出，完整导出副本位于 `.canary/runs/r6-evidence/linux-node24` 与 `linux-node22`；Windows 原始 artifact 位置见 JSON。临时容器均已停止，保留本轮自建 `canary-r6-*` 容器和 `canary-r6-local:validation` 镜像供审计。
 
 ## 过程发现
 
-初次长路径执行暴露 Windows spawn ENOENT/管道 ENOTCONN，修复为扩展 cwd 路径并处理 stdout/stderr 错误，后续长路径真实执行通过。根目录断言纠正了 artifact 层数与 Windows 短路径规范化差异。Linux 首次缺少 pnpm shim，启用容器内 corepack 后构建通过；非 root 输出使用独立目录以避开历史 root 文件。首次完整检查中两项既有测试超过 5 秒，原始失败保留在 [初次日志](logs/r6/r6-check-initial.txt)，单独复核 16 项通过，没有放宽断言或测试超时。
+初次长路径执行暴露 Windows spawn ENOENT/管道 ENOTCONN，修复为扩展 cwd 路径并处理 stdout/stderr 错误，后续长路径真实执行通过。根目录断言纠正了 artifact 层数与 Windows 短路径规范化差异。Linux 首次缺少 pnpm shim，启用容器内 corepack 后构建通过；非 root 输出使用独立目录以避开历史 root 文件。首次完整检查中两项既有测试超过 5 秒，原始失败保留在 [初次日志（归档）](logs/README.md)，单独复核 16 项通过，没有放宽断言或测试超时。
 
 ## 未覆盖与下一步
 
@@ -62,7 +62,7 @@ R4/R5 默认入口修改后，重新运行 Windows 24/22 与 Ubuntu 22.04 Docker
 
 ### 本仓库真实页面补验
 
-在 4318 启动真实全局项目运行时，暴露历史 API 将大量 Agent 轨迹一并序列化的问题，导致请求阻塞及重复写响应头崩溃：[保留的失败日志](logs/r6/r6-page-initial-failure.txt)。项目页面现仅恢复和轮询项目检查历史；Agent 页面原接口保留。JSON 在写响应头前完成序列化，已发送响应不再重复写错误头。新增混合历史回归，Web 17 项测试通过；CLI 首次并发回归有一项 5 秒超时，保留日志并单独复核，不放宽超时。
+在 4318 启动真实全局项目运行时，暴露历史 API 将大量 Agent 轨迹一并序列化的问题，导致请求阻塞及重复写响应头崩溃：[保留的失败日志（归档）](logs/README.md)。项目页面现仅恢复和轮询项目检查历史；Agent 页面原接口保留。JSON 在写响应头前完成序列化，已发送响应不再重复写错误头。新增混合历史回归，Web 17 项测试通过；CLI 首次并发回归有一项 5 秒超时，保留日志并单独复核，不放宽超时。
 
 页面修复后的最终平台证据再次完整运行：四组各 10 项 verified，共享源码树哈希 `17f0928a26a0905dda0fab64a5be4e63c534b99bdec1ea79e9d29abda5e2fd53`：[Windows 24](logs/r6/r6-final-win32-node24.json)、[Windows 22](logs/r6/r6-final-win32-node22.json)、[Ubuntu 容器 24](logs/r6/r6-final-linux-node24.json)、[Ubuntu 容器 22](logs/r6/r6-final-linux-node22.json)。前一次补验仍保留，不用历史通过覆盖当前源码结论。
 
@@ -70,7 +70,7 @@ R4/R5 默认入口修改后，重新运行 Windows 24/22 与 Ubuntu 22.04 Docker
 
 最终四组仍各 10 项通过，源码树哈希为 `6507e270f76af0e89faecbce1442bf68abef5d865c031371a4595effd249d8c9`。真实全局页面 `canary run --port 4318 --no-open` 的原运行 `run_71b5481d-cdfe-40eb-be40-059dca6ba7d7` 保留格式与测试失败；修正证据 JSON 格式、限制测试并发后，通过页面重试得到 `run_77303c32-8d72-45f6-8997-37e9eb439353`，build、format:check、全仓 test 全部 passed。原运行其余 typecheck、lint、Agent 回归均已 passed。本次不是伪造一个六项全绿的新运行，而是保留真实失败和重试谱系。
 
-页面及项目历史 API 均返回 200，最终 API 的检查状态和耗时与持久化 run.json 一致，重试 manifest verified：[真实页面证据](logs/r6/r6-live-page.json)。验收后保留回环 4318 服务供当前用户查看；端口存活只代表本次会话。详细输出仍受已有 64 KiB 上限约束。[Web 17 项测试](logs/r6/r6-page-web-tests.txt)、[R5 5 项独立复核](logs/r6/r6-page-focused-tests.txt)、[原隔离并发失败日志](logs/r6/r6-page-isolated-initial.txt)均保留。
+页面及项目历史 API 均返回 200，最终 API 的检查状态和耗时与持久化 run.json 一致，重试 manifest verified：[真实页面证据](logs/r6/r6-live-page.json)。验收后保留回环 4318 服务供当前用户查看；端口存活只代表本次会话。详细输出仍受已有 64 KiB 上限约束。[Web 17 项测试（归档）](logs/README.md)、[R5 5 项独立复核（归档）](logs/README.md)、[原隔离并发失败日志（归档）](logs/README.md)均保留。
 
 命令边界：全局安装使 CLI 在任意目录可调用，但执行范围是当前目录向上找到的项目配置。本仓库默认六项检查，其他项目需声明自己的检查；不自动扫描全机所有仓库，不自动触发 GitHub CI。页面状态、耗时、日志和证据来自真实进程；四个离线 Agent fixture 是固定回归样本。本段记录形成时 Pi 模型输出尚无真实证据，现已由本文开头的一次受限真实推理证据取代。
 

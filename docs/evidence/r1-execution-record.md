@@ -43,18 +43,18 @@ Agent 子进程的 cwd 仍是 projectRoot（保证 entry 解析兼容）；隔�
 
 ## 4. 验收与原始证据
 
-| 命令/检查                                        | 结果                                                  | 证据                                                                        |
-| ------------------------------------------------ | ----------------------------------------------------- | --------------------------------------------------------------------------- |
-| `pnpm build`                                     | exit 0                                                | 本记录环境表；工作区 dist 已更新                                            |
-| `pnpm check`                                     | exit 0；typecheck、全量 test、lint、format:check 通过 | [完整检查日志](logs/r1/r1-check.txt)                                        |
-| `pnpm verify:r0`                                 | exit 0；真实临时 launcher 与 pnpm 的 CI 各 15/15      | [命令输出](logs/r1/r1-verify.txt)、[结构化记录](logs/r1/r1-acceptance.json) |
-| hanging 子孙进程超时后 pid 释放                  | runner r1-stability + isolation process.test 通过     | 全量检查日志                                                                |
-| 非零退出分类为 `error`                           | runner 测试通过                                       | 全量检查日志                                                                |
-| 重复 live lock / 不同 runId 占用 / 残留死 pid 锁 | `DUPLICATE_RUN` / `RUN_LOCK_HELD` / stale reclaim     | 全量检查日志                                                                |
-| 并发两项目与同项目两次运行                       | 不同 runId、不同 TMPDIR、互不覆盖 artifact            | cli r1-isolation 测试                                                       |
-| 端口冲突、tmp owner 冲突                         | `PORT_CONFLICT` / `TMPDIR_CONFLICT`                   | runner r1-stability                                                         |
-| 取消后保留已完成 case；CI abort 退出码 3         | checkpoint 含 completedCaseKeys；`--ci` 映射 3        | cli r1-isolation                                                            |
-| 中途 throw 关联 checkpoint 与 ci.json            | runId/artifactPath/summary 来自 partial run           | cli r1-isolation                                                            |
+| 命令/检查                                        | 结果                                                  | 证据                                                                         |
+| ------------------------------------------------ | ----------------------------------------------------- | ---------------------------------------------------------------------------- |
+| `pnpm build`                                     | exit 0                                                | 本记录环境表；工作区 dist 已更新                                             |
+| `pnpm check`                                     | exit 0；typecheck、全量 test、lint、format:check 通过 | [完整检查日志（归档）](logs/README.md)                                       |
+| `pnpm verify:r0`                                 | exit 0；真实临时 launcher 与 pnpm 的 CI 各 15/15      | [命令输出（归档）](logs/README.md)、[结构化记录](logs/r1/r1-acceptance.json) |
+| hanging 子孙进程超时后 pid 释放                  | runner r1-stability + isolation process.test 通过     | 全量检查日志                                                                 |
+| 非零退出分类为 `error`                           | runner 测试通过                                       | 全量检查日志                                                                 |
+| 重复 live lock / 不同 runId 占用 / 残留死 pid 锁 | `DUPLICATE_RUN` / `RUN_LOCK_HELD` / stale reclaim     | 全量检查日志                                                                 |
+| 并发两项目与同项目两次运行                       | 不同 runId、不同 TMPDIR、互不覆盖 artifact            | cli r1-isolation 测试                                                        |
+| 端口冲突、tmp owner 冲突                         | `PORT_CONFLICT` / `TMPDIR_CONFLICT`                   | runner r1-stability                                                          |
+| 取消后保留已完成 case；CI abort 退出码 3         | checkpoint 含 completedCaseKeys；`--ci` 映射 3        | cli r1-isolation                                                             |
+| 中途 throw 关联 checkpoint 与 ci.json            | runId/artifactPath/summary 来自 partial run           | cli r1-isolation                                                             |
 
 verify:r0 的 launcher CI runId：**run_665107e2-7c67-471c-9952-a3cc1022d424**；随后 `pnpm canary run --ci` 为 **run_240e97fc-388e-4605-a5b2-c4f8bbed37a4**。缺配置退出码 2，未在临时目录写入 `.canary`。SHA-256 比对 227 个受跟踪及新增源码/脚本文件，验收命令本身未改写这些文件。
 

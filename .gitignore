@@ -1,21 +1,13 @@
 node_modules/
 dist/
 /coverage/
-.canary/runs/*
-.canary/artifacts/*
-**/.canary/logs/
-/.canary/experiences/
-/.canary/local-tools/
-/.canary/verification/
-/.canary/r5-ui-fixture/
+.canary/
 /r6-evidence/
 /docs/evidence/logs/**/artifacts/
-!.canary/runs/.gitkeep
-!.canary/artifacts/.gitkeep
 *.log
 .DS_Store
 
-# Local credentials and environment files; tracked historical evidence is retained.
+# Credentials and environment files
 .env
 .env.*
 !.env.example
@@ -24,13 +16,6 @@ dist/
 *.key
 *.p12
 *.pfx
- 
-# Build artifacts 
-dist/ 
-*.js 
-*.d.ts 
-*.map 
- 
-# Split scripts 
-*.bat 
-split_*.ps1 
+
+# One-off commit helpers
+split_*.ps1

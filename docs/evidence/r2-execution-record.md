@@ -41,19 +41,19 @@ doctor 导入配置时静默 `console.*`，异常消息不回传密钥。探测�
 
 ## 4. 验收与原始证据
 
-| 命令/检查                                                   | 结果                                                  | 证据                                                                        |
-| ----------------------------------------------------------- | ----------------------------------------------------- | --------------------------------------------------------------------------- |
-| `pnpm build`                                                | exit 0                                                | 本记录环境表；工作区 dist 已更新                                            |
-| `pnpm check`                                                | exit 0；typecheck、全量 test、lint、format:check 通过 | [完整检查日志](logs/r2/r2-check.txt)                                        |
-| `pnpm verify:r0`                                            | exit 0；真实临时 launcher 与 pnpm 的 CI 各 15/15      | [命令输出](logs/r2/r2-verify.txt)、[结构化记录](logs/r2/r2-acceptance.json) |
-| 缺配置 `CONFIG_NOT_FOUND` 退出 2，不创建 `.canary`          | r2-doctor 通过                                        | 全量检查日志                                                                |
-| 坏 schema / 抛错配置 `CONFIG_INVALID` 退出 2，不打印密钥    | r2-doctor 通过                                        | 全量检查日志                                                                |
-| 坏元数据 / 缺 launcher 为 warning，不改写 `home.json`       | r0-ci + r2-doctor 通过                                | 全量检查日志                                                                |
-| artifactRoot 为文件时 `ARTIFACT_UNWRITABLE` 退出 5          | r2-doctor 通过                                        | 全量检查日志                                                                |
-| 外部调用 `--config` 安装根：`PROJECT_INSTALL_CONFLICT` 且 0 | r2-doctor 通过                                        | 全量检查日志                                                                |
-| 安装根内自测不报根冲突                                      | r2-doctor 通过                                        | 全量检查日志                                                                |
-| 空格 / 非默认用户目录 / junction `PATH_ALIAS`               | r2-doctor 通过                                        | 全量检查日志                                                                |
-| `paths` 定位抛错配置且不执行；doctor 报告 `CONFIG_INVALID`  | r2-doctor 通过                                        | 全量检查日志                                                                |
+| 命令/检查                                                   | 结果                                                  | 证据                                                                         |
+| ----------------------------------------------------------- | ----------------------------------------------------- | ---------------------------------------------------------------------------- |
+| `pnpm build`                                                | exit 0                                                | 本记录环境表；工作区 dist 已更新                                             |
+| `pnpm check`                                                | exit 0；typecheck、全量 test、lint、format:check 通过 | [完整检查日志（归档）](logs/README.md)                                       |
+| `pnpm verify:r0`                                            | exit 0；真实临时 launcher 与 pnpm 的 CI 各 15/15      | [命令输出（归档）](logs/README.md)、[结构化记录](logs/r2/r2-acceptance.json) |
+| 缺配置 `CONFIG_NOT_FOUND` 退出 2，不创建 `.canary`          | r2-doctor 通过                                        | 全量检查日志                                                                 |
+| 坏 schema / 抛错配置 `CONFIG_INVALID` 退出 2，不打印密钥    | r2-doctor 通过                                        | 全量检查日志                                                                 |
+| 坏元数据 / 缺 launcher 为 warning，不改写 `home.json`       | r0-ci + r2-doctor 通过                                | 全量检查日志                                                                 |
+| artifactRoot 为文件时 `ARTIFACT_UNWRITABLE` 退出 5          | r2-doctor 通过                                        | 全量检查日志                                                                 |
+| 外部调用 `--config` 安装根：`PROJECT_INSTALL_CONFLICT` 且 0 | r2-doctor 通过                                        | 全量检查日志                                                                 |
+| 安装根内自测不报根冲突                                      | r2-doctor 通过                                        | 全量检查日志                                                                 |
+| 空格 / 非默认用户目录 / junction `PATH_ALIAS`               | r2-doctor 通过                                        | 全量检查日志                                                                 |
+| `paths` 定位抛错配置且不执行；doctor 报告 `CONFIG_INVALID`  | r2-doctor 通过                                        | 全量检查日志                                                                 |
 
 verify:r0 的 launcher CI runId：**run_fc4088fa-e93d-4472-8250-c795e055d2f2**；随后 `pnpm canary run --ci` 为 **run_9987c433-49d5-49dc-82bf-5b31b4723781**。缺配置退出码 2，未在临时目录写入 `.canary`。仓库根 `canary doctor --json` 退出 0、issues 为空。SHA-256 比对 228 个受跟踪及新增源码/脚本文件，验收命令本身未改写这些文件。
 

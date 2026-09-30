@@ -4,7 +4,7 @@
 
 提供不依赖外部模型和 API Key 的最小 Agent，被用于验证 canary 的 Adapter、Trace、Coverage、Feature Coverage、失败归因和 UI。
 
-默认套件在仓库根目录 `cases/smoke/`、`cases/regression/`、`cases/holdout/`，由根 `canary.config.ts` 加载。MCP stdio Agent 单独见 `examples/mcp-agent/`。
+默认套件位于此示例的 `cases/smoke/`、`cases/regression/`、`cases/holdout/`，由仓库根 `canary.config.ts` 加载。MCP stdio Agent 单独见 `examples/mcp-agent/`。
 
 ## 边界
 

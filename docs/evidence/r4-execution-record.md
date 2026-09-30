@@ -22,11 +22,11 @@
 
 Windows 11 25H2（10.0.26200）、Node 24.18.0、pnpm 10.15.0、PowerShell 7.6.5、Python 3.12.10。Docker CLI 已安装，但 dockerDesktopLinuxEngine pipe 不存在，daemon 成功路径不标 verified。未安装新运行时依赖。
 
-- `pnpm build`：exit 0，见 [构建日志](logs/r4/r4-build.txt)。
-- `pnpm check`：19 个包、335 项测试（R4 新增 16 项）以及 typecheck、lint、format 通过，见 [完整检查](logs/r4/r4-check.txt)。
-- `pnpm verify:r3`：12 项证据链回归通过，见 [结构化记录](logs/r4/r4-r3-acceptance.json)和 [输出](logs/r4/r4-r3.txt)。
-- `pnpm verify:r4`：8 项验收 verified：真实 Node/Python 成功和断言失败、未知项目 blocked、Docker 不可用不误报成功、Canary 自身 typecheck + agent 门禁、252 个源码/脚本/配置文件未变化。见 [结构化记录](logs/r4/r4-acceptance.json)和 [输出](logs/r4/r4-verify.txt)。
-- `pnpm verify:r0`：临时全局启动器和 pnpm 默认 agent CI 两轮均 15/15 通过，根目录、CI v1 与源码未变化检查保持。见 [结构化记录](logs/r4/r4-r0-acceptance.json)和 [输出](logs/r4/r4-r0.txt)。
+- `pnpm build`：exit 0，见 [构建日志（归档）](logs/README.md)。
+- `pnpm check`：19 个包、335 项测试（R4 新增 16 项）以及 typecheck、lint、format 通过，见 [完整检查（归档）](logs/README.md)。
+- `pnpm verify:r3`：12 项证据链回归通过，见 [结构化记录](logs/r4/r4-r3-acceptance.json)和 [输出（归档）](logs/README.md)。
+- `pnpm verify:r4`：8 项验收 verified：真实 Node/Python 成功和断言失败、未知项目 blocked、Docker 不可用不误报成功、Canary 自身 typecheck + agent 门禁、252 个源码/脚本/配置文件未变化。见 [结构化记录](logs/r4/r4-acceptance.json)和 [输出（归档）](logs/README.md)。
+- `pnpm verify:r0`：临时全局启动器和 pnpm 默认 agent CI 两轮均 15/15 通过，根目录、CI v1 与源码未变化检查保持。见 [结构化记录](logs/r4/r4-r0-acceptance.json)和 [输出（归档）](logs/README.md)。
 
 测试覆盖 schema/依赖/optional/platform、命令和文件断言、缺少执行器、超时/预算/取消、就绪探针及孙进程回收、HTTP 授权/状态/重定向、环境白名单/摘要上限/隐私漏写、doctor、agent 证据引用与损坏/保留关系、挂起配置导入和项目递归。
 

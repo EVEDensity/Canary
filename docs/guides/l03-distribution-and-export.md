@@ -8,9 +8,9 @@ L-03 不改变本地优先：exporter 默认关闭，不配置 endpoint 不产�
 
 - 声明环境：Node.js >=22，pnpm 10.15.0；源码 checkout 安装。
 - 安装根由 `~/.canary/home.json` 注册，项目根由当前目录或 `--config` 解析，两者不混用。
-- Windows 使用 `install.ps1`，macOS/Linux 使用 `install.sh`。
+- Windows 使用 `scripts/install/install.ps1`，macOS/Linux 使用 `scripts/install/install.sh`。
 - 升级前应保证 checkout 干净；离线时安装/升级清晰失败且不注册半成品 launcher。
-- `uninstall.ps1`、`uninstall.sh` 只移除 Canary launcher、注册信息和 Canary 自己写入的 PATH 项，不删除项目 `.canary` 或导出文件。
+- `scripts/install/uninstall.ps1`、`scripts/install/uninstall.sh` 只移除 Canary launcher、注册信息和 Canary 自己写入的 PATH 项，不删除项目 `.canary` 或导出文件。
 
 ## 导出
 

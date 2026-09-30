@@ -1320,7 +1320,7 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
     return "exitCode" in payload ? payload.exitCode : 0;
   }
   if (command === "uninstall") {
-    console.log("Use uninstall.ps1 on Windows or uninstall.sh on macOS/Linux to remove the global launcher safely.");
+    console.log("Use scripts/install/uninstall.ps1 on Windows or scripts/install/uninstall.sh on macOS/Linux to remove the global launcher safely.");
     return 0;
   }
   if (command === "repair") {

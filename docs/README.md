@@ -1,9 +1,14 @@
 # Canary 文档导航
 
-> **代码与可复现结果决定现状；设计描述目标；任务文件描述未完成工作。** 不以历史 RFC、测试数量或模型总结替代源码核对。
-> 当前代码以 Git 工作区为准；阶段状态以 [任务总表](roadmap/README.md)及对应执行记录为准，历史验证日期不代表当前全部能力。
+从项目接入、运行报告到架构分析与问题定位，在这里找到对应的使用指南。开始使用请阅读[安装与快速开始](guides/getting-started.md)，平台与适配器配置见[支持范围](guides/support-matrix.md)。
 
-2026-09-30 开源 Preview 的依赖安全修补、首次使用与维护更新、当前文件风险及最后打磨建议见[收口记录](evidence/2026-09-30-open-source-preparation.md)。历史产物按用户决定保留；远端 CI 留待开源后补验。
+版本维护、依赖更新与工程记录见[维护记录](evidence/2026-09-30-open-source-preparation.md)；功能进度统一见[产品路线](roadmap/README.md)。
+
+六项项目检查、Agent 回归、覆盖率和交互式报告的实际结果见[项目验证记录](evidence/2026-09-30-product-verification.md)。
+
+目录职责与文件放置规则见[仓库结构](guides/repository-layout.md)。
+
+中英文切换、新语言贡献与自动检查流程见[界面语言](guides/localization.md)。
 
 ## 按目的阅读
 

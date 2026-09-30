@@ -1,6 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="canary.project" tests="3" failures="1" errors="0" skipped="0">
-  <testcase name="resources.local" classname="canary.resources" time="0.001"></testcase>
-  <testcase name="application.smoke" classname="canary.command" time="2.159"></testcase>
-  <testcase name="release.ready" classname="canary.filesystem" time="0.001"><failure message="assertion"/></testcase>
-</testsuite>

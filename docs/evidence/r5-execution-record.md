@@ -11,10 +11,10 @@
 
 ## 验证
 
-- `pnpm build`：通过，见 [构建日志](logs/r5/r5-build.txt)。
-- `pnpm check`：typecheck、340 项测试（含新增 5 项 R5 测试）、lint、format 通过，见 [完整日志](logs/r5/r5-check.txt)。
-- `pnpm verify:r5`：真实 CLI 四组验收通过，见 [结构化结果](logs/r5/r5-acceptance.json)和 [日志](logs/r5/r5-verify.txt)。覆盖运行中访问、失败重跑/依赖/脱敏/比较、单项执行期间停止服务仍封存三份证据、CI 与 artifact-only 结论一致。
-- `pnpm verify:r4`：8 组回归通过，含 Node/Python、Canary 自身与源码未变化；见 [结构化记录](logs/r5/r5-r4-acceptance.json)与 [日志](logs/r5/r5-r4.txt)。
+- `pnpm build`：通过，见 [构建日志（归档）](logs/README.md)。
+- `pnpm check`：typecheck、340 项测试（含新增 5 项 R5 测试）、lint、format 通过，见 [完整日志（归档）](logs/README.md)。
+- `pnpm verify:r5`：真实 CLI 四组验收通过，见 [结构化结果](logs/r5/r5-acceptance.json)和 [日志（归档）](logs/README.md)。覆盖运行中访问、失败重跑/依赖/脱敏/比较、单项执行期间停止服务仍封存三份证据、CI 与 artifact-only 结论一致。
+- `pnpm verify:r4`：8 组回归通过，含 Node/Python、Canary 自身与源码未变化；见 [结构化记录](logs/r5/r5-r4-acceptance.json)与 [日志（归档）](logs/README.md)。
 - R5 专项测试覆盖 SSE、端口占用、回环限制、Origin/Host/写令牌、损坏来源拒绝重跑、两个项目隔离、重启读取历史、资源诊断、可选项显式重跑门禁。
 - 浏览器实测：初次 2/3 失败，补齐 fixture 文件后失败重跑 2/2 通过；比较显示 filesystem 失败→通过、资源未运行；日志有真实换行且刷新后保持展开；停止服务后控件禁用。测试服务均已关闭。
 

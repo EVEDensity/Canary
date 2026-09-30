@@ -1,6 +1,0 @@
-
-> canary@0.1.0 format:check C:\Users\temp-admin\Desktop\Canary
-> prettier --check README.md CHANGELOG.md CONTRIBUTING.md SECURITY.md docs .github .changeset .prettierrc.json eslint.config.mjs
-
-Checking formatting...
-All matched files use Prettier code style!

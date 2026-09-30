@@ -34,7 +34,8 @@
     "dist",
     "README.md",
     "LUCIDE-LICENSE.txt",
-    "assets"
+    "assets",
+    "locales"
   ],
   "publishConfig": {
     "access": "public"
