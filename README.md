@@ -9,6 +9,8 @@
 
 **Canary 是面向开发者与编码 Agent 的项目验证工作台。** 将检查、架构、覆盖率和错误证据放在一起，从一次失败进入具体代码，再追踪修复后的验证结果。通过 CLI、稳定退出码与标准报告接入现有 CI。
 
+![Canary 验证工作台：检查结果、项目结构与运行趋势](docs/images/dashboard-zh-CN.jpg)
+
 ## 核心能力
 
 - **统一检查** — 运行构建、类型检查、lint、测试与 Agent 用例，导出 JSON、JUnit 和 Markdown 报告。

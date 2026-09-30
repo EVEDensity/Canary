@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { Script } from "node:vm";
-import { readCatalogs, translateMessage } from "../src/i18n.js";
+import { Script, runInNewContext } from "node:vm";
+import { i18nClient, readCatalogs, translateMessage } from "../src/i18n.js";
 import { renderWorkspace } from "../src/workspace-ui.js";
 
 describe("workspace localization", () => {
@@ -26,5 +26,59 @@ describe("workspace localization", () => {
     const script = html.match(/<script>([\s\S]*?)<\/script>/)?.[1];
     expect(script).toBeDefined();
     expect(() => new Script(script!)).not.toThrow();
+  });
+  it("switches repeatedly without navigation, translating only registered UI bindings", () => {
+    const title = { nodeValue: " 项目结构 ", isConnected: true, parentElement: { closest: () => false } };
+    const log = { nodeValue: "项目结构", isConnected: true, parentElement: { closest: () => true } };
+    const picker = { value: "", append: () => {}, onchange: () => {} };
+    const nodes = [title, log];
+    let index = -1,
+      url = "http://localhost:4318/?lang=zh-CN&runId=run_test&view=structure",
+      events = 0;
+    const document = {
+      title: "Canary · 验证工作台",
+      body: {},
+      documentElement: { lang: "" },
+      createTreeWalker: () => ({
+        nextNode: () => ++index < nodes.length,
+        get currentNode() {
+          return nodes[index];
+        },
+      }),
+      querySelectorAll: () => [],
+      getElementById: () => picker,
+      createElement: () => ({}),
+    };
+    const context = {
+      document,
+      location: { href: url, search: new URL(url).search },
+      navigator: { languages: ["zh-CN"] },
+      localStorage: { getItem: () => null, setItem: () => {} },
+      history: {
+        replaceState: (_state: unknown, _title: string, next: URL) => {
+          url = String(next);
+        },
+      },
+      window: {
+        dispatchEvent: () => {
+          events++;
+        },
+      },
+      NodeFilter: { SHOW_TEXT: 4 },
+      URL,
+      URLSearchParams,
+      Event,
+    };
+    runInNewContext(i18nClient(), context);
+    for (const locale of ["en", "zh-CN", "en"]) {
+      picker.value = locale;
+      picker.onchange();
+      expect(document.documentElement.lang).toBe(locale);
+      expect(title.nodeValue).toBe(locale === "en" ? " Project structure " : " 项目结构 ");
+      expect(log.nodeValue).toBe("项目结构");
+      expect(new URL(url).searchParams.get("runId")).toBe("run_test");
+      expect(new URL(url).searchParams.get("view")).toBe("structure");
+    }
+    expect(events).toBe(3);
   });
 });

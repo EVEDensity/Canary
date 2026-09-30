@@ -28,8 +28,8 @@ export const architectureStyles = String.raw`
 export const architectureClient = String.raw`
 const architectureCache=new Map(),architecturePending=new Map(),architectureInvalid=new Set();
 let architectureRunId='',architectureData=null,architectureIndex=null,architectureState=null,architectureExpanded=new Set();
-const architectureKind={workspace:t('项目'),app:t('应用'),package:t('包'),directory:t('目录'),file:t('文件'),class:t('类'),function:t('函数')};
-const architectureRelation={imports:t('模块导入'),'package-dependency':t('包依赖'),calls:t('调用')};
+const architectureKind=localizedValues(()=>({workspace:t('项目'),app:t('应用'),package:t('包'),directory:t('目录'),file:t('文件'),class:t('类'),function:t('函数')}));
+const architectureRelation=localizedValues(()=>({imports:t('模块导入'),'package-dependency':t('包依赖'),calls:t('调用')}));
 const architectureKey=id=>'canary.architecture.v1.'+id;
 function architectureInvalidate(id){architectureInvalid.add(id);architectureCache.delete(id);architecturePending.delete(id);if(architectureRunId===id){architectureRunId='';architectureData=null;architectureIndex=null;architectureState=null;$('architecture-plane').replaceChildren(text('p',t('运行证据完整性校验失败，地图已停止展示。'),'architecture-empty'));$('architecture-detail').replaceChildren(text('p',t('请重新运行并验证证据链。'),'empty'))}$('architecture-preview-units').textContent='—';$('architecture-preview-files').textContent='—';$('architecture-preview-symbols').textContent='—';$('architecture-preview-status').textContent=t('运行证据完整性校验失败，地图已停止展示。')}
 async function architectureFetch(id){if(architectureInvalid.has(id))throw Error(t('此运行证据完整性校验失败'));if(architectureCache.has(id))return architectureCache.get(id);if(architecturePending.has(id))return architecturePending.get(id);const request=api('/api/structure?runId='+encodeURIComponent(id)).then(data=>{if(!architectureInvalid.has(id))architectureCache.set(id,data);architecturePending.delete(id);return data}).catch(error=>{architecturePending.delete(id);throw error});architecturePending.set(id,request);return request}

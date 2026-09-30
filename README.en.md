@@ -9,6 +9,8 @@
 
 **Canary is a project verification workspace for developers and coding Agents.** Bring checks, architecture, coverage and error evidence together. Follow a failure into the code, then track verification after a fix. Integrate with existing CI through the CLI, stable exit codes and standard reports.
 
+![Canary verification workspace: check results, project structure and run trends](docs/images/dashboard-en.jpg)
+
 ## Features
 
 - **Unified checks** — Run builds, type checks, lint, tests and Agent cases. Export JSON, JUnit and Markdown reports.

@@ -43,7 +43,7 @@ function setSidebarCollapsed(collapsed){workspaceShell.classList.toggle('sidebar
 try{setSidebarCollapsed(localStorage.getItem('canary.sidebar.collapsed')==='true')}catch{}
 sidebarToggle.onclick=()=>setSidebarCollapsed(!workspaceShell.classList.contains('sidebar-collapsed'));
 workspaceShell.addEventListener('transitionend',event=>{if(event.target===workspaceShell&&event.propertyName==='grid-template-columns'&&current)renderDashboard(current)});
-const $=id=>document.getElementById(id), labels={'not-run':t('未运行'),completed:t('已完成'),failed:t('失败'),running:t('运行中'),cancelled:t('已中断'),passed:t('通过'),blocked:t('阻塞'),excluded:t('不适用'),verified:t('已校验'),partial:t('部分覆盖'),legacy:t('历史未封存'),missing:t('缺失'),invalid:t('完整性异常'),final:t('最终'),provisional:t('采集中'),preparing:t('准备中'),unavailable:t('不可用')};
+const $=id=>document.getElementById(id), labels=localizedValues(()=>({'not-run':t('未运行'),completed:t('已完成'),failed:t('失败'),running:t('运行中'),cancelled:t('已中断'),passed:t('通过'),blocked:t('阻塞'),excluded:t('不适用'),verified:t('已校验'),partial:t('部分覆盖'),legacy:t('历史未封存'),missing:t('缺失'),invalid:t('完整性异常'),final:t('最终'),provisional:t('采集中'),preparing:t('准备中'),unavailable:t('不可用')}));
 let selected=new URLSearchParams(location.search).get('runId'), rows=[], current, filter='all', tab='overview', busy=false, stopped=false, generation=0, previousStamp='';
 const expanded=new Set();
 const text=(tag,value,cls)=>{const node=document.createElement(tag);if(value!==undefined)node.textContent=value;if(cls)node.className=cls;return node};
@@ -54,12 +54,12 @@ const date=value=>{const d=new Date(value);return Number.isFinite(d.getTime())?d
 async function api(path,body){const response=await fetch(path,{...(body?{method:'POST',headers:{'content-type':'application/json','x-canary-write-token':settings.token},body:JSON.stringify(body)}:{}),signal:AbortSignal.timeout(20000)});const value=await response.json();if(!response.ok)throw Error(value.error||t('读取失败'));return value}
 function button(label,action,cls='text-button'){const arrow=/[↗→]$/.test(label);const b=text('button',arrow?label.replace(/[↗→]$/,'').trim():label,cls);if(arrow)b.append(uiIcon(label.endsWith('↗')?'arrow-up-right':'arrow-right'));b.onclick=()=>Promise.resolve(action()).catch(error=>note('error',error.message));return b}
 function empty(target,message){$(target).replaceChildren(text('div',message,'empty'))}
-function showTab(next){tab=next;const url=new URL(location.href);url.searchParams.set('view',next);history.replaceState(null,'',url);$('content').dataset.view=next;document.querySelector('.page-heading h1').firstChild.textContent=({overview:t('验证概览'),structure:t('项目结构'),history:t('运行历史'),checks:t('检查与日志'),coverage:t('覆盖率分析'),cases:t('用例与轨迹'),evidence:t('证据与比较'),improve:t('改进建议')})[next];$('view-title').textContent=({overview:t('数据总览'),structure:t('项目结构'),checks:t('检查与日志'),coverage:t('覆盖率分析'),cases:t('用例与轨迹'),evidence:t('证据与比较'),improve:t('改进建议'),history:t('运行历史')})[next];document.querySelectorAll('[data-tab]').forEach(b=>{b.classList.toggle('active',b.dataset.tab===next);b.setAttribute('aria-current',b.dataset.tab===next?'page':'false')});document.querySelectorAll('.panel').forEach(p=>p.hidden=p.id!=='panel-'+next);if(next==='structure')void renderArchitecture()}
+function showTab(next,redraw=true){tab=next;const url=new URL(location.href);url.searchParams.set('view',next);history.replaceState(null,'',url);$('content').dataset.view=next;document.querySelector('.page-heading h1').firstChild.textContent=({overview:t('验证概览'),structure:t('项目结构'),history:t('运行历史'),checks:t('检查与日志'),coverage:t('覆盖率分析'),cases:t('用例与轨迹'),evidence:t('证据与比较'),improve:t('改进建议')})[next];$('view-title').textContent=({overview:t('数据总览'),structure:t('项目结构'),checks:t('检查与日志'),coverage:t('覆盖率分析'),cases:t('用例与轨迹'),evidence:t('证据与比较'),improve:t('改进建议'),history:t('运行历史')})[next];document.querySelectorAll('[data-tab]').forEach(b=>{b.classList.toggle('active',b.dataset.tab===next);b.setAttribute('aria-current',b.dataset.tab===next?'page':'false')});document.querySelectorAll('.panel').forEach(p=>p.hidden=p.id!=='panel-'+next);if(next==='structure'&&redraw)void renderArchitecture()}
 document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>showTab(b.dataset.tab));document.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>showTab(b.dataset.go));
 const requestedView=new URLSearchParams(location.search).get('view');if(['overview','structure','history','checks','coverage','cases','evidence','improve'].includes(requestedView))showTab(requestedView);
 document.querySelectorAll('[data-filter]').forEach(b=>b.onclick=()=>{filter=b.dataset.filter;document.querySelectorAll('[data-filter]').forEach(x=>x.classList.toggle('selected',x===b));renderHistory()});$('search').oninput=renderHistory;
 const openHistoryGroups=new Set();
-const checkNames={'workspace.build':t('构建'),'workspace.typecheck':t('类型检查'),'workspace.lint':t('代码规范'),'workspace.format.check':t('格式检查'),'workspace.test':t('全仓测试'),'agent.regression':t('Agent 回归')};
+const checkNames=localizedValues(()=>({'workspace.build':t('构建'),'workspace.typecheck':t('类型检查'),'workspace.lint':t('代码规范'),'workspace.format.check':t('格式检查'),'workspace.test':t('全仓测试'),'agent.regression':t('Agent 回归')}));
 function historyDay(value){const d=new Date(value);return Number.isFinite(d.getTime())?d.toLocaleDateString(canaryLocale,{year:'numeric',month:'2-digit',day:'2-digit'}):t('日期未知')}
 function historyClock(value){const d=new Date(value);return Number.isFinite(d.getTime())?d.toLocaleTimeString(canaryLocale,{hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false}):'—'}
 function parentFor(id){for(const parent of rows){const link=(parent.childRuns||[]).find(c=>c.runId===id);if(link)return {parent,link}}}
@@ -105,5 +105,17 @@ function comparisonView(result,focusId){const a=result.assessment,box=text('sect
 async function loadComparison(baseline,candidate,target,focusId){try{target.replaceChildren(text('p',t('正在校验证据并比较…'),'scope'));const result=await api('/api/compare?baseline='+encodeURIComponent(baseline)+'&candidate='+encodeURIComponent(candidate));target.replaceChildren(comparisonView(result,focusId))}catch(error){target.replaceChildren(text('p',error.message,'notice error'))}}
 $('compare').onclick=()=>loadComparison($('baseline').value,selected,$('comparison'));
 $('close').hidden=!settings.close;$('close').onclick=async()=>{try{await api('/api/session/close',{});stopped=true;clearInterval(poll);$('connection').textContent=t('页面服务已停止');note('notice',t('页面服务已停止；进行中的检查继续完成并保存证据。'));document.querySelectorAll('button').forEach(b=>b.disabled=true)}catch(error){note('error',error.message)}};
+window.addEventListener('canary:locale-change',()=>{
+ const scroll={x:window.scrollX,y:window.scrollY},focused=document.activeElement?.id;
+ const fields=[...document.querySelectorAll('input[id],select[id],textarea[id]')].map(node=>({id:node.id,value:node.value}));
+ const drawerOpen=$('check-drawer').open,drawerId=$('drawer-title').textContent;
+ if(current)render(current);else renderHistory();updateRunSelector();showTab(tab,false);
+ if(architectureData&&architectureRunId===selected)architectureDraw();
+ if(architectureCache.has(selected))void renderArchitecturePreview();
+ if(current&&drawerOpen)openCheckDrawer(current,drawerId);
+ for(const field of fields){const node=$(field.id);if(node)node.value=field.value}
+ if(current)$('connection').textContent=current.status==='running'?t('● 实时更新'):t('● 已同步本地数据');
+ if(focused)$(focused)?.focus({preventScroll:true});window.scrollTo(scroll.x,scroll.y);
+});
 async function refresh(){if(busy||stopped)return;busy=true;try{await load();void renderArchitecturePreview();await historyList()}catch(error){note('error',error.message)}finally{busy=false}}$('refresh').onclick=refresh;const poll=setInterval(()=>{if(!document.hidden)void refresh()},4000);void refresh();
 `;
