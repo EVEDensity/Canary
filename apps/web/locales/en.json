@@ -786,5 +786,11 @@
   "进程检查": "Process check",
   "HTTP 检查": "HTTP check",
   "文件检查": "File check",
-  "Docker 检查": "Docker check"
+  "Docker 检查": "Docker check",
+  "统一失败证据": "Unified failure evidence",
+  "缺失源码映射": "Missing source mapping",
+  "源码不可用": "Source unavailable",
+  "原始脱敏证据": "Original redacted evidence",
+  "未记录输出": "No recorded output",
+  "导出诊断包": "Export diagnostics"
 }

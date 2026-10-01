@@ -1,8 +1,9 @@
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import type { CoverageSummary, RunSnapshot } from "@canary/core";
 import {
   ArtifactIntegrityError,
+  buildRunDiagnostics,
   FileArtifactRepository,
   RunStore,
   readArtifactManifest,
@@ -221,7 +222,7 @@ export class WorkspaceReader {
         });
       }
     }
-    return this.store.sanitize({
+    return { ...this.store.sanitize({
       ...summary(run),
       issues,
       activeCheck: run.activeCheck,
@@ -243,6 +244,6 @@ export class WorkspaceReader {
       })),
       timeline: run.events.slice(-60).map((event) => ({ type: event.type, at: "at" in event ? event.at : undefined })),
       improvements: run.improvements ?? this.repository?.readJson(id, "improvement.json") ?? [],
-    });
+    }), diagnostics: buildRunDiagnostics(run, this.repository ? resolve(this.repository.rootDir, "../..") : process.cwd()) };
   }
 }

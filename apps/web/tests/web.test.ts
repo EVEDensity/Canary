@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { request } from "node:http";
 import { execFileSync } from "node:child_process";
 import { createWebServer, FileArtifactRepository, RunStore } from "../src/index.js";
-import { beginArtifacts, sealArtifacts, writePrivateJson } from "@canary/trace";
+import { buildRunDiagnostics, verifyDiagnosticBundle, beginArtifacts, sealArtifacts, writePrivateJson } from "@canary/trace";
 import { buildStructure } from "@canary/structure";
 
 function get(url: string): Promise<{ status: number; body: string }> {
@@ -32,6 +32,38 @@ function coverage(runId: string, status: "provisional" | "final" = "final", cove
 }
 
 describe("web run store and HTTP/SSE", () => {
+  it("serves the shared diagnosis and a verifiable bundle without truncating retained evidence", async () => {
+    const root = mkdtempSync(join(tmpdir(), "canary-web-diagnostics-"));
+    const artifactRoot = join(root, ".canary", "artifacts");
+    const store = new RunStore();
+    const run = store.create(1, "run_diagnostics");
+    const check = { id: "test", type: "command" as const, version: 1 as const, required: true, status: "failed" as const, evidence: "verified" as const, exitCode: 1, category: "assertion" as const, retryable: false, durationMs: 1, cwd: root, envAllowlist: ["API_KEY"], outputEvidence: { policy: "bounded-redacted-lines-v1" as const, stdout: [], stderr: ["x".repeat(3000), "AssertionError: wrong value", "password=superprivate"] } };
+    const snapshot = { ...run, status: "failed" as const, checks: [check] };
+    const dir = join(artifactRoot, run.runId);
+    beginArtifacts(dir);
+    writePrivateJson(join(dir, "run.json"), snapshot, { maxStringLength: Infinity });
+    sealArtifacts(dir);
+    const repo = new FileArtifactRepository(artifactRoot);
+    const expected = buildRunDiagnostics(repo.readRun(run.runId)!, root);
+    const web = createWebServer(new RunStore(), "127.0.0.1", 0, artifactRoot);
+    const listening = await web.listen();
+    try {
+      const diagnostics = await get(`${listening.url}/api/runs/${run.runId}/diagnostics`);
+      expect(diagnostics.status).toBe(200);
+      expect(JSON.parse(diagnostics.body)).toEqual(expected);
+      const workspace = JSON.parse((await get(`${listening.url}/api/workspace/runs/${run.runId}`)).body);
+      expect(workspace.diagnostics).toEqual(expected);
+      const exported = await get(`${listening.url}/api/runs/${run.runId}/diagnostics/bundle`);
+      expect(exported.status).toBe(200);
+      expect(exported.body).not.toContain("superprivate");
+      expect(verifyDiagnosticBundle(JSON.parse(exported.body))).toBe(true);
+      expect(JSON.parse(exported.body).files["diagnostics.json"]).toEqual(expected);
+      expect((await post(`${listening.url}/api/runs/${run.runId}/diagnostics/bundle`, {})).status).toBe(405);
+      writeFileSync(join(dir, "run.json"), "{}");
+      expect((await get(`${listening.url}/api/runs/${run.runId}/diagnostics/bundle`)).status).toBe(409);
+    } finally { await close(web.server); }
+  });
+
   it("serves the sealed historical structure and rejects a damaged graph", async () => {
     const root = mkdtempSync(join(tmpdir(), "canary-web-structure-"));
     writeFileSync(join(root, "index.ts"), "export function value() { return 1; }\n");
