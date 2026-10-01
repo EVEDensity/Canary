@@ -1,4 +1,19 @@
-* @core-team 
-packages/core/ @core-team 
-packages/cli/ @cli-team 
-packages/runner/ @runner-team 
+# Maintenance and review ownership / 维护与评审职责
+# Add confirmed collaborators with repository write access as responsibilities change.
+# Release contributions are credited separately from review ownership.
+* @EVEDensity
+
+# Core contracts and execution / 核心契约与执行
+/packages/ @EVEDensity
+# CLI and installation / 命令行与安装
+/packages/cli/ @EVEDensity
+/scripts/install/ @EVEDensity
+/scripts/*global.mjs @EVEDensity
+# Architecture and coverage / 架构与覆盖率
+/packages/structure/ @EVEDensity
+/packages/coverage/ @EVEDensity
+# Dashboard and website / 面板与官网
+/apps/ @EVEDensity
+# Documentation and release infrastructure / 文档与发布流程
+/docs/ @EVEDensity
+/.github/ @EVEDensity

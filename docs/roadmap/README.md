@@ -4,11 +4,11 @@ Canary connects project checks, architecture, coverage and failure evidence. Upc
 
 The following stages are planned; they are not release capabilities.
 
-- **R16 — Unified failure evidence:** structured diagnostics, conservative failure grouping and exportable evidence bundles.
-- **R17 — Pull request integration:** CI summaries, version-bound results and optional source annotations.
-- **R18 — Reproduction:** versioned execution instructions, isolated workspaces and explicit environment requirements.
-- **R19 — Repair verification:** compare failures and fixes, validate regression tests and detect weakened verification.
-- **R20 — Change verification:** connect changes to execution coverage, assertions and declared project contracts.
-- **R21 — Delivery:** consistent installation, documentation, compatibility and release validation.
+- **[R16 — Unified failure evidence](https://github.com/EVEDensity/Canary/issues/1):** structured diagnostics, conservative failure grouping and exportable evidence bundles.
+- **[R17 — Pull request integration](https://github.com/EVEDensity/Canary/issues/2):** CI summaries, version-bound results and optional source annotations.
+- **[R18 — Reproduction](https://github.com/EVEDensity/Canary/issues/3):** versioned execution instructions, isolated workspaces and explicit environment requirements.
+- **[R19 — Repair verification](https://github.com/EVEDensity/Canary/issues/4):** compare failures and fixes, validate regression tests and detect weakened verification.
+- **[R20 — Change verification](https://github.com/EVEDensity/Canary/issues/5):** connect changes to execution coverage, assertions and declared project contracts.
+- **[R21 — Delivery](https://github.com/EVEDensity/Canary/issues/6):** consistent installation, documentation, compatibility and release validation.
 
 Contributions should preserve existing CLI contracts and evidence integrity. Discuss substantial changes in a repository Issue before implementation.

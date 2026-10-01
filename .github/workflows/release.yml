@@ -1,8 +1,6 @@
 name: Release
 
 on:
-  push:
-    tags: ["v*"]
   workflow_run:
     workflows: [CI]
     types: [completed]
@@ -23,7 +21,7 @@ concurrency:
 
 jobs:
   release:
-    if: github.event_name != 'workflow_run' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push')
+    if: (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_run' && github.event.workflow_run.head_branch == 'main' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push')
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -135,7 +133,7 @@ jobs:
           fi
 
   npm:
-    if: github.event_name == 'workflow_dispatch' && inputs.publish_npm
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.publish_npm
     needs: release
     runs-on: ubuntu-latest
     permissions:
