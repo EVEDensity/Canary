@@ -237,6 +237,7 @@ export async function runProjectChecks(
           outputTruncated:
             outcome.outputTruncated || (outcome.stdout?.length ?? 0) > 2048 || (outcome.stderr?.length ?? 0) > 2048,
           id: check.id,
+          dependsOn: check.dependsOn,
           type: check.type,
           version: check.version,
           required: check.required || Boolean(session?.lineage?.retryOf),

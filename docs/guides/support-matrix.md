@@ -2,7 +2,7 @@
 
 ## Requirements
 
-Node.js 22+ and Git are required. Node.js 24 is recommended. Project dependencies, language runtimes and test services must be ready before checks run.
+Node.js 24 and Git are required. Node.js 24 is the supported validation baseline. Project dependencies, language runtimes and test services must be ready before checks run.
 
 ## Project checks
 

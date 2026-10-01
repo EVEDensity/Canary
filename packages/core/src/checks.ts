@@ -91,6 +91,8 @@ export function defineProjectConfig(input: z.input<typeof projectChecksConfigSch
   return projectChecksConfigSchema.parse(input);
 }
 export interface ProjectCheckResult {
+  /** Recorded declarations; absent in historical reports. */
+  dependsOn?: string[];
   id: string;
   type: ProjectCheck["type"];
   version: 1;

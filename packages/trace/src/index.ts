@@ -19,3 +19,5 @@ export * from "./artifacts.js";
 export * from "./recovery.js";
 export * from "./retention.js";
 export { redactText, containsSensitiveText, containsSensitiveValue, collectSecretValues, SECRET_KEY } from "./privacy.js";
+
+export * from "./diagnostics.js";

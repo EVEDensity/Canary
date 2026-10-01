@@ -2,7 +2,7 @@
   "version": 1,
   "id": "http-agent",
   "source": "Canary repository / integrations/fixtures/http-agent",
-  "revision": "r6-v1",
+  "revision": "r6-v1-lf",
   "credentials": [],
   "offline": true,
   "start": "node scripts/verify-r6.mjs",
@@ -16,8 +16,8 @@
   ],
   "limitations": "Deterministic local contract fixture; no model provider.",
   "files": {
-    "canary.config.ts": "75190168f9bd5d9d35c517099edfd65b00227377d744cd575a422e45d2ad7c2a",
-    "cases.ts": "8d16a4c98bafb26bf73b459a12a8a872b788bcdc7c4206adaa8d9f7f8d918ef4",
-    "server.mjs": "b1576d5e7c88d26d944d5cad7ab731a26abb8a1c38a081ad8cb0d066254a8df3"
+    "canary.config.ts": "aac5adb0169ff2b2a6bef596e8f39cce6e79d4198a41260a025ab8ea672a85da",
+    "cases.ts": "66be98f81cfce34a966c5f913cdfba209071f3d1778dfdcf45ddf56e52447f1a",
+    "server.mjs": "7f85f382126a675c6325bda4275e909f8e4405365f4f57edb1596df050be6b58"
   }
 }

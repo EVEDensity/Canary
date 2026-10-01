@@ -2,7 +2,7 @@
   "version": 1,
   "id": "deterministic-agent",
   "source": "Canary repository / integrations/fixtures/deterministic-agent",
-  "revision": "r6-v1",
+  "revision": "r6-v1-lf",
   "credentials": [],
   "offline": true,
   "start": "node scripts/verify-r6.mjs",
@@ -15,8 +15,8 @@
   ],
   "limitations": "Deterministic local contract fixture; no model provider.",
   "files": {
-    "agent.mjs": "49e893efe3f2b12cf52b67e61278b7d9e23647741d37c58dd84c386915ab3c61",
-    "canary.config.ts": "2fda6d0b10e33a4ed6641da522d807baee3e462588171561de5e92e58bb43fb0",
-    "cases.ts": "a8f280efaedead6a745297a2a6e1ac7fb661f0c67cfefa8c2fa78eb473fbfb5b"
+    "agent.mjs": "5e9f75cf6c99927386cc4461ce9cb0944e858e2683e39afa8b3b947709b7f900",
+    "canary.config.ts": "ce6c63a8ed1e2b71b0ff5d4941847182e0f50283d0a2a6421ef09c515084530e",
+    "cases.ts": "8e4b34c22ecfa94c362275696bcc27e366a55de640c0a722ade1e2d2fd1546bd"
   }
 }

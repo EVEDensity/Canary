@@ -14,3 +14,11 @@
 ## 当前使用入口
 
 命令、项目定位和产物位置以[运行指南](../../docs/guides/running-and-ui.md)及[安装指南](../../docs/guides/getting-started.md)为准。全局启动器保留调用目录，用 `CANARY_HOME` 指向安装仓库；本地 `canary.config.ts` 优先于安装 Demo。所有读写命令共用 `ProjectContext`。
+
+## Failure diagnostics
+
+`canary diagnostics <runId> [--json] [--config <path>]` reads the same structured failure evidence shown in the check drawer. Export a sealed run with `canary diagnostics <runId> --out diagnostics.json`, then validate it with `canary diagnostics verify diagnostics.json` (exit 0 for valid, 1 for invalid). Existing report formats and exit codes are unchanged. Export refuses to overwrite an existing file.
+
+The JSON bundle contains `diagnostics.json`, `NEXT-STEPS.txt` and a manifest with byte lengths and SHA-256 hashes. Hashes detect corruption, not authenticity. Only retained, redacted errors are included; environment requirements contain names, never values. Commit/runtime information is explicitly unavailable for historical runs that did not record it.
+
+Each failure keeps its check or case identity, test names where recognizable, failed assertions, stack frames and reported source positions. Positions have `path-line` precision; they do not establish a verified source map or a root cause. The page opens source only through the existing hash-checked source viewer. Missing positions stay `missing`, causes stay `unknown`, and declared prerequisite failures are labeled as `hypothesis`. Similar text never groups unrelated failures.

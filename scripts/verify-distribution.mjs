@@ -3,7 +3,7 @@ const scenarios = [
   "Windows",
   "Ubuntu LTS",
   "macOS",
-  "Node 22 compatibility",
+  "Node 24 compatibility",
   "Node 24 primary",
   "paths with spaces",
   "non-default user directory",

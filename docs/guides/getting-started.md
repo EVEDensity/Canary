@@ -1,6 +1,6 @@
 # Installation and setup
 
-Prepare Node.js 22+ (24 recommended), Git, and your project's dependencies.
+Prepare Node.js 24, Git, and your project's dependencies.
 
 ## Install
 

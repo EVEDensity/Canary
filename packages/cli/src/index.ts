@@ -7,7 +7,7 @@ import { resolve, relative } from "node:path";
 import { pathToFileURL, fileURLToPath } from "node:url";
 import { createRequire } from "node:module";
 import type { RunSnapshot } from "@canary/core";
-import { FileArtifactRepository, RunStore, applyRetention, planRetention, verifyArtifacts, redactValue, readArtifactManifest, safeArtifactPath, writePrivateJson, writePrivateText, sha256 } from "@canary/trace";
+import { FileArtifactRepository, RunStore, applyRetention, planRetention, verifyArtifacts, redactValue, readArtifactManifest, safeArtifactPath, writePrivateJson, writePrivateText, sha256, buildRunDiagnostics, createDiagnosticBundle, verifyDiagnosticBundle } from "@canary/trace";
 import { projectChecksConfigSchema, ciResultSchema } from "@canary/core";
 import { runProjectSession } from "./project-session.js";
 import { discoverProject } from "./discovery.js";
@@ -84,6 +84,8 @@ const USAGE = `Usage: canary run [--ci] [--project <directory>] [--affected --ba
        canary soft-trial prepare <baselineRunId> --experience <experienceId> --regression <caseId> --holdout <caseId>
        canary soft-trial validate|approve|run|rollback <trialId> [--actor <name>] [--reason <text>]
        canary replay <runId> [--headless] [--no-open]
+       canary diagnostics <runId> [--out <bundle.json>] [--config <path>]
+       canary diagnostics verify <bundle.json>
        canary verify <runId> [--json] [--config <path>]
        canary prune [--apply] [--json] [--config <path>]
        canary host discover [--config <path>]
@@ -1333,6 +1335,39 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
     try {
       const home = resolve(process.env.CANARY_HOME ?? "");
       console.log(JSON.stringify({ repaired: Boolean(home), action: "re-run install-global or upgrade-global to rebuild metadata and launcher" }, null, 2));
+      return 0;
+    } catch (error) { console.error(error instanceof Error ? error.message : String(error)); return 1; }
+  }
+  if (command === "diagnostics") {
+    try {
+      if (rest[0] === "verify") {
+        if (rest.length !== 2) throw new Error("Use canary diagnostics verify <bundle.json>");
+        const valid = verifyDiagnosticBundle(JSON.parse(readFileSync(resolve(rest[1]!), "utf8")));
+        console.log(JSON.stringify({ kind: "canary.diagnostic-verification", valid }));
+        return valid ? 0 : 1;
+      }
+      const runId = rest[0];
+      if (!runId || runId.startsWith("--")) throw new Error("A run ID is required");
+      for (let i = 1; i < rest.length; i++) {
+        if (rest[i] === "--json") continue;
+        if (!["--out", "--config"].includes(rest[i]!) || !rest[i + 1] || rest[i + 1]!.startsWith("--")) throw new Error("Invalid diagnostics arguments");
+        i++;
+      }
+      const context = resolveProjectContext({ configPath });
+      const repository = new FileArtifactRepository(context.artifactRoot);
+      const integrity = repository.verify(runId);
+      if (integrity.status === "invalid") throw new Error("Run evidence failed integrity verification");
+      const run = repository.readRun(runId);
+      if (!run) throw new Error("Run not found");
+      const output = flagValue(rest, "--out");
+      if (output) {
+        if (integrity.status !== "verified") throw new Error("Export requires a sealed, verified source run");
+        const bundle = createDiagnosticBundle(run, context.projectRoot);
+        const destination = resolve(output);
+        mkdirSync(resolve(destination, ".."), { recursive: true });
+        writeFileSync(destination, JSON.stringify(bundle, null, 2) + "\n", { flag: "wx", mode: 0o600 });
+        console.log(JSON.stringify({ kind: "canary.diagnostic-export", path: destination, manifest: bundle.manifest }));
+      } else console.log(JSON.stringify(buildRunDiagnostics(run, context.projectRoot), null, 2));
       return 0;
     } catch (error) { console.error(error instanceof Error ? error.message : String(error)); return 1; }
   }

@@ -26,6 +26,8 @@ import {
 } from "@canary/improvement";
 import {
   ArtifactIntegrityError,
+  buildRunDiagnostics,
+  createDiagnosticBundle,
   FileArtifactRepository,
   redactRunSnapshot,
   redactValue,
@@ -205,7 +207,8 @@ async function handleRequest(
         return;
       }
       const value = parts[3] ? workspace?.read(parts[3]) : workspace?.list();
-      writeJson(response, value ? 200 : 404, value ?? { error: "Run not found" });
+      response.writeHead(value ? 200 : 404, { "content-type": "application/json; charset=utf-8" });
+      response.end(JSON.stringify(value ?? { error: "Run not found" }));
       return;
     }
     if (parts[0] === "api" && parts[1] === "structure" && (parts.length === 2 || (parts.length === 3 && parts[2] === "source"))) {
@@ -396,6 +399,23 @@ async function handleRequest(
       if (!run) {
         response.writeHead(404);
         response.end("Not found");
+        return;
+      }
+      if (parts[3] === "diagnostics") {
+        if (request.method !== "GET") { writeJson(response, 405, { error: "GET required" }); return; }
+        const root = artifacts ? resolveProjectRootFromArtifacts(artifacts.rootDir) : process.cwd();
+        if (parts[4] === "bundle") {
+          if (!artifacts || artifacts.verify(runId).status !== "verified") { writeJson(response, 409, { error: "Export requires sealed, verified evidence" }); return; }
+          response.setHeader("content-disposition", 'attachment; filename="diagnostics.json"');
+          const source = artifacts.readRun(runId);
+          if (!source) { writeJson(response, 404, { error: "Run not found" }); return; }
+          const bundle = createDiagnosticBundle(source, root);
+          response.writeHead(200, { "content-type": "application/json; charset=utf-8" });
+          response.end(JSON.stringify(bundle));
+        } else {
+          response.writeHead(200, { "content-type": "application/json; charset=utf-8" });
+          response.end(JSON.stringify(buildRunDiagnostics(store.get(runId)!, root)));
+        }
         return;
       }
       if (parts[3] === "retry") {
