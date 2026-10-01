@@ -2,6 +2,12 @@ changelog:
   exclude:
     labels: [skip-changelog]
   categories:
+    - title: "Architecture and coverage / 架构与覆盖率"
+      labels: [architecture, coverage]
+    - title: "Dashboard and website / 面板与官网"
+      labels: [ui, ux]
+    - title: "Tests and CI / 测试与 CI"
+      labels: [testing, ci]
     - title: "New features / 新功能"
       labels: [enhancement, feature]
     - title: "Fixes / 修复"
