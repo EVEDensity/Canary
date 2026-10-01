@@ -1,12 +1,7 @@
 const tourCopy = {
   en: {
     label: "Explore the workspace",
-    hint: "Select a view. Follow the highlighted area in the real product screenshot.",
-    screenshot: "Recorded product interface",
-    previous: "Previous view",
-    next: "Next view",
-    progress: "View {current} of {total}",
-    documentation: "Explore the documentation",
+    documentation: "Read the guide",
     zoomLabel: "Screenshot zoom",
     zoomHint: "Zoom to inspect. Scroll to explore.",
     zoomFit: "Fit to window",
@@ -15,34 +10,29 @@ const tourCopy = {
     steps: [
       {
         tab: "Run overview",
-        title: "Know where this run stands.",
-        body: "Progress, passed checks, failures and duration put the current result in context. Start with the signal that needs attention.",
+        title: "The current result, at a glance.",
+        body: "Progress, failures and duration show where this run stands.",
       },
       {
-        tab: "Project architecture",
-        title: "Move from the result into the code.",
-        body: "The architecture entry connects the run to its recorded project structure. Explore modules, files and symbols, then follow mapped evidence into source.",
+        tab: "Architecture",
+        title: "From the result to the relevant code.",
+        body: "Explore the recorded structure, then follow mapped evidence into source.",
       },
       {
         tab: "Run trends",
-        title: "See the pattern across runs.",
-        body: "Switch between pass rate and duration in the product. The observation window keeps the chart focused on the runs you want to compare.",
+        title: "See what changed between runs.",
+        body: "Compare pass rate and duration within a focused observation window.",
       },
       {
         tab: "Run history",
-        title: "Keep every result in its own context.",
-        body: "Open run history in Canary to review when a check ran, what it checked and how a rerun relates to the original result.",
+        title: "Every result keeps its own context.",
+        body: "Review check times, run scope and the link between a failure and its rerun.",
       },
     ],
   },
   "zh-CN": {
     label: "探索验证工作台",
-    hint: "选择一个视角，在真实产品截图中查看对应区域。",
-    screenshot: "真实产品界面记录",
-    previous: "上一个视角",
-    next: "下一个视角",
-    progress: "第 {current} / {total} 个视角",
-    documentation: "查看对应文档",
+    documentation: "查看指南",
     zoomLabel: "截图缩放",
     zoomHint: "放大查看细节，滚动探索界面。",
     zoomFit: "适应窗口",
@@ -51,23 +41,23 @@ const tourCopy = {
     steps: [
       {
         tab: "运行概览",
-        title: "先看清本次运行的结果。",
-        body: "完成进度、通过检查、失败数量与运行耗时，让结果一目了然。从需要关注的信号开始排查。",
+        title: "本次结果，一目了然。",
+        body: "通过进度、失败数量与耗时，快速判断当前运行状态。",
       },
       {
         tab: "项目架构",
-        title: "从检测结果，进入对应代码。",
-        body: "架构入口连接本次运行记录的项目结构。逐层探索模块、文件与符号，再沿已映射的证据定位源码。",
+        title: "从检测结果，进入相关代码。",
+        body: "探索本次运行记录的项目结构，沿已映射的证据定位源码。",
       },
       {
         tab: "运行趋势",
-        title: "看见多次运行之间的变化。",
-        body: "在产品中切换通过率与运行耗时。通过观察窗口筛选需要比较的运行，查看结果变化与时间趋势。",
+        title: "看清每次运行的变化。",
+        body: "在选定的观察窗口中，比较通过率与运行耗时。",
       },
       {
         tab: "运行历史",
-        title: "每一次结果，都有清晰的来龙去脉。",
-        body: "在 Canary 的运行历史中查看何时检测、检测了什么，以及重跑结果与原始运行之间的关联。",
+        title: "每次结果，都有清晰的上下文。",
+        body: "查看检测时间、检查范围，以及失败与后续重跑之间的关联。",
       },
     ],
   },
@@ -187,11 +177,6 @@ export function mountWorkspaceTour(frame, initialLocale = "en") {
 
   const tour = document.createElement("div");
   tour.className = "workspace-tour";
-  const intro = document.createElement("div");
-  intro.className = "workspace-tour-intro";
-  const title = document.createElement("strong");
-  const hint = document.createElement("p");
-  intro.append(title, hint);
 
   const tabs = document.createElement("div");
   tabs.className = "workspace-tour-tabs";
@@ -204,15 +189,12 @@ export function mountWorkspaceTour(frame, initialLocale = "en") {
   const tabLabels = [];
   const buttons = regions.map((_, index) => {
     const button = createButton("workspace-tour-tab");
-    const number = document.createElement("span");
-    number.className = "workspace-tour-number";
-    number.textContent = String(index + 1).padStart(2, "0");
     const label = document.createElement("span");
     tabLabels.push(label);
     button.id = `workspace-tour-tab-${index}`;
     button.setAttribute("role", "tab");
     button.setAttribute("aria-controls", panel.id);
-    button.append(number, label);
+    button.append(label);
     button.addEventListener("click", () => select(index));
     tabs.append(button);
     return button;
@@ -230,24 +212,9 @@ export function mountWorkspaceTour(frame, initialLocale = "en") {
   link.rel = "noopener noreferrer";
   const linkText = document.createElement("span");
   link.append(linkText, createArrow());
-  copy.append(heading, description, link);
-
-  const navigation = document.createElement("div");
-  navigation.className = "workspace-tour-navigation";
-  const status = document.createElement("span");
-  status.className = "workspace-tour-progress";
-  const controls = document.createElement("div");
-  controls.className = "workspace-tour-step-controls";
-  const previous = createButton("workspace-tour-arrow workspace-tour-previous");
-  previous.append(createArrow());
-  const next = createButton("workspace-tour-arrow");
-  next.append(createArrow());
-  previous.addEventListener("click", () => select(Math.max(0, selected - 1)));
-  next.addEventListener("click", () => select(Math.min(regions.length - 1, selected + 1)));
-  controls.append(previous, next);
-  navigation.append(status, controls);
-  panel.append(copy, navigation);
-  tour.append(intro, tabs, panel);
+  copy.append(heading, description);
+  panel.append(copy, link);
+  tour.append(tabs, panel);
   frame.after(tour);
   const zoom = mountPreviewZoom(locale);
 
@@ -255,8 +222,6 @@ export function mountWorkspaceTour(frame, initialLocale = "en") {
     const language = tourCopy[locale];
     const step = language.steps[selected];
     const region = regions[selected];
-    title.textContent = language.label;
-    hint.textContent = language.hint;
     tabs.setAttribute("aria-label", language.label);
     buttons.forEach((button, index) => {
       button.setAttribute("aria-selected", String(index === selected));
@@ -268,13 +233,6 @@ export function mountWorkspaceTour(frame, initialLocale = "en") {
     description.textContent = step.body;
     linkText.textContent = language.documentation;
     link.href = `https://github.com/EVEDensity/Canary/blob/main/docs/guides/${region.guide}.md`;
-    status.textContent = language.progress.replace("{current}", String(selected + 1)).replace("{total}", "4");
-    previous.disabled = selected === 0;
-    next.disabled = selected === regions.length - 1;
-    previous.setAttribute("aria-label", language.previous);
-    next.setAttribute("aria-label", language.next);
-    previous.title = language.previous;
-    next.title = language.next;
     outline.style.left = `${region.x}%`;
     outline.style.top = `${region.y}%`;
     outline.style.width = `${region.width}%`;
@@ -287,7 +245,17 @@ export function mountWorkspaceTour(frame, initialLocale = "en") {
     selected = index;
     highlighted = true;
     render();
-    if (focus) buttons[selected].focus();
+    if (focus) {
+      buttons[selected].focus({ preventScroll: true });
+      const bounds = buttons[selected].getBoundingClientRect();
+      const tabBounds = tabs.getBoundingClientRect();
+      if (bounds.left < tabBounds.left || bounds.right > tabBounds.right) {
+        tabs.scrollTo({
+          left: bounds.left - tabBounds.left + tabs.scrollLeft - (tabs.clientWidth - bounds.width) / 2,
+          behavior: "auto",
+        });
+      }
+    }
   }
 
   tabs.addEventListener("keydown", (event) => {

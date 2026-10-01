@@ -42,13 +42,23 @@ This app is independent of the CLI and report server. Product navigation links t
 
 ## Design and interaction
 
-The page uses Canary's warm paper, graphite and coral palette. An original layered signal map lets visitors step through detection, source location and linked verification. This is a labeled interactive example; the workspace preview is a recorded product screenshot.
+The page helps developers understand Canary, inspect the product, try verification, and install it. The reading order is value proposition → connected workflow → actual workspace → repair playground → installation → FAQ. The name's early-warning story stays in the footer.
+
+### Design specification
+
+- **Layout:** 1240px maximum content width; 48px desktop gutters, 32px tablet gutters, 20px phone gutters. Hero uses a 5/7 split with a 48–64px gap. Main sections are separated by 96px, or 64px on phones. Header height is 72px, or 68px on phones.
+- **Palette:** paper `#f7f5ef`, surface `#fffdf8`, graphite `#292c25`, secondary text `#686d60`, coral accent `#d97456`, text/link coral `#a64d36`, success `#526c43`. Regular coral is reserved for graphic accents. Graphite and secondary text exceed 4.5:1 on paper.
+- **Typography:** bundled variable Inter with Chinese system fallbacks. Hero 72px/1.05, section headings 44px/1.12, introductory copy 18px/1.6, body 16px/1.6, helper and code 14px/1.6. Compact map metadata uses 12–13px. On phones the hero is 44px and section headings 32px.
+- **Components:** cards use 16–22px radii and 18–24px padding; main buttons are at least 48px high, other controls at least 44px. Controls expose selected, hover, focus, disabled, and loading states. Errors use text and markers alongside color.
+- **Motion:** hover feedback 150ms, panel transitions 220ms, perspective transitions 320ms, section reveal 500ms. The walkthrough starts only on request. Reduced-motion preferences remove decorative transitions and perspective transforms.
+- **Responsive behavior:** hero becomes one column at 980px; application panels stack at 760px; the compact map becomes readable vertical layers at 520px. Code and screenshot navigation scroll inside their own containers, rather than widening the page.
+- **Implementation:** layout, styling, and spatial presentation use CSS. JavaScript handles selected nodes, locale, deterministic assertions, keyboard navigation, clipboard, and preview state. No WebGL, background animation loop, external font request, or new runtime dependency is required.
 
 English is the default. The language toggle updates copy, accessible labels and screenshots in place while preserving selections and verification results. Reduced motion preferences disable decorative motion.
 
-- **Signal map:** switch between 2D and layered 3D, inspect six nodes and their direct relationships, or play and pause the three-step walkthrough. Manual selection stops the walkthrough.
-- **Verification playground:** select the original code or repair patch, run a fixed deterministic checkout assertion, inspect error evidence, and compare the linked rerun with the original failure. This browser example does not execute a visitor's project or call an AI model.
-- **Workspace tour:** four guided screenshot regions explain overview, architecture, trends and history; the enlarged preview supports 100%, 125% and 150% zoom.
+- **Signal map:** Detect / Locate / Verify are the main controls. View settings progressively disclose 2D/3D and the walkthrough. Inspect six files and their direct relationships; manual selection stops the walkthrough. This is a labeled illustrative preview.
+- **Verification playground:** select the original code or repair patch, run a fixed deterministic checkout assertion, inspect error evidence, and compare the linked rerun with the original failure. Test input is folded by default; actions sit beside the source. This browser example does not execute a visitor's project or call an AI model.
+- **Workspace tour:** four compact tabs highlight overview, architecture, trends and history in an actual product screenshot; the enlarged preview supports 100%, 125% and 150% zoom.
 - **Accessible navigation:** tabs support arrow keys and Home/End, buttons support keyboard input, and mobile navigation, command copying and reset actions provide explicit feedback.
 
 Design references informed the hierarchy and interaction, with an original implementation:

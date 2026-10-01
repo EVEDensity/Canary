@@ -9,22 +9,25 @@ const messages = {
     navWorkspace: "The workspace",
     navWhy: "Why Canary",
     navStart: "Get started",
-    release: "Open source. Built for the early signal.",
-    heroLine1: "See the signal.",
-    heroLine2: "Before the noise.",
-    heroDescription: "Your checks, architecture, and failure evidence. Finally connected.",
+    release: "Open source. An earlier signal.",
+    heroLine1: "See the issue.",
+    heroLine2: "Verify the fix.",
+    heroDescription: "Run your project checks. Connect failures to code and evidence. Know what changed after the fix.",
+    heroTry: "Try the example",
     getStarted: "Get started",
     viewGithub: "View on GitHub",
     heroMeta: "Your project. Your evidence.",
-    signalMap: "THE SIGNAL MAP",
+    signalMap: "FOLLOW ONE FAILURE",
     sample: "Interactive example",
-    layerTests: "TESTS & EVIDENCE",
-    layerLogic: "APPLICATION LOGIC",
-    layerInterface: "PROJECT INTERFACE",
+    mapCaption: "Connected by context",
+    viewSettings: "View settings",
+    layerTests: "Evidence",
+    layerLogic: "Application",
+    layerInterface: "Interface",
     detect: "Detect",
     locate: "Locate",
     verify: "Verify",
-    demoHint: "Select a node. Switch perspectives. Follow the signal.",
+    demoHint: "Select a file to follow its connections.",
     tryExample: "Try the fix yourself",
     mapView: "Map perspective",
     followSignal: "Follow the signal",
@@ -40,36 +43,31 @@ const messages = {
       manifest: "The manifest ties the original check, source snapshot and content hash to the same recorded run.",
     },
     stripLabel: "One entry point for your project checks",
-    workflowEyebrow: "01 / A SHORTER PATH TO CLARITY",
-    workflowTitle: "Less searching.\nMore understanding.",
-    workflowDescription: "The result is only the beginning. Get the context you need to decide what happens next.",
-    feature1Title: "Your checks. One command.",
-    feature1Body:
-      "Discover existing builds, type checks, lint and tests. Run them together, without creating a Canary configuration.",
-    feature2Title: "Find the place. Not just the log.",
-    feature2Body:
-      "Explore your project in 2D or layered 3D. Follow mapped failures and collected coverage into the relevant source.",
-    feature3Title: "Keep the thread of every fix.",
-    feature3Body:
-      "Rerun a check, compare results, and keep the original evidence. Content hashes and run lineage connect the story.",
+    workflowEyebrow: "THE CONNECTED WORKFLOW",
+    workflowTitle: "From the first signal to a verified fix.",
+    feature1Title: "Existing checks",
+    feature1Body: "Build, types, lint and tests.",
+    feature2Title: "Code in context",
+    feature2Body: "Architecture, source and coverage.",
+    feature3Title: "Traceable evidence",
+    feature3Body: "Original errors, hashes and history.",
+    feature4Title: "Verified reruns",
+    feature4Body: "Before, after and what changed.",
     failed: "Failed",
     rerun: "Rerun",
     passed: "Passed",
-    workspaceEyebrow: "02 / THE VERIFICATION WORKSPACE",
-    workspaceTitle: "The whole picture.\nThe exact detail.",
-    workspaceDescription: "A clear overview when you need perspective. Source and evidence when you need answers.",
+    workspaceEyebrow: "01 / YOUR PROJECT, IN FOCUS",
+    workspaceTitle: "One place to see\nwhat needs you.",
+    workspaceDescription: "Start with the overview. Follow the architecture. Open the evidence that explains a result.",
     viewCloser: "Take a closer look",
     note1: "Actual product interface",
     note2: "Reports: JSON · JUnit · Markdown",
     note3: "Coverage follows your collected scope",
-    whyEyebrow: "03 / SMALL SIGNALS MATTER",
-    whyTitle: "A little bird.\nA better heads-up.",
-    whyBody: "Canaries once gave miners an early warning of danger. We believe software deserves an early signal, too.",
-    whyBody2: "Check sooner. Make problems visible. Keep the evidence that helps you move forward.",
-    whySignoff: "Catch problems early. Fix with evidence.",
-    startEyebrow: "04 / YOUR NEXT RUN STARTS HERE",
-    startTitle: "Bring clarity\nto your next check.",
-    startDescription: "Install Canary. Open your project. Follow the signal.",
+    whyBody:
+      "Named after the little bird that warned miners early. Built to help software teams catch problems sooner.",
+    startEyebrow: "03 / MAKE YOUR NEXT CHECK COUNT",
+    startTitle: "Your project.\nYour next signal.",
+    startDescription: "Install once. Run from your project. Keep your existing CI.",
     exploreGithub: "Explore the project on GitHub",
     installLabel: "Install once",
     runLabel: "New terminal. Enter your project. Run checks.",
@@ -150,21 +148,24 @@ const messages = {
     navWhy: "为什么叫 Canary",
     navStart: "开始使用",
     release: "开源，让问题更早被看见。",
-    heroLine1: "先看见信号。",
-    heroLine2: "再屏蔽噪声。",
-    heroDescription: "项目检查、架构与失败证据，终于连成一条清晰的线。",
+    heroLine1: "看清问题。",
+    heroLine2: "验证修复。",
+    heroDescription: "运行项目检查，将失败关联到源码和证据，看清修复前后的变化。",
+    heroTry: "体验修复示例",
     getStarted: "开始使用",
     viewGithub: "查看 GitHub",
     heroMeta: "你的项目，你的证据。",
-    signalMap: "项目的信号地图",
+    signalMap: "跟随一个失败，理解整个过程",
     sample: "交互示例",
-    layerTests: "测试与证据层",
-    layerLogic: "应用逻辑层",
-    layerInterface: "项目界面层",
+    mapCaption: "用上下文串起问题",
+    viewSettings: "视图设置",
+    layerTests: "测试证据",
+    layerLogic: "应用逻辑",
+    layerInterface: "项目界面",
     detect: "发现问题",
     locate: "定位源码",
     verify: "验证重跑",
-    demoHint: "选择节点，切换视角，跟随问题线索。",
+    demoHint: "选择文件，查看它的关联。",
     tryExample: "亲手试一次修复",
     mapView: "地图视角",
     followSignal: "跟随问题线索",
@@ -180,33 +181,30 @@ const messages = {
       manifest: "Manifest 将原始检查、源码快照和内容哈希关联到同一次运行。",
     },
     stripLabel: "一个入口，运行项目已有检查",
-    workflowEyebrow: "01 / 更短的问题定位路径",
-    workflowTitle: "少一点寻找。\n多一点理解。",
-    workflowDescription: "结果只是起点。把上下文连接起来，让下一步行动更明确。",
-    feature1Title: "已有检查，一行运行。",
-    feature1Body: "自动识别构建、类型检查、lint 和测试，把已有命令一起运行，无需创建 Canary 配置。",
-    feature2Title: "找到现场，读懂错误。",
-    feature2Body: "用二维或三维分层视图探索项目，从已映射的失败与已采集的覆盖数据进入相关源码。",
-    feature3Title: "每次修复，都有来路。",
-    feature3Body: "关联重跑、比较结果、保留原始证据。用内容哈希和运行谱系，连起问题处理的全过程。",
+    workflowEyebrow: "连贯的验证流程",
+    workflowTitle: "从第一个信号，到有证据的修复。",
+    feature1Title: "已有项目检查",
+    feature1Body: "构建、类型、lint 与测试。",
+    feature2Title: "源码与上下文",
+    feature2Body: "架构、代码位置与覆盖数据。",
+    feature3Title: "可追溯的证据",
+    feature3Body: "原始错误、哈希与运行历史。",
+    feature4Title: "关联重跑验证",
+    feature4Body: "修复前后，变化一目了然。",
     failed: "失败",
     rerun: "重跑",
     passed: "通过",
-    workspaceEyebrow: "02 / 项目验证工作台",
-    workspaceTitle: "看清全貌。\n也看清细节。",
-    workspaceDescription: "需要全局时，查看清晰概览。需要答案时，深入源码和错误证据。",
+    workspaceEyebrow: "01 / 聚焦你的项目",
+    workspaceTitle: "一个工作台。\n看清哪里需要你。",
+    workspaceDescription: "从运行概览出发，沿架构进入源码，打开解释结果的原始证据。",
     viewCloser: "放大查看",
     note1: "真实产品界面",
     note2: "报告：JSON · JUnit · Markdown",
     note3: "覆盖指标来自实际采集范围",
-    whyEyebrow: "03 / 小信号，也很重要",
-    whyTitle: "一只小鸟。\n更早的提醒。",
-    whyBody: "矿井中的金丝雀，曾为矿工发出危险的早期预警。我们相信，软件也值得拥有自己的早期信号。",
-    whyBody2: "更早运行检查，让问题清晰可见，保留帮助你继续前进的验证证据。",
-    whySignoff: "早发现，早检测，让修复有据可查。",
-    startEyebrow: "04 / 从下一次检查开始",
-    startTitle: "让下一次检查，\n更加清晰。",
-    startDescription: "安装 Canary，进入项目，跟随问题线索。",
+    whyBody: "名字来自提前预警的金丝雀。我们希望帮助开发者更早发现问题，让修复有据可查。",
+    startEyebrow: "03 / 从下一次检查开始",
+    startTitle: "你的项目。\n你的下一条信号。",
+    startDescription: "安装一次，进入项目即可运行，继续使用已有 CI。",
     exploreGithub: "在 GitHub 探索项目",
     installLabel: "安装一次",
     runLabel: "新开终端，进入项目，运行检查",
@@ -408,6 +406,10 @@ function setLocale(next, persist = false) {
   get(".map-scene").setAttribute("aria-label", text.mapLabel);
   get(".demo-controls").setAttribute("aria-label", text.workflowLabel);
   get(".demo-evidence").setAttribute("aria-label", text.evidenceLabel);
+  get("#how-it-works").setAttribute(
+    "aria-label",
+    locale === "en" ? "Connected verification workflow" : "连贯的验证流程",
+  );
   get("#screenshot-open").setAttribute("aria-label", text.imageOpen);
   get("#close-preview").setAttribute("aria-label", text.imageClose);
   get(".install-tabs").setAttribute("aria-label", locale === "en" ? "Operating system" : "操作系统");
@@ -427,7 +429,6 @@ function setLocale(next, persist = false) {
     if (!element.getAttribute("src").endsWith(image)) element.src = image;
     element.alt = text.imageAlt;
   }
-  get(".art-caption").textContent = locale === "en" ? "a small bird. an early signal." : "一只小鸟，一条早期信号。";
   for (const button of all("[data-copy]")) button.setAttribute("aria-label", text[`${button.dataset.copy}Aria`]);
   renderDemo();
   updateWalkthrough();
@@ -582,10 +583,23 @@ menu.addEventListener("click", () => {
 });
 all("#mobile-nav a").forEach((link) => link.addEventListener("click", closeMenu));
 document.addEventListener("keydown", (event) => {
-  if (event.key === "Escape") closeMenu();
+  if (event.key === "Escape") {
+    closeMenu();
+    const options = get(".map-options");
+    if (options.open) {
+      const focusInOptions = options.contains(document.activeElement);
+      options.open = false;
+      if (focusInOptions) options.querySelector("summary").focus();
+    }
+  }
 });
 document.addEventListener("click", (event) => {
   if (!event.target.closest(".site-header")) closeMenu();
+  if (!event.target.closest(".map-options")) get(".map-options").open = false;
+});
+
+matchMedia("(min-width: 761px)").addEventListener("change", (event) => {
+  if (event.matches) closeMenu();
 });
 
 const dialog = get("#preview-dialog");
@@ -644,7 +658,7 @@ if ("IntersectionObserver" in window) {
     },
     { rootMargin: "-20% 0px -55% 0px", threshold: 0 },
   );
-  all("#how-it-works, #playground, #workspace, #why-canary").forEach((section) => observer.observe(section));
+  all("#playground, #workspace, #get-started").forEach((section) => observer.observe(section));
 }
 const scene = get(".map-scene");
 let animationFrame;

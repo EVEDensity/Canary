@@ -5,9 +5,9 @@ const originalResult = Object.freeze({ id: "EXAMPLE-001", actual: 110, passed: f
 
 const copy = {
   en: {
-    eyebrow: "TRY THE VERIFICATION LOOP",
-    title: "A failure is a starting point.",
-    intro: "Choose a patch. Run the same assertion. See what changed, with the original evidence still in view.",
+    eyebrow: "TRY CANARY",
+    title: "Try a repair. Verify the result.",
+    intro: "Choose a patch and rerun the original assertion.",
     example: "Interactive example",
     boundary: "A fixed checkout example runs in your browser. No project files or AI calls.",
     file: "checkout.ts",
@@ -18,7 +18,8 @@ const copy = {
     original: "Original code",
     patch: "Repair patch",
     choose: "Code version to verify",
-    fixture: "Same input. Same assertion.",
+    fixture: "View test input",
+    fixtureHint: "The input and expected result stay the same for every run.",
     subtotal: "Subtotal",
     shipping: "Shipping",
     discount: "Discount",
@@ -41,7 +42,7 @@ const copy = {
     pendingBody: "Select a code version and run the example check.",
     actual: "Received",
     expectedShort: "Expected",
-    ready: "Try the original. Then verify the repair.",
+    ready: "Select a version to verify.",
     checking: "Calculating the checkout total and checking the assertion.",
     success: "The repair passes the original assertion.",
     unchangedFail: "The same failure remains. Try the repair patch.",
@@ -49,17 +50,18 @@ const copy = {
     linked: "Rerun linked to EXAMPLE-001",
     viewCompare: "Inspect the comparison",
     runFirst: "Run a check to compare results.",
-    compareHeading: "Before → after",
+    compareHeading: "What changed?",
+    resolved: "Original failure resolved",
+    reproduced: "Original failure reproduced",
+    comparedRun: "Linked rerun",
     codeChange: "Code change",
     checks: "Assertion",
     preserved: "Preserved",
     added: "Discount applied",
     same: "No code change",
     result: "Result",
-    fixed: "110 → 100",
-    notFixed: "110 → 110",
     conclusionPassed:
-      "This example verifies the missing discount. One assertion does not prove every checkout behavior.",
+      "The repair passes the unchanged assertion. The original failure remains available for inspection.",
     conclusionFailed: "The original code still returns 110. The evidence points to checkout.ts:24.",
     initialConclusion: "A comparison appears after you run the original code or the repair patch.",
     changeHint: "Choose “Repair patch” to reveal the change.",
@@ -72,9 +74,9 @@ const copy = {
     runFinished: "Example check complete",
   },
   "zh-CN": {
-    eyebrow: "亲手走完一次验证",
-    title: "失败，是定位问题的起点。",
-    intro: "选择补丁，运行同一条断言。保留原始证据，清楚查看修复前后的变化。",
+    eyebrow: "体验 CANARY",
+    title: "尝试修复，验证结果。",
+    intro: "选择补丁，重新运行原始断言。",
     example: "交互示例",
     boundary: "在浏览器中运行固定结算示例，不读取项目文件，不调用 AI。",
     file: "checkout.ts",
@@ -85,7 +87,8 @@ const copy = {
     original: "原始代码",
     patch: "修复补丁",
     choose: "选择要验证的代码版本",
-    fixture: "相同输入，相同断言。",
+    fixture: "查看测试输入",
+    fixtureHint: "每次运行使用相同的输入和预期结果。",
     subtotal: "商品小计",
     shipping: "运费",
     discount: "优惠金额",
@@ -108,7 +111,7 @@ const copy = {
     pendingBody: "选择代码版本，运行示例检查。",
     actual: "实际结果",
     expectedShort: "预期结果",
-    ready: "先尝试原始代码，再验证修复补丁。",
+    ready: "选择要验证的代码版本。",
     checking: "正在计算结算总额，并执行断言。",
     success: "修复补丁通过了原始断言。",
     unchangedFail: "同一问题仍然存在，试试修复补丁。",
@@ -116,16 +119,17 @@ const copy = {
     linked: "重跑关联 EXAMPLE-001",
     viewCompare: "查看前后比较",
     runFirst: "运行检查后即可比较结果。",
-    compareHeading: "修复前 → 修复后",
+    compareHeading: "发生了什么变化？",
+    resolved: "原始失败已解决",
+    reproduced: "原始失败已复现",
+    comparedRun: "关联重跑",
     codeChange: "代码变化",
     checks: "验证断言",
     preserved: "保持不变",
     added: "已扣除优惠金额",
     same: "代码未修改",
     result: "检查结果",
-    fixed: "110 → 100",
-    notFixed: "110 → 110",
-    conclusionPassed: "此示例验证了遗漏优惠金额的问题，一条断言并不能证明所有结算行为都正确。",
+    conclusionPassed: "修复通过了未修改的断言，原始失败仍保留供查看。",
     conclusionFailed: "原始代码仍返回 110，错误证据指向 checkout.ts:24。",
     initialConclusion: "运行原始代码或修复补丁后，即可查看对照结果。",
     changeHint: "选择「修复补丁」查看代码变化。",
@@ -163,7 +167,15 @@ export function mountPlayground(container, initialLocale = "en") {
   if (!container) return { setLocale() {} };
   const prefix = `canary-playground-${++instanceCount}`;
   let locale = copy[initialLocale] ? initialLocale : "en";
-  const state = { variant: "original", tab: "source", running: false, result: null, sequence: 1, announcement: "" };
+  const state = {
+    variant: "original",
+    tab: "source",
+    running: false,
+    result: null,
+    sequence: 1,
+    fixtureOpen: false,
+    announcement: "",
+  };
   container.classList.add("pg-host");
 
   function sourcePanel(t) {
@@ -181,10 +193,10 @@ export function mountPlayground(container, initialLocale = "en") {
         <div class="pg-code-line"><span class="pg-line-number" aria-hidden="true">25</span><code>}</code></div>
       </div>
       <p class="pg-code-hint ${patch ? "pg-hint-patch" : ""}">${icon(patch ? "check" : "arrow")}<span>${escape(patch ? t.patched : t.missing)}</span></p>
-      <div class="pg-fixture">
-        <h4>${escape(t.fixture)}</h4>
-        <dl>${["subtotal", "shipping", "discount", "expected"].map((key) => `<div${key === "expected" ? ' class="pg-fixture-expected"' : ""}><dt>${escape(t[key])}</dt><dd>${fixture[key]}</dd></div>`).join("")}</dl>
-      </div>
+      <details class="pg-fixture" ${state.fixtureOpen ? "open" : ""}>
+        <summary data-pg-action="fixture">${escape(t.fixture)}</summary>
+        <div class="pg-fixture-body"><p>${escape(t.fixtureHint)}</p><dl>${["subtotal", "shipping", "discount", "expected"].map((key) => `<div${key === "expected" ? ' class="pg-fixture-expected"' : ""}><dt>${escape(t[key])}</dt><dd>${fixture[key]}</dd></div>`).join("")}</dl></div>
+      </details>
     </div>`;
   }
 
@@ -211,8 +223,8 @@ Received: 110</code></pre></div>
     const result = state.result;
     return `<div class="pg-comparison-panel">
       <h4>${escape(t.compareHeading)}</h4>
-      <div class="pg-comparison-totals"><div><span>${escape(t.before)}</span><strong>110</strong><span class="pg-status pg-status-fail">${escape(t.failed)}</span></div><span class="pg-compare-arrow">${icon("arrow")}</span><div><span>${escape(t.after)}</span><strong>${result ? result.actual : "—"}</strong><span class="pg-status ${result ? (result.passed ? "pg-status-pass" : "pg-status-fail") : "pg-status-neutral"}">${escape(result ? (result.passed ? t.passed : t.failed) : t.pending)}</span></div></div>
-      <dl class="pg-comparison-facts"><div><dt>${escape(t.codeChange)}</dt><dd>${escape(result ? (result.variant === "patch" ? t.added : t.same) : "—")}</dd></div><div><dt>${escape(t.checks)}</dt><dd>${escape(t.preserved)}</dd></div><div><dt>${escape(t.result)}</dt><dd>${escape(result ? (result.passed ? t.fixed : t.notFixed) : "—")}</dd></div></dl>
+      <div class="pg-comparison-verdict ${result ? (result.passed ? "pg-verdict-pass" : "pg-verdict-fail") : ""}">${icon(result?.passed ? "check" : result ? "cross" : "arrow")}<strong>${escape(result ? (result.passed ? t.resolved : t.reproduced) : t.runFirst)}</strong></div>
+      <dl class="pg-comparison-facts"><div><dt>${escape(t.codeChange)}</dt><dd>${escape(result ? (result.variant === "patch" ? t.added : t.same) : "—")}</dd></div><div><dt>${escape(t.checks)}</dt><dd>${escape(t.preserved)}</dd></div><div><dt>${escape(t.comparedRun)}</dt><dd><code>${escape(result ? `${originalResult.id} → ${result.id}` : "—")}</code></dd></div></dl>
       <p class="pg-comparison-conclusion">${escape(result ? (result.passed ? t.conclusionPassed : t.conclusionFailed) : t.initialConclusion)}</p>
     </div>`;
   }
@@ -223,7 +235,7 @@ Received: 110</code></pre></div>
     const focusAction = focused?.dataset.pgAction;
     const focusValue = focused?.dataset.pgValue;
     const result = state.result;
-    const statusText = state.running ? t.checking : result ? (result.passed ? t.success : t.unchangedFail) : t.ready;
+    const statusText = result ? (result.passed ? t.success : t.unchangedFail) : "";
     container.innerHTML = `<div class="pg-section-heading"><div><p class="pg-eyebrow">${escape(t.eyebrow)}</p><h2>${escape(t.title)}</h2></div><p class="pg-intro">${escape(t.intro)}</p></div>
       <div class="pg-window">
         <div class="pg-window-bar"><div class="pg-window-dots" aria-hidden="true"><i></i><i></i><i></i></div><span>canary / checkout</span><span class="pg-example-label">${escape(t.example)}</span></div>
@@ -232,20 +244,20 @@ Received: 110</code></pre></div>
             <div class="pg-editor-heading"><div>${icon("file")}<span>checkout.ts</span></div><span class="pg-path">src / checkout</span></div>
             <div class="pg-tabs" role="tablist" aria-label="${escape(t.tabs)}">${["source", "evidence", "comparison"].map((tab) => `<button type="button" role="tab" id="${prefix}-${tab}" aria-selected="${state.tab === tab}" aria-controls="${prefix}-panel" tabindex="${state.tab === tab ? "0" : "-1"}" data-pg-action="tab" data-pg-value="${tab}">${escape(t[tab])}</button>`).join("")}</div>
             <div class="pg-tab-panel" id="${prefix}-panel" role="tabpanel" aria-labelledby="${prefix}-${state.tab}" tabindex="0">${state.tab === "source" ? sourcePanel(t) : state.tab === "evidence" ? evidencePanel(t) : comparisonPanel(t)}</div>
+            <div class="pg-action-bar"><button class="pg-run-button" type="button" data-pg-action="run" ${state.running ? "disabled" : ""}>${state.running ? '<span class="pg-spinner" aria-hidden="true"></span>' : icon("play")}<span>${escape(state.running ? t.running : t.run)}</span></button><button class="pg-reset-button" type="button" data-pg-action="reset" ${state.running ? "disabled" : ""}>${icon("reset")}<span>${escape(t.reset)}</span></button></div>
           </div>
           <aside class="pg-results" aria-label="${escape(t.results)}">
             <h3>${escape(t.results)}</h3>
-            <div class="pg-run-card pg-run-original"><div class="pg-run-card-top"><span>${escape(t.before)}</span><span class="pg-status pg-status-fail">${icon("cross")}${escape(t.failed)}</span></div><div class="pg-run-values"><div><span>${escape(t.expectedShort)}</span><strong>100</strong></div><div><span>${escape(t.actual)}</span><strong class="pg-value-fail">110</strong></div></div><div class="pg-run-id">${originalResult.id}<span>cart.test.ts:18</span></div></div>
+            <div class="pg-run-card pg-run-original"><div class="pg-run-card-top"><span>${escape(t.before)}</span><span class="pg-status pg-status-fail">${icon("cross")}${escape(t.failed)}</span></div><div class="pg-run-values"><strong class="pg-value-fail">110</strong><span>${escape(t.actual)}<br>${escape(t.expectedShort)} 100</span></div><div class="pg-run-id"><code>${originalResult.id}</code><span>cart.test.ts:18</span></div></div>
             <div class="pg-lineage-link">${icon("link")}<span>${escape(result ? t.linked : t.originalEvidence)}</span></div>
             <div class="pg-run-card pg-run-latest ${state.running ? "pg-is-running" : result ? (result.passed ? "pg-is-passed" : "pg-is-failed") : "pg-is-empty"}" aria-busy="${state.running}">
               <div class="pg-run-card-top"><span>${escape(t.after)}</span><span class="pg-status ${state.running ? "pg-status-neutral" : result ? (result.passed ? "pg-status-pass" : "pg-status-fail") : "pg-status-neutral"}">${state.running ? '<span class="pg-spinner" aria-hidden="true"></span>' : result ? icon(result.passed ? "check" : "cross") : ""}${escape(state.running ? t.running : result ? (result.passed ? t.passed : t.failed) : t.pending)}</span></div>
-              ${result && !state.running ? `<div class="pg-run-values"><div><span>${escape(t.expectedShort)}</span><strong>100</strong></div><div><span>${escape(t.actual)}</span><strong class="${result.passed ? "pg-value-pass" : "pg-value-fail"}">${result.actual}</strong></div></div><div class="pg-run-id">${result.id}<span>${escape(t[result.variant])}</span></div>` : `<p class="pg-pending-copy">${escape(state.running ? t.checking : t.pendingBody)}</p>`}
+              ${result && !state.running ? `<div class="pg-run-values"><strong class="${result.passed ? "pg-value-pass" : "pg-value-fail"}">${result.actual}</strong><span>${escape(t.actual)}<br>${escape(t.expectedShort)} 100</span></div><div class="pg-run-id"><code>${result.id}</code><span>${escape(t[result.variant])}</span></div>` : `<p class="pg-pending-copy">${escape(state.running ? t.checking : t.pendingBody)}</p>`}
             </div>
-            <p class="pg-result-summary ${result?.passed && !state.running ? "pg-summary-pass" : ""}">${escape(statusText)}</p>
+            ${result && !state.running ? `<p class="pg-result-summary ${result.passed ? "pg-summary-pass" : ""}">${escape(statusText)}</p>` : ""}
             <button type="button" class="pg-compare-button" data-pg-action="compare" ${!result || state.running ? "disabled" : ""}>${escape(t.viewCompare)}${icon("arrow")}</button>
           </aside>
         </div>
-        <div class="pg-action-bar"><button class="pg-run-button" type="button" data-pg-action="run" ${state.running ? "disabled" : ""}>${state.running ? '<span class="pg-spinner" aria-hidden="true"></span>' : icon("play")}<span>${escape(state.running ? t.running : t.run)}</span></button><button class="pg-reset-button" type="button" data-pg-action="reset" ${state.running ? "disabled" : ""}>${icon("reset")}<span>${escape(t.reset)}</span></button><span class="pg-action-version">${escape(t[state.variant])}</span></div>
       </div>
       <p class="pg-boundary">${escape(t.boundary)}</p>
       <span class="pg-sr-only" role="status" aria-live="polite" aria-atomic="true">${escape(state.announcement)}</span>`;
@@ -257,6 +269,16 @@ Received: 110</code></pre></div>
       if (target && !target.disabled) target.focus({ preventScroll: true });
     }
   }
+
+  // Native disclosure stays open across version, tab, result, and language changes.
+  container.addEventListener(
+    "toggle",
+    (event) => {
+      if (event.target.matches(".pg-fixture") && container.contains(event.target))
+        state.fixtureOpen = event.target.open;
+    },
+    true,
+  );
 
   function setTab(tab, focus = false) {
     if (!["source", "evidence", "comparison"].includes(tab)) return;
@@ -279,7 +301,7 @@ Received: 110</code></pre></div>
       render();
     }
     if (action === "reset" && !state.running) {
-      Object.assign(state, { variant: "original", tab: "source", result: null, sequence: 1 });
+      Object.assign(state, { variant: "original", tab: "source", result: null, sequence: 1, fixtureOpen: false });
       state.announcement = copy[locale].resetAnnouncement;
       render();
     }
