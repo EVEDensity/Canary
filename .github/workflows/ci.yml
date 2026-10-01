@@ -28,15 +28,18 @@ jobs:
         uses: ./.github/actions/verify
         with:
           project: scripts/tests/fixtures/github-project
+          config: canary.project.json
           artifact-name: canary-github-integration
       - name: Assert failure is preserved
         shell: bash
         env:
           OUTCOME: ${{ steps.fixture.outputs.outcome }}
           EXIT_CODE: ${{ steps.fixture.outputs.exit-code }}
+          ANNOTATIONS: ${{ steps.fixture.outputs.annotation-count }}
         run: |
           test "$OUTCOME" = failed
           test "$EXIT_CODE" = 1
+          test "$ANNOTATIONS" = 1
       - name: Verify reporting and commit boundaries
         run: node --test scripts/tests/github-report.test.mjs
 

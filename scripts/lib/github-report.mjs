@@ -25,14 +25,14 @@ export function githubReport({ ci, diagnostics, verified, expectedSha, actualSha
   const annotations = [];
   const locations = [];
   if (trustworthy && existsSync(projectRoot) && existsSync(workspace)) {
-    const root = realpathSync(projectRoot), work = realpathSync(workspace);
+    const root = realpathSync.native(projectRoot), work = realpathSync.native(workspace);
     const seen = new Set();
     for (const failure of diagnostics.failures ?? []) for (const location of failure.locations ?? []) {
       if (annotations.length >= 10 || location.mapping !== "path-line" || !Number.isSafeInteger(location.line) || location.line < 1) continue;
       if (typeof location.path !== "string" || location.path.includes("\\") || isAbsolute(location.path) || location.path.split("/").includes("..")) continue;
       const source = resolve(root, location.path);
       try {
-        const resolved = realpathSync(source);
+        const resolved = realpathSync.native(source);
         if (!inside(root, resolved) || !inside(work, resolved)) continue;
         const path = relative(work, resolved).replaceAll("\\", "/");
         if (!tracked.has(path) || location.line > readFileSync(resolved, "utf8").split(/\r?\n/).length) continue;

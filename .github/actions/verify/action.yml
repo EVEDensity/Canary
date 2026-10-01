@@ -11,6 +11,9 @@ inputs:
     description: Unique report artifact name for this job
     default: ""
 outputs:
+  annotation-count:
+    description: Number of verified repository source annotations
+    value: ${{ steps.verify.outputs.annotation-count }}
   outcome:
     description: passed, failed, blocked, stale or evidence-insufficient
     value: ${{ steps.verify.outputs.outcome }}

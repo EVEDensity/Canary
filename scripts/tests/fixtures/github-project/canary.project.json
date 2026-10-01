@@ -1,0 +1,13 @@
+{
+  "kind": "canary.project",
+  "version": 1,
+  "checks": [
+    {
+      "id": "fixture.assertion",
+      "type": "command",
+      "command": "node",
+      "args": ["failure.mjs"],
+      "timeoutMs": 10000
+    }
+  ]
+}
