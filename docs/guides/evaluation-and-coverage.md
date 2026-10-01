@@ -1,4 +1,4 @@
-# 当前评估、Judge 与 Coverage
+# 评估、Judge 与 Coverage
 
 > 依据：[Evaluators](../../packages/evaluators/src/index.ts)、[Core DSL](../../packages/core/src/dsl.ts)、[Coverage](../../packages/coverage/src/index.ts)。
 
@@ -20,8 +20,6 @@
 ## R9 比较证据等级
 
 `/api/compare` 返回原始观察计数及独立的 `assessment`：配对样本数、改善、回归、未配对项、评估方法、范围和不确定性。至少 5 个配对项仅是探索性展示门槛，不是统计显著性或发布准入标准。输入或断言变化、运行不完整、证据未封存、检查计划变化、重跑子集和样本不足都会降低证据等级。配对结果中的回归会单独突出，不能被改善数量抵消。
-
-项目检查的退出状态是确定性观察，但不同检查不是独立同分布样本；页面不绘制伪造的置信区间。关联重跑仅说明同一检查或用例在可验证谱系下的结果，不能推断整个项目已经修复。详见 [R9-03/04 执行记录](../evidence/r9-03-04-execution.md)。
 
 ## Coverage 的含义
 

@@ -1,4 +1,4 @@
-# R8 项目经验操作指南
+# 项目经验操作指南
 
 本流程只在当前项目内运行。`experience propose-project` 从已校验的失败项目运行提出候选；固定规则生成建议正文，错误日志仅以哈希作证据。普通 command 检查的历史对比只证明观察到改善；要证明经验在下一轮实际起作用，须选择包含失败 Agent case 与独立 holdout 的项目检查，执行 soft-trial。
 
@@ -59,7 +59,3 @@ canary control revision soft.rollback <trialID> --config agent.config.ts
 回滚同样通过 `canary control act --file <命令文件>`，把 action 设为 `soft.rollback`，target 为 trial ID，使用刚取得的 revision、新请求 ID、actor 和 reason。控制面检查当前指针仍为本试验激活的版本，才恢复保存的精确旧指针；并发变动时拒绝覆盖。回滚后下一次运行应不再加载该经验。已导出的草稿文件仍是审计副本，但不代表当前授权；回滚后再次导出会被拒绝。用 `canary control audit` 查看操作及失败记录。
 
 ## 页面与安全边界
-
-`canary control serve --port 4322 --config agent.config.ts` 默认只读、只监听本机回环地址。页面“项目经验 Experience”显示来源、适用检查/case、独立回放改善与回归、最近实际加载结果，并在可写控制会话中提供批准、拒绝、停用、回滚入口。启用写操作需在启动前通过环境变量 `CANARY_CONTROL_TOKEN` 注入本地 token；不要把 token 写进命令文件或聊天记录。所有危险操作要求 actor、reason 和当前 revision。页面只返回元数据，不展示经验正文或原始错误日志。
-
-固定验收可运行 `pnpm verify:r8`。它使用本地函数 Agent，无网络或模型调用；持久证据写到 `.canary/verification/r8/`，日志写到 `.canary/logs/verification/r8/`。多小时长跑、真实模型收益、macOS 和原生 Ubuntu 不由该 fixture 证明。

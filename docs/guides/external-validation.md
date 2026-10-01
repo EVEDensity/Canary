@@ -1,37 +1,15 @@
-# R9 真实外部验证的剩余输入
+# Verification comparisons
 
-截至 2026-09-26，本机试点与自动化闭环已完成。真实用户、故障来源和人工评分不可用自动 fixture 替代。
-
-## 真实故障与修复
-
-授权项目可以先导出已经发生的检查失败与通过重跑：
+Collect linked failure and rerun records from a project:
 
 ```bash
-node scripts/collect-real-pairs.mjs --root <authorized-project>
+node scripts/collect-real-pairs.mjs --root <project-directory>
 ```
 
-只读取该项目本地 artifact，校验父 manifest、相同检查计划及重跑谱系；不调用模型、不修复源码、不上传。日志进入 `.canary/logs/verification/real-pairs/`。输出 `corpus.json` 为 v1 `canary.real-pair-corpus`：每对包含前后 runId/manifest/source/config 哈希、原证据引用、故障组、holdout 分组及回放就绪度。
+The collector verifies manifests, check-plan identity and rerun lineage. Results are written under `.canary/logs/verification/real-pairs/`. It does not modify project source or upload artifacts.
 
-同一原运行的多个检查被保守视为同一故障组；holdout 按组确定性划分，避免同组泄漏。缺少 10 个独立组时退出码 2、状态 `insufficient-real-pairs`；即使达到数量，也只表示收集完毕，必须恢复前后源码并运行固定回放才能验证收益。
+A collected pair records source and configuration identity, evidence references and replay readiness. Multiple checks from the same original run remain grouped to avoid duplicate evidence.
 
-当前自身项目只有 2 条已验证历史观察、1 个组，全部保留为 holdout；旧运行缺少可恢复结构，回放验证数为 0。新增故障应来自实际使用、真实修复 commit、授权项目和确定性终态断言；不能注入 10 个错误再宣称真实客户数据集完成。
+Insufficient independent groups return exit code 2 with `insufficient-real-pairs`. Collection alone does not establish improvement: restore the matching source versions and run the fixed comparison before drawing conclusions.
 
-## 独立接入
-
-使用[三个既有试点](../../integrations/r9-external/README.md)，依赖准备完成后，由未参与实现的人独立执行：
-
-1. 记录开始时间，按 README 制作项目配置。
-2. 运行检查并记录第一份有实际结果的报告时间。
-3. 记录配置改动次数、每个障碍及解决办法。
-4. 在一次真实失败中，从页面定位原始错误、修复并重跑。
-5. 记录是否再次使用及放弃原因，不诱导好评。
-
-回填模板见 [feedback-template.json](../../integrations/r9-external/feedback-template.json)。不填密码、API key、私有源码、用户真实姓名；使用参与者编号即可。建议目标仍是依赖准备后 15 分钟，超时也应如实记录。本机脚本运行时间不能替代独立接入时间。
-
-## 模型评分人工校准
-
-当前含 `judge.score` 的比较继续显示证据不足。若以后启用可信收益结论，需要参与者对固定结果独立标注、明确 rubric，并绑定评分模型/版本、样本身份与分歧处理记录。本轮只执行确定性断言，没有利用旧 API key 请求模型。
-
-## 当前状态
-
-R9-02 是缺少真实数据与可恢复版本的阻塞；R9-05 和模型评分校准缺少真实参与者。采集工具、模板和操作步骤已准备，这些验证仍保留为未完成。
+Review exported content for sensitive values. See [coverage and evaluation](evaluation-and-coverage.md) and [issue resolution](improvement.md).

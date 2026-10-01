@@ -1,4 +1,4 @@
-# R4 项目级 CI 检查
+# 项目级 CI 检查
 
 R4 增加无交互项目门禁，复用 R3 的 artifact、脱敏、checkpoint 和完整性校验。旧 `agent/cases/coverage` 配置仍按原路径运行。CI 项目检查只写报告。R5 已为普通 run 接入本地页面，见 [R5 指南](r5-local-report.md)；不自动修复源码。
 
@@ -51,13 +51,6 @@ canary verify <runId> --json
 - `retryable` 是超时/环境故障分类，不触发自动重试。项目模式不接受 agent 的 case/tag/entry/repetitions/replay/retry 参数；单项重跑与交互页面已由 [R5](r5-local-report.md)提供。
 
 ## 六类检查
-
-- **command**：`command`、`args`、`expectedExit`（默认 0）。通过 argv 启动，`shell: false`；`node` 使用当前 Canary Node 可执行文件。Windows `.cmd` 不能直接当可执行文件使用，可显式使用 `node --run test` 调用项目脚本，或指定包管理器的 JS 入口。脚本及其依赖属于受信任代码。
-- **process**：与 command 相同，增加必填 `readyText`。stdout 出现指定文本后终止该进程树并记为通过；提前退出则失败。它是启动就绪探针，不保持服务供后续项共享。
-- **http**：`url`、`allowOutbound: true`、`expectedStatus`（默认 200）。包括 loopback 在内都需显式授权；只发 GET，不跟随重定向、不保存 body，拒绝 URL 凭据及非 HTTP(S) 协议。连接失败归环境，超时归 3。
-- **filesystem**：相对 cwd 的 `path`，`expectation` 为 file/directory/absent，文件可附加 SHA-256。只读断言；cwd 和目标须位于项目根内，检查已有祖先的真实路径以拒绝 symlink 逃逸。
-- **docker**：`container` 和 `expectedState`（running/exited）。只执行 `docker inspect --format {{.State.Status}}`；不拉取镜像或启动/删除容器。CLI/daemon 不可用归环境；预算内未响应归超时。本轮 Docker daemon 未运行，实机成功证据仍为 blocked。
-- **agent**：`config` 指向同一项目根中的旧式 agent 配置。独立子 CLI 运行 `--ci`，验证其 CI schema、退出码和封存状态，再把子 runId、artifactPath、manifestHash 绑定到检查结果。拒绝递归项目配置和跨 artifact 集合子配置。子运行后续损坏或哈希变化，父运行完整性检查也失败；保留父运行时历史清理保护引用的子运行。
 
 ## 环境、报告与证据
 

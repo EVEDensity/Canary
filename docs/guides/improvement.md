@@ -1,6 +1,4 @@
-# 当前 improvement：建议、草稿与人工候选
-
-> **当前不自动修改 Agent 源码或启用新的 Prompt/Skill。** 理想闭环见 [自循环设计](../design/agent-loop.md)，不要混用目标模式名作为现有命令。
+# improvement：建议、草稿与人工候选
 
 ```text
 run → 失败归因 → suggestion(proposed)
@@ -29,5 +27,3 @@ canary compare <baselineRunId> <candidateRunId>
 3. compare 按 trial 键（`caseId` 或 `caseId#repetition`）对账；缺测、重复 ID、取消/超时不能得到 improve/keep。
 4. CLI candidate 合并本次 `exitCode`、`incomparable` 与 admission reject；`hold` 表示不要自动应用。
 5. 现有建议状态、比较报告和未来发布许可必须分开。生产变更不能据此自动应用。
-
-具体代码、已复现的最小反例见 [源码核对](../evidence/code-audit.md)；补强任务集中在 [Q 系列任务](../roadmap/02-evaluation-integrity.md)。

@@ -1,4 +1,4 @@
-# R10 项目结构与变更模型
+# 项目结构与变更模型
 
 每次 `canary run` 在执行检查前采集一次项目结构，并将 `structure.json` 写入该次运行的 artifact。使用 `--base <git-ref>` 时还保存 `structure-change.json`。两份文件与运行报告一起进入 manifest；读取旧运行必须通过完整性校验。旧运行没有结构快照时，CLI、页面和 MCP 都不会用当前源码补画旧结果。
 

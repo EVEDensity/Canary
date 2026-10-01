@@ -7,19 +7,19 @@
   <p><a href="LICENSE">Apache-2.0</a> · Node.js 24 推荐 · pnpm 10.15.0</p>
 </div>
 
-**Canary 是面向开发者与编码 Agent 的项目验证工作台。** 将检查、架构、覆盖率和错误证据放在一起，从一次失败进入具体代码，再追踪修复后的验证结果。通过 CLI、稳定退出码与标准报告接入现有 CI。
+**Canary 是面向开发者 的项目验证工作台。** 将检查、架构、覆盖率和错误证据放在一起，从一次失败进入具体代码，再追踪修复后的验证结果。通过 CLI、稳定退出码与标准报告接入现有 CI。
 
 ![Canary 验证工作台：检查结果、项目结构与运行趋势](docs/images/dashboard-zh-CN.jpg)
 
 ## 核心能力
 
-- **统一检查** — 运行构建、类型检查、lint、测试与 Agent 用例，导出 JSON、JUnit 和 Markdown 报告。
+- **统一检查** — 运行构建、类型检查、lint 与测试，导出 JSON、JUnit 和 Markdown 报告。
 - **架构地图** — 在二维结构与三维分层视图中探索模块、文件和符号，搜索节点、过滤依赖、查看源码。
 - **失败诊断** — 查看问题分类、脱敏日志和源码位置，关联原始失败、修复后重跑与前后比较。
 - **覆盖率联动** — 将采集到的行、函数与分支覆盖映射到结构节点，定位未覆盖范围。
 - **可信证据** — 用 manifest、内容哈希和运行谱系关联代码版本、检查结果与历史记录。
 
-了解[支持范围](docs/guides/support-matrix.md)与[真实验证记录](docs/evidence/2026-09-30-product-verification.md)。
+了解[支持范围](docs/guides/support-matrix.md)。
 
 ## 快速开始
 
@@ -48,44 +48,9 @@ canary run --port 4318 --no-open  # 展示交互式报告
 
 自动识别 Node 项目的构建、类型检查、lint、格式检查与测试脚本，以及 Python、Go、Rust 的标准测试入口。沿用项目声明的包管理器；项目依赖和测试所需服务需已就绪。详见[自动检查](docs/guides/automatic-checks.md)。
 
-## 接入自己的项目
+## 项目配置
 
-默认自动识别即可运行。需要自定义命令、超时或 Agent 用例时，可添加配置；已有配置始终优先。
-
-如需自定义检查，在项目根目录添加 `canary.project.json`。以下示例执行已有的 `build` 与 `test` 脚本：
-
-```json
-{
-  "kind": "canary.project",
-  "version": 1,
-  "checks": [
-    {
-      "id": "project.build",
-      "type": "command",
-      "command": "node",
-      "args": ["--run", "build"],
-      "timeoutMs": 120000
-    },
-    {
-      "id": "project.test",
-      "type": "command",
-      "command": "node",
-      "args": ["--run", "test"],
-      "timeoutMs": 120000
-    }
-  ]
-}
-```
-
-在被测项目目录运行：
-
-```bash
-canary doctor --json             # 检查配置与运行条件
-canary run --ci                  # 在 CI 中执行检查
-canary run --port 4318 --no-open  # 执行并展示交互式报告
-```
-
-检查按项目配置执行。覆盖率需配置相应采集方式；运行产物保存于被测项目的 `.canary/`，请将其加入 `.gitignore`。
+默认自动发现已有检查。自定义命令、超时和覆盖采集见[配置指南](docs/guides/r4-project-checks.md)。产物保存于项目的 `.canary/`，请加入 `.gitignore`。
 
 ## 为什么叫 Canary？
 
@@ -97,7 +62,7 @@ canary run --port 4318 --no-open  # 执行并展示交互式报告
 
 - [安装与启动](docs/guides/getting-started.md) · [项目检查](docs/guides/r4-project-checks.md)
 - [评估与覆盖率](docs/guides/evaluation-and-coverage.md) · [架构与 CI](docs/guides/architecture-ci.md)
-- [Agent 接入](docs/guides/adapters-and-environment.md) · [目录结构](docs/guides/repository-layout.md)
+- [适配器](docs/guides/adapters-and-environment.md) · [目录结构](docs/guides/repository-layout.md)
 - [贡献指南](CONTRIBUTING.md) · [翻译贡献](docs/guides/localization.md) · [安全政策](SECURITY.md)
 
 新增语言：`pnpm i18n:add <locale>` 创建草稿，`pnpm i18n:check` 校验翻译契约。审核并合并完整资源后，语言自动出现在界面菜单中。

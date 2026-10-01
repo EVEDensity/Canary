@@ -22,7 +22,8 @@ console.log(
       executed: false,
       root: process.cwd(),
       results: Object.fromEntries(scenarios.map((name) => [name, "declared"])),
-      evidence: "See docs/evidence/r0-execution.md for the separately executed R0 scope; this command runs no checks.",
+      evidence:
+        "See docs/guides/r0-cli-contract.md for the CLI contract; this command reports metadata and runs no checks.",
       excluded: ["mandatory six-job CI matrix", "npm registry packaging", "signed artifacts"],
     },
     null,

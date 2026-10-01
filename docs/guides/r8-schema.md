@@ -1,4 +1,4 @@
-# R8 经验与批准证据契约
+# 经验与批准证据契约
 
 以下文件均属于当前项目的 `.canary/`，Schema 版本为 `v: 1`。字段的代码定义分别在 `packages/core/src/contracts.ts`、`packages/improvement/src/soft-trial.ts` 和 `packages/control-plane/src/index.ts`；本文解释持久化语义。`projectRoot` 是实际项目根目录，和 CLI 的安装位置无关。
 

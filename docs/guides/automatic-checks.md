@@ -28,13 +28,3 @@ canary run --ci --config /path/to/custom/canary.project.json
 安装器获取源码并准备固定版本的构建工具；没有指定版本的 pnpm 时，通过 npm exec 准备固定构建环境，不要求用户另外配置 pnpm。项目自身依赖、语言运行时与测试服务使用项目已有的环境。自动检查不调用模型，也不会自动安装项目依赖、生成测试或启动外部服务。
 
 高级检查、Agent 适配器、覆盖率采集和自定义环境允许列表仍可使用[项目检查配置](r4-project-checks.md)。自动检测执行已有验证步骤，覆盖率按实际采集的产物展示。
-
-## 入口验收
-
-Windows / Node 24 上已用全局启动器实际验证：从含空格及中文的项目子目录执行 Node 构建、类型检查和测试（3/3 通过）；跨目录 `--project` 执行；Python unittest 两个真实用例通过；失败脚本及零 Python 用例返回非零退出码。无配置报告服务返回真实检查数据，运行 manifest 校验为 `verified`。这些运行均未创建 Canary 配置文件。
-
-自动入口的回归用例位于 `packages/cli/tests/auto-project.test.ts`，验证脚本生命周期、CI 环境、工作区范围、目录定位、失败证据和完整性。可运行：
-
-```bash
-pnpm --filter @canary/cli exec vitest run tests/auto-project.test.ts
-```
