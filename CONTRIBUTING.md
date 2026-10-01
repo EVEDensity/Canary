@@ -32,6 +32,14 @@ Run the checks relevant to your change. Preserve assertions, public schemas, CLI
 - Use Conventional Commits, such as `fix(trace): preserve failure evidence`.
 - Keep credentials, personal data and execution artifacts out of commits.
 
+## Releases
+
+Push to `main` to publish an unreleased version from the root `package.json`. The Release workflow validates and builds the project, generates categorized release notes, and attaches workspace package archives, the website bundle and SHA-256 checksums. Existing versions are skipped; update the root and affected package versions for the next release. A `v*` tag must match the root version. Versions with a prerelease suffix are marked as prereleases.
+
+GitHub Releases require Actions with write access to repository contents; no npm token is required. Retry a failed run from Actions. npm publication is a separate opt-in checkbox when manually running Release and requires `NPM_TOKEN`.
+
+For the website, select **Settings → Pages → GitHub Actions**, set the Actions repository variable `CANARY_PAGES_ENABLED` to `true`, and run **Canary website**. After deployment succeeds, use `https://evedensity.github.io/Canary/` as the repository website.
+
 Test and verification logs belong in ignored `.canary/logs/`. Review staged files before submitting. Issue reports should include versions, expected and actual behavior, and a minimal reproduction with sensitive values removed.
 
 Report vulnerabilities according to [SECURITY.md](SECURITY.md). Contributions use [Apache-2.0](LICENSE); retain applicable third-party license notices.

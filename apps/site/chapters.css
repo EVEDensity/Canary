@@ -1,0 +1,153 @@
+/* Natural scrolling underneath an overlapping, four-chapter presentation. */
+:root {
+  --chapter-header: 72px;
+  --chapter-overlap: calc(100svh - var(--chapter-header));
+}
+.story-chapter {
+  position: relative;
+}
+.chapter-surface {
+  position: relative;
+  background: var(--paper);
+}
+.hero-description,
+.section-intro > p,
+.start-copy > p,
+.pg-intro {
+  font-size: 20px;
+  line-height: 1.5;
+}
+.section-intro > p {
+  max-width: none;
+  margin-top: 16px;
+}
+.pg-section-heading h2 {
+  font-size: clamp(34px, 4vw, 56px);
+}
+.pg-section-heading .pg-eyebrow {
+  display: none;
+}
+.chapter-motion .section-intro h2 {
+  margin-top: 0;
+}
+@media (min-width: 1000px) and (min-height: 650px) and (prefers-reduced-motion: no-preference) {
+  html.chapter-motion {
+    scroll-snap-type: y proximity;
+    scroll-padding-top: var(--chapter-header);
+  }
+  html.chapter-navigating {
+    scroll-snap-type: none;
+  }
+  .chapter-motion main {
+    background: #dfe1d6;
+    overflow: clip;
+  }
+  .chapter-motion .story-chapter::after {
+    content: "";
+    display: block;
+    height: var(--chapter-overlap);
+  }
+  .chapter-motion .story-chapter + .story-chapter {
+    margin-top: calc(-1 * var(--chapter-overlap));
+  }
+  .chapter-motion .story-chapter:last-of-type::after {
+    display: none;
+  }
+  .chapter-motion .chapter-surface {
+    position: sticky;
+    top: var(--chapter-top, 72px);
+    min-height: var(--chapter-overlap);
+    padding-block: 28px 40px;
+    transform-origin: center bottom;
+    transform: translateY(calc(var(--chapter-depth, 0) * -88px)) scale(calc(1 - var(--chapter-depth, 0) * 0.12));
+    opacity: calc(1 - var(--chapter-depth, 0) * 0.78);
+    border-radius: var(--chapter-radius, 0px) var(--chapter-radius, 0px) 0 0;
+    box-shadow:
+      0 -32px 80px -24px #292c2559,
+      0 -1px 0 #dedfd680;
+  }
+  .chapter-motion .story-chapter:last-of-type .chapter-surface {
+    position: relative;
+    top: 0;
+  }
+  /* Scene 2 hands the canvas sideways to the repair demonstration. */
+  .chapter-motion [data-chapter="2"] .chapter-surface {
+    transform: translateX(calc(var(--chapter-depth, 0) * -32vw)) scale(calc(1 - var(--chapter-depth, 0) * 0.06));
+    opacity: calc(1 - var(--chapter-depth, 0) * 0.5);
+    transform-origin: left center;
+  }
+  .chapter-motion [data-chapter="3"] .chapter-surface {
+    transform: translateY(calc(var(--chapter-entry, 0) * -1 * var(--chapter-overlap)))
+      translateX(calc(var(--chapter-travel, 0) * 100vw)) scale(calc(1 - var(--chapter-depth, 0) * 0.16))
+      rotate(calc(var(--chapter-depth, 0) * -2deg));
+    transform-origin: center center;
+    border-radius: 24px;
+    opacity: calc(1 - var(--chapter-depth, 0) * 0.68);
+    box-shadow: -32px 0 80px -24px #292c2559;
+  }
+  /* Scene 3 opens a circular aperture onto the final call to action. */
+  .chapter-motion [data-chapter="4"] .chapter-surface {
+    transform: translateY(calc(var(--chapter-entry, 0) * -1 * var(--chapter-overlap)))
+      scale(calc(1 - var(--chapter-entry, 0) * 0.18));
+    transform-origin: center center;
+    clip-path: circle(calc(var(--chapter-aperture, 1) * 75%) at 50% 50%);
+    opacity: 1;
+    border-radius: 0;
+    background: #f4e9df;
+    box-shadow: none;
+  }
+  .chapter-motion .chapter-fit {
+    scroll-snap-align: start;
+  }
+  .chapter-motion .story-chapter .reveal {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+  .chapter-motion .story-chapter .hero {
+    padding-block: 8px 32px;
+  }
+  .chapter-motion .story-chapter .workspace-section {
+    padding-block: 8px 0;
+  }
+  .chapter-motion #playground {
+    margin-block: 8px 0;
+  }
+  .chapter-motion .section-intro {
+    display: block;
+    margin-bottom: 32px;
+  }
+  .chapter-motion .section-intro h2,
+  .chapter-motion .start-copy h2 {
+    font-size: clamp(42px, 4vw, 56px);
+    line-height: 1.2;
+  }
+  .chapter-motion .language-strip {
+    padding-block: 16px 24px;
+  }
+  .chapter-motion .workflow {
+    padding-block: 28px;
+  }
+  .chapter-motion .workflow-lead {
+    margin-bottom: 20px;
+  }
+  .chapter-motion .story-chapter .start-section {
+    padding-block: 64px 48px;
+  }
+  .chapter-motion .faq,
+  .chapter-motion .site-footer {
+    position: relative;
+    z-index: 5;
+    background: var(--paper);
+  }
+}
+@media (max-width: 999px), (max-height: 649px), (prefers-reduced-motion: reduce) {
+  .story-chapter {
+    padding: 0;
+    margin: 0;
+  }
+  .chapter-surface {
+    transform: none;
+    opacity: 1;
+  }
+}

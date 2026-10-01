@@ -12,22 +12,22 @@ const tourCopy = {
     steps: [
       {
         tab: "Run overview",
-        title: "The current result, at a glance.",
+        title: "The current result, at a glance",
         body: "Progress, failures and duration show where this run stands.",
       },
       {
         tab: "Architecture",
-        title: "From the result to the relevant code.",
+        title: "From the result to the relevant code",
         body: "Explore the recorded structure, then follow mapped evidence into source.",
       },
       {
         tab: "Run trends",
-        title: "See what changed between runs.",
+        title: "See what changed between runs",
         body: "Compare pass rate and duration within a focused observation window.",
       },
       {
         tab: "Run history",
-        title: "Every result keeps its own context.",
+        title: "Every result keeps its own context",
         body: "Review check times, run scope and the link between a failure and its rerun.",
       },
     ],
@@ -43,22 +43,22 @@ const tourCopy = {
     steps: [
       {
         tab: "运行概览",
-        title: "本次结果，一目了然。",
+        title: "本次结果，一目了然",
         body: "通过进度、失败数量与耗时，快速判断当前运行状态。",
       },
       {
         tab: "项目架构",
-        title: "从检测结果，进入相关代码。",
+        title: "从检测结果，进入相关代码",
         body: "探索本次运行记录的项目结构，沿已映射的证据定位源码。",
       },
       {
         tab: "运行趋势",
-        title: "看清每次运行的变化。",
+        title: "看清每次运行的变化",
         body: "在选定的观察窗口中，比较通过率与运行耗时。",
       },
       {
         tab: "运行历史",
-        title: "每次结果，都有清晰的上下文。",
+        title: "每次结果，都有清晰的上下文",
         body: "查看检测时间、检查范围，以及失败与后续重跑之间的关联。",
       },
     ],

@@ -3,8 +3,16 @@
   <h3>Explore your architecture. Diagnose failures. Verify every fix.</h3>
   <p>Project checks · Interactive architecture maps · Coverage analysis · Traceable evidence</p>
   <p><strong>English</strong> · <a href="README.cn.md">简体中文</a></p>
-  <p><a href="#quick-start">Quick start</a> · <a href="docs/README.md">Docs</a> · <a href="docs/roadmap/README.md">Roadmap</a> · <a href="https://github.com/EVEDensity/Canary/issues/new/choose">Report an issue</a></p>
-  <p><a href="LICENSE">Apache-2.0</a> · Node.js 24 recommended · pnpm 10.15.0</p>
+  <p>
+    <a href="#quick-start"><img src="https://img.shields.io/badge/Quick_Start-d97456?style=flat-square" alt="Quick start" /></a>
+    <a href="docs/README.md"><img src="https://img.shields.io/badge/Docs-526c43?style=flat-square" alt="Docs" /></a>
+    <a href="docs/roadmap/README.md"><img src="https://img.shields.io/badge/Roadmap-686d60?style=flat-square" alt="Roadmap" /></a>
+    <a href="https://github.com/EVEDensity/Canary/issues/new/choose"><img src="https://img.shields.io/badge/Report_Issue-a64d36?style=flat-square" alt="Report an issue" /></a>
+    <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache--2.0-d97456?style=flat-square" alt="License: Apache-2.0" /></a>
+    <a href="https://nodejs.org/"><img src="https://img.shields.io/badge/Node.js-22%2B-526c43?style=flat-square&amp;logo=nodedotjs&amp;logoColor=white" alt="Node.js 22+" /></a>
+    <a href="https://pnpm.io/"><img src="https://img.shields.io/badge/pnpm-10.15.0-a64d36?style=flat-square&amp;logo=pnpm&amp;logoColor=white" alt="pnpm 10.15.0" /></a>
+    <a href="https://github.com/EVEDensity/Canary/stargazers"><img src="https://img.shields.io/github/stars/EVEDensity/Canary?style=flat-square&amp;logo=github&amp;logoColor=white&amp;color=d97456" alt="GitHub stars" /></a>
+  </p>
 </div>
 
 **Canary is a project verification workspace for developers.** Bring checks, architecture, coverage and error evidence together. Follow a failure into the code, then track verification after a fix. Integrate with existing CI through the CLI, stable exit codes and standard reports.

@@ -2,16 +2,138 @@ name: Release
 
 on:
   push:
-    tags:
-      - "v*"
+    branches: [main]
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      publish_npm:
+        description: "Also publish workspace packages to npm (requires NPM_TOKEN)"
+        type: boolean
+        default: false
 
 permissions:
-  contents: write
-  id-token: write
+  contents: read
+
+concurrency:
+  group: canary-release
+  cancel-in-progress: false
 
 jobs:
   release:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Resolve release version
+        id: version
+        env:
+          REF_TYPE: ${{ github.ref_type }}
+          REF_NAME: ${{ github.ref_name }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          version=$(node -p "require('./package.json').version")
+          if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "Invalid release version: $version" >&2
+            exit 1
+          fi
+          tag="v$version"
+          if [[ "$REF_TYPE" == tag && "$REF_NAME" != "$tag" ]]; then
+            echo "Tag must match package.json version ($tag)." >&2
+            exit 1
+          fi
+          publish=true
+          if git rev-parse -q --verify "refs/tags/$tag" >/dev/null; then
+            tagged_commit=$(git rev-parse "$tag^{commit}")
+            if [[ "$tagged_commit" != "$(git rev-parse HEAD)" ]]; then
+              publish=false
+              echo "Version $version already belongs to another commit. Bump package.json to release again."
+            fi
+          fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "publish=$publish" >> "$GITHUB_OUTPUT"
+          echo "prerelease=$([[ "$version" == *-* ]] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+      - uses: pnpm/action-setup@v4
+        if: steps.version.outputs.publish == 'true'
+        with:
+          version: 10.15.0
+      - uses: actions/setup-node@v4
+        if: steps.version.outputs.publish == 'true'
+        with:
+          node-version: 24
+          cache: pnpm
+      - name: Validate and build
+        if: steps.version.outputs.publish == 'true'
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm build
+          pnpm typecheck
+          pnpm test
+          pnpm site:build
+      - name: Package release assets
+        if: steps.version.outputs.publish == 'true'
+        env:
+          RELEASE_TAG: ${{ steps.version.outputs.tag }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          asset_dir="$RUNNER_TEMP/canary-release"
+          mkdir -p "$asset_dir"
+          # Compiler cache metadata is not part of the distributable runtime.
+          find packages apps/web -type f -path '*/dist/*' -name '*.tsbuildinfo' -delete
+          pnpm --recursive --filter "./packages/**" --filter @canary/web pack --pack-destination "$asset_dir"
+          (cd apps/site/dist && zip -qr "$asset_dir/canary-website-$RELEASE_TAG.zip" .)
+          cd "$asset_dir"
+          sha256sum ./*.tgz ./*.zip > SHA256SUMS
+      - name: Publish GitHub Release
+        if: steps.version.outputs.publish == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ steps.version.outputs.tag }}
+          PRERELEASE: ${{ steps.version.outputs.prerelease }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          asset_dir="$RUNNER_TEMP/canary-release"
+          notes_file="$RUNNER_TEMP/canary-release-notes.md"
+          cat > "$notes_file" <<'NOTES'
+          ## Canary
+
+          项目验证工作台：探索架构、定位失败、分析覆盖率，让每一次修复都有据可查。
+
+          A project verification workspace: explore architecture, diagnose failures, analyze coverage, and verify fixes with traceable evidence.
+
+          **快速开始 / Quick start:** See README.md and README.cn.md.
+          **下载 / Downloads:** Workspace package archives and the static website are attached below. Package archives reference workspace dependencies; install through the documented setup instructions.
+          **完整性 / Integrity:** Verify downloads against SHA256SUMS.
+          NOTES
+          if gh release view "$RELEASE_TAG" --json isDraft > "$RUNNER_TEMP/release-state.json"; then
+            if [[ "$(node -p "require(process.argv[1]).isDraft" "$RUNNER_TEMP/release-state.json")" != true ]]; then
+              echo "Release $RELEASE_TAG is already published."
+              exit 0
+            fi
+          else
+            gh release create "$RELEASE_TAG" --target "$GITHUB_SHA" \
+              --title "Canary $RELEASE_TAG" --draft \
+              --notes-file "$notes_file" --generate-notes
+          fi
+          gh release upload "$RELEASE_TAG" "$asset_dir"/* --clobber
+          if [[ "$PRERELEASE" == true ]]; then
+            gh release edit "$RELEASE_TAG" --draft=false --prerelease --latest=false
+          else
+            gh release edit "$RELEASE_TAG" --draft=false --latest
+          fi
+
+  npm:
+    if: github.event_name == 'workflow_dispatch' && inputs.publish_npm
+    needs: release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -23,21 +145,10 @@ jobs:
           cache: pnpm
           registry-url: https://registry.npmjs.org
       - run: pnpm install --frozen-lockfile
+      - run: pnpm build
       - run: pnpm typecheck
       - run: pnpm test
-      - run: pnpm build
       - name: Publish packages with provenance
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: pnpm --filter "./packages/**" --filter @canary/web publish --access public --no-git-checks --provenance
-      - name: GitHub Release notes and artifacts
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          gh release create "${{ github.ref_name }}" \
-            --title "${{ github.ref_name }}" \
-            --notes-file CHANGELOG.md \
-            --verify-tag
-          mkdir -p dist-release
-          pnpm --filter @canary/cli pack --pack-destination dist-release
-          gh release upload "${{ github.ref_name }}" dist-release/*.tgz --clobber

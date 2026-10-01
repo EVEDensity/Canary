@@ -3,8 +3,16 @@
   <h3>看清项目结构，定位失败，验证每一次修复。</h3>
   <p>项目检查 · 交互式架构地图 · 覆盖率分析 · 可追溯证据</p>
   <p><a href="README.md">English</a> · <strong>简体中文</strong></p>
-  <p><a href="#快速开始">快速开始</a> · <a href="docs/README.md">文档</a> · <a href="docs/roadmap/README.md">路线图</a> · <a href="https://github.com/EVEDensity/Canary/issues/new/choose">反馈问题</a></p>
-  <p><a href="LICENSE">Apache-2.0</a> · Node.js 24 推荐 · pnpm 10.15.0</p>
+  <p>
+    <a href="#快速开始"><img src="https://img.shields.io/badge/Quick_Start-d97456?style=flat-square" alt="快速开始" /></a>
+    <a href="docs/README.md"><img src="https://img.shields.io/badge/Docs-526c43?style=flat-square" alt="文档" /></a>
+    <a href="docs/roadmap/README.md"><img src="https://img.shields.io/badge/Roadmap-686d60?style=flat-square" alt="路线图" /></a>
+    <a href="https://github.com/EVEDensity/Canary/issues/new/choose"><img src="https://img.shields.io/badge/Report_Issue-a64d36?style=flat-square" alt="反馈问题" /></a>
+    <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache--2.0-d97456?style=flat-square" alt="许可证 Apache-2.0" /></a>
+    <a href="https://nodejs.org/"><img src="https://img.shields.io/badge/Node.js-22%2B-526c43?style=flat-square&amp;logo=nodedotjs&amp;logoColor=white" alt="Node.js 22+" /></a>
+    <a href="https://pnpm.io/"><img src="https://img.shields.io/badge/pnpm-10.15.0-a64d36?style=flat-square&amp;logo=pnpm&amp;logoColor=white" alt="pnpm 10.15.0" /></a>
+    <a href="https://github.com/EVEDensity/Canary/stargazers"><img src="https://img.shields.io/github/stars/EVEDensity/Canary?style=flat-square&amp;logo=github&amp;logoColor=white&amp;color=d97456" alt="GitHub stars" /></a>
+  </p>
 </div>
 
 **Canary 是面向开发者 的项目验证工作台。** 将检查、架构、覆盖率和错误证据放在一起，从一次失败进入具体代码，再追踪修复后的验证结果。通过 CLI、稳定退出码与标准报告接入现有 CI。

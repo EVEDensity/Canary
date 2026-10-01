@@ -23,6 +23,8 @@ The project URL is `https://evedensity.github.io/Canary/`. Navigation links to t
 ## Interaction and accessibility
 
 - English is the default; switching language preserves selections and results.
+- Desktop sections use cover, horizontal and circular reveal transitions. Header links navigate directly to each section; mobile devices use natural scrolling.
+- Each transition has a distinct acceleration curve; horizontal motion adds a brief visual overshoot while document scrolling stays stable.
 - The architecture example highlights direct relationships and corresponding evidence.
 - The verification example compares a retained failure with a linked deterministic rerun.
 - The workspace tour uses recorded product screenshots with focus and zoom controls.

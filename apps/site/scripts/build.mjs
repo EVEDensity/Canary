@@ -11,6 +11,8 @@ const pageFiles = [
   "site.js",
   "motion.js",
   "motion.css",
+  "chapters.js",
+  "chapters.css",
   "playground.js",
   "playground.css",
   "workspace-tour.js",

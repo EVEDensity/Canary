@@ -7,7 +7,7 @@ const originalResult = Object.freeze({ id: "EXAMPLE-001", actual: 110, passed: f
 const copy = {
   en: {
     eyebrow: "TRY CANARY",
-    title: "Try a repair. Verify the result.",
+    title: "Repair, rerun, verify",
     intro: "Choose a patch and rerun the original assertion.",
     example: "Interactive example",
     boundary: "A fixed checkout example runs in your browser. No project files or AI calls.",
@@ -76,7 +76,7 @@ const copy = {
   },
   "zh-CN": {
     eyebrow: "体验 CANARY",
-    title: "尝试修复，验证结果。",
+    title: "修复、重跑、验证",
     intro: "选择补丁，重新运行原始断言。",
     example: "交互示例",
     boundary: "在浏览器中运行固定结算示例，不读取项目文件，不调用 AI。",
