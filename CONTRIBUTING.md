@@ -34,7 +34,7 @@ Run the checks relevant to your change. Preserve assertions, public schemas, CLI
 
 ## Releases
 
-Push to `main` to publish an unreleased version from the root `package.json`. The Release workflow validates and builds the project, generates categorized release notes, and attaches workspace package archives, the website bundle and SHA-256 checksums. Existing versions are skipped; update the root and affected package versions for the next release. A `v*` tag must match the root version. Versions with a prerelease suffix are marked as prereleases.
+Push to `main` to publish an unreleased version from the root `package.json` after CI succeeds. The Release workflow checks out the exact validated commit, validates and builds the project, generates categorized release notes, and attaches workspace package archives, the website bundle and SHA-256 checksums. Existing versions are skipped; update the root and affected package versions for the next release. A `v*` tag must match the root version. Versions with a prerelease suffix are marked as prereleases.
 
 GitHub Releases require Actions with write access to repository contents; no npm token is required. Retry a failed run from Actions. npm publication is a separate opt-in checkbox when manually running Release and requires `NPM_TOKEN`.
 

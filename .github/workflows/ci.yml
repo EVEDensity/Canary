@@ -46,6 +46,36 @@ jobs:
       - run: pnpm build
       - run: pnpm typecheck
       - run: pnpm test
+      - name: Preserve failure logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: node24-failure-logs
+          path: .canary/logs/tests/
+          include-hidden-files: true
+          retention-days: 7
+          if-no-files-found: ignore
+
+  process-platform:
+    name: process adapter / ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.15.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @canary/isolation... build
+      - run: pnpm --filter @canary/isolation exec vitest run tests/process.test.ts
 
   # Dedicated job: fixture matrix is not folded into `pnpm test`.
   coverage-fixture:
