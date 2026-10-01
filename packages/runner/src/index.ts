@@ -168,10 +168,14 @@ export async function runExecution(options: ExecutionOptions): Promise<EvalResul
   const sampleMinIntervalMs = options.coverage.sampleMinIntervalMs ?? 200;
   const killGraceMs = options.killGraceMs ?? DEFAULT_KILL_GRACE_MS;
   let killTimer: NodeJS.Timeout | undefined;
+  let stoppingPid: number | undefined;
   const stopChild = (): void => {
-    if (!child.pid || child.exitCode !== null) return;
-    try { child.kill(PROCESS_ADAPTER.terminateSignal); } catch { /* ignore */ }
-    killTimer = setTimeout(() => { if (child.exitCode === null && child.pid) killProcessTree(child.pid, PROCESS_ADAPTER.killSignal); }, killGraceMs);
+    if (!child.pid || child.exitCode !== null || stoppingPid) return;
+    stoppingPid = child.pid;
+    killProcessTree(stoppingPid, PROCESS_ADAPTER.terminateSignal);
+    // Descendants can survive even after the process-group leader exits.
+    const pid = stoppingPid;
+    killTimer = setTimeout(() => { killProcessTree(pid, PROCESS_ADAPTER.killSignal); }, killGraceMs);
   };
   options.onEvent?.({ type: "execution.started", runId: options.runId, executionId, caseId: options.caseId });
   child.stderr?.setEncoding("utf8"); child.stderr?.on("data", (chunk: string) => { stderr += chunk; });
@@ -225,6 +229,8 @@ export async function runExecution(options: ExecutionOptions): Promise<EvalResul
       done();
     });
   });
+  // Closing the parent must not cancel cleanup of descendants that ignore SIGTERM.
+  if (stoppingPid) killProcessTree(stoppingPid, PROCESS_ADAPTER.killSignal);
   if (killTimer) clearTimeout(killTimer);
   clearTimeout(timeout); options.signal?.removeEventListener("abort", cancel);
   if (child.pid) await waitForExit(child.pid, Math.max(killGraceMs, 500));

@@ -74,8 +74,10 @@ jobs:
           node-version: 24
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm --filter @canary/isolation... build
+      - run: pnpm --filter @canary/runner... build
       - run: pnpm --filter @canary/isolation exec vitest run tests/process.test.ts
+      - name: Verify runner descendant cleanup
+        run: pnpm --filter @canary/runner exec vitest run tests/r1-stability.test.ts -t "R1 descendant termination"
 
   # Dedicated job: fixture matrix is not folded into `pnpm test`.
   coverage-fixture:

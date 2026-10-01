@@ -199,16 +199,23 @@ describe("R2 doctor fixtures", () => {
     expect(value.issues.some((issue) => issue.code === "PROJECT_INSTALL_CONFLICT")).toBe(false);
   });
 
-  it("warns about whitespace, a non-default user directory, and junction aliases", () => {
+  it("warns about whitespace, a non-default user directory, and junction aliases", async () => {
     const project = fixture();
     const alias = join(base, `alias space ${count}`);
     symlinkSync(project, alias, process.platform === "win32" ? "junction" : "dir");
     const { value } = doctor(alias);
     expect(value.issues.some((issue) => issue.code === "PATH_SPACES")).toBe(true);
     expect(value.issues.some((issue) => issue.code === "NON_DEFAULT_USER_DIR")).toBe(true);
-    expect(value.issues.some((issue) => issue.code === "PATH_ALIAS")).toBe(true);
-    expect(value.invocationRoot).toBe(alias);
+    // POSIX resolves a child's cwd to its physical directory; Windows retains the junction.
+    const invocation = process.platform === "win32" ? alias : project;
+    expect(value.issues.some((issue) => issue.code === "PATH_ALIAS")).toBe(invocation === alias);
+    expect(value.invocationRoot).toBe(invocation);
     expect(value.projectRoot).toBe(project);
+    // The diagnostics API still detects an explicitly supplied alias on either platform.
+    const aliased = await diagnosticSnapshot(alias, join(alias, "canary.config.ts"));
+    expect(aliased.issues.some((issue) => issue.code === "PATH_ALIAS")).toBe(true);
+    expect(aliased.invocationRoot).toBe(alias);
+    expect(aliased.projectRoot).toBe(project);
   });
 
   it("lets paths locate a throwing config without executing it, while doctor reports CONFIG_INVALID", () => {

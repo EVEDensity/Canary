@@ -8,6 +8,7 @@ import {
   acquireRunLock,
   assertExclusiveTempDir,
   createExecutionWorkspace,
+  killProcessTree,
   pidAlive,
   readCheckpoint,
   recoverPartialRun,
@@ -73,14 +74,17 @@ describe("R1 status, budget and non-zero exit", () => {
 });
 
 describe("R1 descendant termination", () => {
-  it("times out a hanging agent that spawned a grandchild and releases both pids", async () => {
+  it.each([
+    ["normal", "setInterval(()=>{}, 1000)"],
+    ["ignores SIGTERM", "process.on('SIGTERM', () => {}); setInterval(()=>{}, 1000)"],
+  ])("times out an agent and releases its grandchild (%s)", async (_label, grandchildCode) => {
     const cwd = mkdtempSync(join(tmpdir(), "canary-r1-tree-"));
     const pidFile = join(cwd, "grand.pid");
     writeFileSync(
       join(cwd, "agent.mjs"),
       `import { spawn } from "node:child_process"; import { writeFileSync } from "node:fs";
 export default async () => {
-  const child = spawn(process.execPath, ["-e", "setInterval(()=>{}, 1000)"], { stdio: "ignore", windowsHide: true });
+  const child = spawn(process.execPath, ["-e", ${JSON.stringify(grandchildCode)}], { stdio: "ignore", windowsHide: true });
   writeFileSync(${JSON.stringify(pidFile)}, String(child.pid));
   await new Promise(() => {});
 };`,
@@ -98,8 +102,12 @@ export default async () => {
     expect(result.trajectory?.termination).toBe("timeout");
     const grand = Number(readFileSync(pidFile, "utf8"));
     expect(grand).toBeGreaterThan(0);
-    expect(await waitForExit(grand, 5_000)).toBe(true);
-    expect(pidAlive(grand)).toBe(false);
+    try {
+      expect(await waitForExit(grand, 5_000)).toBe(true);
+      expect(pidAlive(grand)).toBe(false);
+    } finally {
+      if (pidAlive(grand)) killProcessTree(grand);
+    }
   }, 20_000);
 });
 
