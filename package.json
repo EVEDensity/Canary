@@ -6,7 +6,7 @@
   "description": "Local project checks, architecture maps, and evidence-backed verification workspace.",
   "packageManager": "pnpm@10.15.0",
   "engines": {
-    "node": ">=22"
+    "node": ">=24"
   },
   "scripts": {
     "build": "pnpm -r --if-present build",

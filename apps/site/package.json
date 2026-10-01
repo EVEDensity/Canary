@@ -6,7 +6,7 @@
   "license": "Apache-2.0",
   "description": "The static Canary product website.",
   "engines": {
-    "node": ">=22"
+    "node": ">=24"
   },
   "scripts": {
     "dev": "node scripts/build.mjs && node scripts/serve.mjs",

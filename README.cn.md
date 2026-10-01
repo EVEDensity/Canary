@@ -9,7 +9,7 @@
     <a href="docs/roadmap/README.md"><img src="https://img.shields.io/badge/Roadmap-686d60?style=flat-square" alt="路线图" /></a>
     <a href="https://github.com/EVEDensity/Canary/issues/new/choose"><img src="https://img.shields.io/badge/Report_Issue-a64d36?style=flat-square" alt="反馈问题" /></a>
     <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache--2.0-d97456?style=flat-square" alt="许可证 Apache-2.0" /></a>
-    <a href="https://nodejs.org/"><img src="https://img.shields.io/badge/Node.js-22%2B-526c43?style=flat-square&amp;logo=nodedotjs&amp;logoColor=white" alt="Node.js 22+" /></a>
+    <a href="https://nodejs.org/"><img src="https://img.shields.io/badge/Node.js-24-526c43?style=flat-square&amp;logo=nodedotjs&amp;logoColor=white" alt="Node.js 24" /></a>
     <a href="https://pnpm.io/"><img src="https://img.shields.io/badge/pnpm-10.15.0-a64d36?style=flat-square&amp;logo=pnpm&amp;logoColor=white" alt="pnpm 10.15.0" /></a>
     <a href="https://github.com/EVEDensity/Canary/stargazers"><img src="https://img.shields.io/github/stars/EVEDensity/Canary?style=flat-square&amp;logo=github&amp;logoColor=white&amp;color=d97456" alt="GitHub stars" /></a>
   </p>
@@ -31,7 +31,7 @@
 
 ## 快速开始
 
-准备 **Node.js 22+（推荐 24）和 Git**，按系统执行一条安装命令：
+准备 **Node.js 24和 Git**，按系统执行一条安装命令：
 
 **Windows / PowerShell**
 

@@ -1,4 +1,4 @@
-name: R6 platform evidence
+name: Platform checks
 on:
   workflow_dispatch:
   pull_request:
@@ -17,11 +17,17 @@ permissions:
   contents: read
 jobs:
   verify:
+    name: ${{ matrix.platform }} / Node 24
     strategy:
       fail-fast: false
       matrix:
-        os: [windows-latest, ubuntu-latest, macos-latest]
-        node: [24, 22]
+        include:
+          - os: windows-latest
+            platform: Windows
+          - os: ubuntu-latest
+            platform: Ubuntu
+          - os: macos-latest
+            platform: macOS
     runs-on: ${{ matrix.os }}
     timeout-minutes: 20
     steps:
@@ -31,7 +37,7 @@ jobs:
           version: 10.15.0
       - uses: actions/setup-node@v4
         with:
-          node-version: ${{ matrix.node }}
+          node-version: 24
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
@@ -43,9 +49,27 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: r6-${{ matrix.os }}-node${{ matrix.node }}
+          name: r6-${{ matrix.os }}-node24
           path: |
             r6-evidence/
             .canary/logs/verification/r6/
           include-hidden-files: true
           if-no-files-found: error
+
+  summary:
+    name: All platforms / Node 24
+    needs: verify
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Aggregate platform results
+        env:
+          PLATFORM_RESULT: ${{ needs.verify.result }}
+        shell: bash
+        run: |
+          echo "## Node 24 platform compatibility" >> "$GITHUB_STEP_SUMMARY"
+          echo "Windows, Ubuntu and macOS: **$PLATFORM_RESULT**" >> "$GITHUB_STEP_SUMMARY"
+          if [[ "$PLATFORM_RESULT" != "success" ]]; then
+            echo "Platform validation did not complete successfully. Inspect the individual platform jobs." >&2
+            exit 1
+          fi

@@ -24,7 +24,7 @@ const binDir = isWin
   : join(homedir(), ".local", "bin");
 const metaDir = join(homedir(), ".canary");
 const homeFile = join(metaDir, "home.json");
-const expectedNodeMajor = 22;
+const expectedNodeMajor = 24;
 const migrationVersion = 2;
 const requestedRef = process.env.CANARY_REF?.trim();
 const expectedPnpm = "10.15.0";

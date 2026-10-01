@@ -9,7 +9,7 @@
     <a href="docs/roadmap/README.md"><img src="https://img.shields.io/badge/Roadmap-686d60?style=flat-square" alt="Roadmap" /></a>
     <a href="https://github.com/EVEDensity/Canary/issues/new/choose"><img src="https://img.shields.io/badge/Report_Issue-a64d36?style=flat-square" alt="Report an issue" /></a>
     <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache--2.0-d97456?style=flat-square" alt="License: Apache-2.0" /></a>
-    <a href="https://nodejs.org/"><img src="https://img.shields.io/badge/Node.js-22%2B-526c43?style=flat-square&amp;logo=nodedotjs&amp;logoColor=white" alt="Node.js 22+" /></a>
+    <a href="https://nodejs.org/"><img src="https://img.shields.io/badge/Node.js-24-526c43?style=flat-square&amp;logo=nodedotjs&amp;logoColor=white" alt="Node.js 24" /></a>
     <a href="https://pnpm.io/"><img src="https://img.shields.io/badge/pnpm-10.15.0-a64d36?style=flat-square&amp;logo=pnpm&amp;logoColor=white" alt="pnpm 10.15.0" /></a>
     <a href="https://github.com/EVEDensity/Canary/stargazers"><img src="https://img.shields.io/github/stars/EVEDensity/Canary?style=flat-square&amp;logo=github&amp;logoColor=white&amp;color=d97456" alt="GitHub stars" /></a>
   </p>
@@ -31,7 +31,7 @@ See the [support scope](docs/guides/support-matrix.md).
 
 ## Quick start
 
-Use **Node.js 22+ (24 recommended) and Git**, then run one installation command for your platform:
+Use **Node.js 24 and Git**, then run one installation command for your platform:
 
 **Windows / PowerShell**
 

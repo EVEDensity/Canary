@@ -1,6 +1,6 @@
 # 架构诊断、变更影响与增量 CI
 
-要求：Node 22+；当前真实验收环境是 Windows Node 24。项目已有 Canary 检查配置。
+要求：Node 24；当前真实验收环境是 Windows Node 24。项目已有 Canary 检查配置。
 
 ## 使用入口
 
