@@ -53,7 +53,8 @@ test("real CLI checks produce passed/failed summaries, sealed evidence and stale
     assert.equal(failed.report.outcome, "failed"); assert.equal(failed.report.exitCode, 1); assert.equal(failed.report.annotations.length, 1);
     assert.ok(failed.stdout.includes("::error file=check.mjs,line=1"));
     mkdirSync(join(root, "nested"));
-    assert.equal(run("nested", head, "nested").report.locations[0]?.path, "check.mjs");
+    const nested = run("nested", head, "nested").report;
+    assert.equal(nested.locations[0]?.path, "check.mjs", JSON.stringify(nested));
     const stale = run("stale", "b".repeat(40)); assert.equal(stale.report.outcome, "stale"); assert.equal(stale.report.runId, null); assert.equal(stale.report.annotations.length, 0);
   } finally { rmSync(root, { recursive: true, force: true }); }
 });

@@ -59,7 +59,7 @@ if (ci.runId && /^[\w-]+$/.test(ci.runId)) {
   }
 }
 const sourceUnchanged = cleanBefore && git("status", "--porcelain", "--untracked-files=no") === "" && git("rev-parse", "HEAD") === actualSha;
-const tracked = new Set(git("-c", "core.quotepath=false", "ls-files", "--full-name", "-z").split("\0"));
+const tracked = new Set(git("-C", workspace, "-c", "core.quotepath=false", "ls-files", "--full-name", "-z").split("\0"));
 let mappingRoot = projectRoot;
 if (ci.context?.projectRoot && existsSync(ci.context.projectRoot)) {
   const effectiveRoot = realpathSync.native(ci.context.projectRoot);
