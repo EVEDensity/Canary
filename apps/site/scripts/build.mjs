@@ -9,6 +9,8 @@ const pageFiles = [
   "index.html",
   "site.css",
   "site.js",
+  "motion.js",
+  "motion.css",
   "playground.js",
   "playground.css",
   "workspace-tour.js",

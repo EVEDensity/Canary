@@ -12,12 +12,8 @@
   border-radius: 4px;
   box-shadow: 0 0 0 1400px rgb(41 44 37 / 18%);
   opacity: 0;
-  transition:
-    opacity 200ms ease,
-    left 450ms ease,
-    top 450ms ease,
-    width 450ms ease,
-    height 450ms ease;
+  transform-origin: top left;
+  transition: opacity 200ms ease;
 }
 .workspace-focus-outline.is-active {
   opacity: 1;

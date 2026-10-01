@@ -1,3 +1,4 @@
+import { arrive, move, signalBetween, cancelWithin } from "./motion.js";
 let instanceCount = 0;
 
 const fixture = Object.freeze({ subtotal: 100, shipping: 10, discount: 10, expected: 100 });
@@ -229,7 +230,8 @@ Received: 110</code></pre></div>
     </div>`;
   }
 
-  function render() {
+  function render(motion = "") {
+    cancelWithin(container);
     const t = copy[locale];
     const focused = container.contains(document.activeElement) ? document.activeElement : null;
     const focusAction = focused?.dataset.pgAction;
@@ -261,6 +263,39 @@ Received: 110</code></pre></div>
       </div>
       <p class="pg-boundary">${escape(t.boundary)}</p>
       <span class="pg-sr-only" role="status" aria-live="polite" aria-atomic="true">${escape(state.announcement)}</span>`;
+    if (motion === "tab") arrive(container.querySelector(".pg-tab-panel"), { duration: 180 });
+    if (motion === "patch")
+      move(
+        container.querySelector(".pg-code-added"),
+        [{ backgroundColor: "#c9ddb7" }, { backgroundColor: "#e8eddf" }],
+        { duration: 300 },
+      );
+    if (motion === "run")
+      signalBetween(
+        container.querySelector(".pg-workspace"),
+        [container.querySelector(".pg-run-button"), container.querySelector(".pg-run-latest")],
+        500,
+      );
+    if (motion === "result") {
+      arrive(container.querySelector(".pg-run-latest"), { duration: 240 });
+      if (result?.passed)
+        move(
+          container.querySelector(".pg-run-latest .pg-status path"),
+          [
+            { strokeDasharray: "24", strokeDashoffset: "24" },
+            { strokeDasharray: "24", strokeDashoffset: "0" },
+          ],
+          { duration: 240 },
+        );
+      move(
+        container.querySelector(".pg-run-latest .pg-status svg"),
+        [
+          { transform: "scale(.6)", opacity: 0 },
+          { transform: "scale(1)", opacity: 1 },
+        ],
+        { duration: 240 },
+      );
+    }
     if (focusAction) {
       const target = [...container.querySelectorAll("[data-pg-action]")].find(
         (element) =>
@@ -284,7 +319,7 @@ Received: 110</code></pre></div>
     if (!["source", "evidence", "comparison"].includes(tab)) return;
     state.tab = tab;
     state.announcement = copy[locale][`tab${tab[0].toUpperCase()}${tab.slice(1)}Announcement`];
-    render();
+    render("tab");
     if (focus)
       container.querySelector(`[data-pg-action="tab"][data-pg-value="${tab}"]`)?.focus({ preventScroll: true });
   }
@@ -298,7 +333,7 @@ Received: 110</code></pre></div>
     if (action === "version" && !state.running) {
       state.variant = button.dataset.pgValue;
       state.announcement = copy[locale][state.variant === "patch" ? "selectedPatch" : "selectedOriginal"];
-      render();
+      render(state.variant === "patch" ? "patch" : "tab");
     }
     if (action === "reset" && !state.running) {
       Object.assign(state, { variant: "original", tab: "source", result: null, sequence: 1, fixtureOpen: false });
@@ -309,7 +344,7 @@ Received: 110</code></pre></div>
       const variant = state.variant;
       state.running = true;
       state.announcement = copy[locale].checking;
-      render();
+      render("run");
       // The pause communicates a user-triggered state transition; the result is deterministic arithmetic.
       const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
       await new Promise((resolve) => window.setTimeout(resolve, reducedMotion ? 0 : 550));
@@ -325,7 +360,7 @@ Received: 110</code></pre></div>
       state.announcement = `${copy[locale].runFinished}. ${state.result.passed ? copy[locale].success : copy[locale].unchangedFail}`;
       const returnFocusToRun =
         document.activeElement === document.body || document.activeElement?.matches('[data-pg-action="run"]');
-      render();
+      render("result");
       if (returnFocusToRun) container.querySelector('[data-pg-action="run"]')?.focus({ preventScroll: true });
     }
   });

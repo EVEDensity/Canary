@@ -1,3 +1,5 @@
+import { arrive, move, cancelWithin } from "./motion.js";
+
 const tourCopy = {
   en: {
     label: "Explore the workspace",
@@ -242,9 +244,26 @@ export function mountWorkspaceTour(frame, initialLocale = "en") {
   }
 
   function select(index, focus = false) {
+    const before = outline.getBoundingClientRect();
+    cancelWithin(outline);
+    const wasHighlighted = highlighted;
     selected = index;
     highlighted = true;
     render();
+    const after = outline.getBoundingClientRect();
+    if (wasHighlighted && after.width && after.height) {
+      move(
+        outline,
+        [
+          {
+            transform: `translate(${before.left - after.left}px, ${before.top - after.top}px) scale(${before.width / after.width}, ${before.height / after.height})`,
+          },
+          { transform: "translate(0, 0) scale(1)" },
+        ],
+        { duration: 300 },
+      );
+    }
+    arrive(panel, { duration: 180 });
     if (focus) {
       buttons[selected].focus({ preventScroll: true });
       const bounds = buttons[selected].getBoundingClientRect();

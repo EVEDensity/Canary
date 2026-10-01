@@ -1,3 +1,4 @@
+import { arrive, move, signalBetween } from "./motion.js";
 import { mountPlayground } from "./playground.js";
 import { mountWorkspaceTour } from "./workspace-tour.js";
 
@@ -330,7 +331,7 @@ function stopWalkthrough() {
   updateWalkthrough();
 }
 
-function renderDemo() {
+function renderDemo(animate = false) {
   const selected = inspectedNode ?? { detect: "test", locate: "checkout", verify: "manifest" }[stage];
   const node = nodeMetadata[selected];
   const data = inspectedNode
@@ -359,8 +360,17 @@ function renderDemo() {
     const id = button.dataset.mapNode;
     button.setAttribute("aria-pressed", String(id === selected));
     button.classList.toggle("is-related", node.neighbors.includes(id));
-    button.classList.toggle("is-muted", !!inspectedNode && id !== selected && !node.neighbors.includes(id));
+    button.classList.toggle("is-muted", id !== selected && !node.neighbors.includes(id));
   });
+  demo.style.setProperty("--stage-index", String(["detect", "locate", "verify"].indexOf(stage)));
+  if (animate) {
+    arrive(get(".signal-callout"), { duration: 180 });
+    arrive(get(".demo-evidence"), { duration: 220, delay: 100 });
+    signalBetween(get(".map-scene"), [
+      get(`[data-map-node="${selected}"]`),
+      ...node.neighbors.map((id) => get(`[data-map-node="${id}"]`)),
+    ]);
+  }
 }
 
 function setStage(next, manual = true) {
@@ -369,7 +379,7 @@ function setStage(next, manual = true) {
   inspectedNode = null;
   stage = next;
   demo.dataset.stage = stage;
-  renderDemo();
+  renderDemo(manual || walkthroughRunning);
   all(".demo-controls button").forEach((button) => {
     button.setAttribute("aria-selected", String(button.dataset.stage === stage));
     button.tabIndex = button.dataset.stage === stage ? 0 : -1;
@@ -496,7 +506,7 @@ function selectNode(id) {
   stopWalkthrough();
   setStage(id === "test" || id === "manifest" ? "detect" : "locate", false);
   inspectedNode = id;
-  renderDemo();
+  renderDemo(true);
 }
 all("[data-map-node]").forEach((button) =>
   button.addEventListener("click", (event) => {
@@ -554,7 +564,11 @@ all("[data-copy]").forEach((button) =>
       await navigator.clipboard.writeText(command);
       button.querySelector("use").setAttribute("href", "#icon-check");
       showToast(messages[locale].copied);
-      setTimeout(() => button.querySelector("use").setAttribute("href", "#icon-copy"), 1800);
+      button.classList.add("is-copied");
+      setTimeout(() => {
+        button.querySelector("use").setAttribute("href", "#icon-copy");
+        button.classList.remove("is-copied");
+      }, 1800);
     } catch {
       const code = button.closest(".command-row").querySelector("code");
       const range = document.createRange();
@@ -663,15 +677,21 @@ if ("IntersectionObserver" in window) {
 const scene = get(".map-scene");
 let animationFrame;
 scene.addEventListener("pointermove", (event) => {
-  if (reducedMotion.matches || event.pointerType !== "mouse" || demo.dataset.view === "2d") return;
+  if (
+    reducedMotion.matches ||
+    innerWidth < 760 ||
+    event.pointerType !== "mouse" ||
+    !matchMedia("(hover: hover) and (pointer: fine)").matches
+  )
+    return;
   cancelAnimationFrame(animationFrame);
   animationFrame = requestAnimationFrame(() => {
     const bounds = scene.getBoundingClientRect();
     scene.style.setProperty(
       "--lean-x",
-      `${((event.clientY - bounds.top - bounds.height / 2) / bounds.height) * -5}deg`,
+      `${((event.clientY - bounds.top - bounds.height / 2) / bounds.height) * -6}deg`,
     );
-    scene.style.setProperty("--lean-y", `${((event.clientX - bounds.left - bounds.width / 2) / bounds.width) * 5}deg`);
+    scene.style.setProperty("--lean-y", `${((event.clientX - bounds.left - bounds.width / 2) / bounds.width) * 6}deg`);
   });
 });
 scene.addEventListener("pointerleave", () => {
@@ -684,3 +704,28 @@ const workspaceTour = mountWorkspaceTour(get(".workspace-frame"), locale);
 setOs(os);
 setStage("detect", false);
 setLocale(locale);
+
+// First arrival is finite and does not replay on language changes.
+all(".hero-copy > *").forEach((element, index) => arrive(element, { duration: 440, delay: index * 80 }));
+all(".map-scene .plane").forEach((element, index) =>
+  move(
+    element,
+    [
+      { opacity: 0, translate: "0 16px" },
+      { opacity: 1, translate: "0 0" },
+    ],
+    { duration: 500, delay: 200 + index * 90 },
+  ),
+);
+reducedMotion.addEventListener("change", () => {
+  if (reducedMotion.matches) {
+    document.documentElement.classList.remove("js-motion");
+    scene.style.setProperty("--lean-x", "0deg");
+    scene.style.setProperty("--lean-y", "0deg");
+    stopWalkthrough();
+  }
+});
+
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden) stopWalkthrough();
+});

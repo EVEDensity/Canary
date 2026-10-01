@@ -1,0 +1,150 @@
+/* A single signal motif connects architecture, evidence and verification. */
+.motion-signal {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 4;
+  pointer-events: none;
+  overflow: visible;
+}
+.motion-signal path {
+  fill: none;
+  stroke: var(--coral);
+  stroke-width: 1.5;
+  stroke-dasharray: 3 5;
+  opacity: 0.55;
+}
+.motion-signal circle {
+  fill: var(--coral-dark);
+  stroke: var(--surface);
+  stroke-width: 2;
+}
+.signal-demo[data-stage="verify"] .motion-signal circle,
+.pg-is-passed ~ .motion-signal circle {
+  fill: var(--green);
+}
+.pg-workspace {
+  position: relative;
+}
+.demo-controls {
+  position: relative;
+  isolation: isolate;
+}
+.demo-controls::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  top: 4px;
+  bottom: 4px;
+  left: 4px;
+  width: calc((100% - 16px) / 3);
+  border-radius: 7px;
+  background: var(--ink);
+  transform: translateX(calc(var(--stage-index, 0) * (100% + 4px)));
+  transition: transform 200ms var(--ease);
+}
+.demo-controls button[aria-selected="true"] {
+  background: transparent;
+}
+.map-node {
+  transition:
+    transform 200ms var(--ease),
+    opacity 200ms,
+    background 150ms,
+    border-color 150ms;
+}
+.map-node[aria-pressed="true"] {
+  transform: translateY(-4px);
+}
+.map-node.is-muted {
+  opacity: 0.58;
+}
+.workflow.is-visible .workflow-item {
+  animation: workflow-arrive 480ms var(--ease) both;
+}
+.workflow-item:nth-child(2) {
+  animation-delay: 80ms !important;
+}
+.workflow-item:nth-child(3) {
+  animation-delay: 160ms !important;
+}
+.workflow-item:nth-child(4) {
+  animation-delay: 240ms !important;
+}
+@keyframes workflow-arrive {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.copy-button svg {
+  transition: transform 180ms var(--ease);
+}
+.copy-button.is-copied svg {
+  transform: scale(1.18);
+}
+.mobile-nav:not([hidden]) {
+  animation: menu-arrive 180ms var(--ease);
+}
+@keyframes menu-arrive {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@media (min-width: 760px) and (hover: hover) and (pointer: fine) {
+  .signal-demo[data-view="2d"] .plane {
+    transform: rotateX(var(--lean-x)) rotateY(var(--lean-y));
+  }
+  .signal-demo[data-view="2d"] .plane-middle {
+    transform: translateY(12px) rotateX(var(--lean-x)) rotateY(var(--lean-y));
+  }
+  .button svg,
+  .demo-try-link svg {
+    transition: transform 150ms var(--ease);
+  }
+  .button:hover svg,
+  .demo-try-link:hover svg {
+    transform: translateX(4px);
+  }
+  .brand:hover .brand-mark svg {
+    animation: bird-greeting 380ms var(--ease);
+  }
+}
+@keyframes bird-greeting {
+  40% {
+    transform: rotate(-8deg);
+  }
+  75% {
+    transform: rotate(4deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .motion-signal {
+    display: none;
+  }
+  .demo-controls::before,
+  .map-node,
+  .copy-button svg {
+    transition: none;
+  }
+  .workflow.is-visible .workflow-item,
+  .mobile-nav:not([hidden]),
+  .brand:hover .brand-mark svg {
+    animation: none;
+  }
+  .signal-demo[data-view] .plane,
+  .signal-demo[data-view] .plane-middle,
+  .map-node[aria-pressed="true"] {
+    transform: none;
+  }
+}
