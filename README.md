@@ -58,6 +58,8 @@ Canary discovers Node build, type check, lint, formatting and test scripts, plus
 
 ## Project configuration
 
+Use the [GitHub Action](docs/guides/github-actions.md) for commit-bound PR summaries, source annotations and downloadable evidence.
+
 Automatic discovery uses your existing checks. Configure custom commands, timeouts and coverage using the [configuration guide](docs/guides/r4-project-checks.md). Artifacts belong to the project’s `.canary/` directory; add it to `.gitignore`.
 
 ## Why Canary?
