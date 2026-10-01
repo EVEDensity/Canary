@@ -1,0 +1,66 @@
+name: Canary verification
+description: Version-bound project checks, PR summaries and source annotations with read-only permissions
+inputs:
+  project:
+    description: Project directory inside the checkout
+    default: "."
+  config:
+    description: Optional config path relative to the project
+    default: ""
+  artifact-name:
+    description: Unique report artifact name for this job
+    default: ""
+outputs:
+  outcome:
+    description: passed, failed, blocked, stale or evidence-insufficient
+    value: ${{ steps.verify.outputs.outcome }}
+  run-id:
+    description: Canary evidence run identity
+    value: ${{ steps.verify.outputs.run-id }}
+  exit-code:
+    description: Canary verification exit code
+    value: ${{ steps.verify.outputs.exit-code }}
+runs:
+  using: composite
+  steps:
+    - uses: pnpm/action-setup@v4
+      with:
+        version: 10.15.0
+        standalone: true
+    - uses: actions/setup-node@v4
+      with:
+        node-version: 24
+    - name: Prepare Canary
+      shell: bash
+      env:
+        CANARY_ACTION_PATH: ${{ github.action_path }}
+      run: |
+        cd "$CANARY_ACTION_PATH/../../.."
+        pnpm install --frozen-lockfile
+        pnpm --filter @canary/cli... build
+    - name: Verify checked-out project
+      id: verify
+      shell: bash
+      env:
+        CANARY_ACTION_PATH: ${{ github.action_path }}
+        CANARY_PROJECT: ${{ inputs.project }}
+        CANARY_CONFIG: ${{ inputs.config }}
+      run: node "$CANARY_ACTION_PATH/../../../scripts/github-verify.mjs"
+    - name: Upload verification evidence
+      if: ${{ always() && steps.verify.outputs.report-path != '' }}
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ inputs.artifact-name || format('canary-{0}-{1}-{2}', github.job, runner.os, github.run_attempt) }}
+        path: ${{ steps.verify.outputs.report-path }}
+        retention-days: 7
+        if-no-files-found: error
+    - name: Apply verification result
+      if: ${{ always() && steps.verify.outputs.exit-code != '' }}
+      shell: bash
+      env:
+        CANARY_EXIT_CODE: ${{ steps.verify.outputs.exit-code }}
+      run: |
+        case "$CANARY_EXIT_CODE" in
+          [0-6]) exit "$CANARY_EXIT_CODE" ;;
+          *) echo "Invalid verification result" >&2; exit 1 ;;
+        esac

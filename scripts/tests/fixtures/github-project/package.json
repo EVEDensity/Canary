@@ -1,0 +1,5 @@
+{
+  "name": "canary-github-action-fixture",
+  "private": true,
+  "scripts": { "test": "node failure.mjs" }
+}
