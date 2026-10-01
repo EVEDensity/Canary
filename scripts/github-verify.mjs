@@ -6,8 +6,8 @@ import { githubReport } from "./lib/github-report.mjs";
 
 const toolRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const cli = resolve(toolRoot, "packages/cli/dist/index.js");
-const workspace = realpathSync(process.env.GITHUB_WORKSPACE ?? process.cwd());
-const projectRoot = realpathSync(resolve(workspace, process.env.CANARY_PROJECT ?? "."));
+const workspace = realpathSync.native(process.env.GITHUB_WORKSPACE ?? process.cwd());
+const projectRoot = realpathSync.native(resolve(workspace, process.env.CANARY_PROJECT ?? "."));
 const rel = relative(workspace, projectRoot);
 if (isAbsolute(rel) || rel === ".." || rel.startsWith("../") || rel.startsWith("..\\")) throw new Error("Project must be inside the checked-out workspace");
 const output = process.env.CANARY_REPORT_DIR ? resolve(process.env.CANARY_REPORT_DIR) : mkdtempSync(resolve(process.env.RUNNER_TEMP ?? toolRoot, "canary-github-"));
@@ -22,7 +22,7 @@ const expectedSha = event.pull_request?.head?.sha ?? process.env.GITHUB_SHA;
 const args = ["run", "--ci", "--project", projectRoot];
 const config = process.env.CANARY_CONFIG;
 if (config) {
-  const path = realpathSync(resolve(projectRoot, config));
+  const path = realpathSync.native(resolve(projectRoot, config));
   const configRel = relative(projectRoot, path);
   if (isAbsolute(configRel) || configRel === ".." || configRel.startsWith("../") || configRel.startsWith("..\\")) throw new Error("Config must be inside the tested project");
   args.push("--config", path);
@@ -59,12 +59,19 @@ if (ci.runId && /^[\w-]+$/.test(ci.runId)) {
   }
 }
 const sourceUnchanged = cleanBefore && git("status", "--porcelain", "--untracked-files=no") === "" && git("rev-parse", "HEAD") === actualSha;
-const tracked = new Set(git("-c", "core.quotepath=false", "ls-files", "--full-name", "-z").split("\0"));
-const report = githubReport({ ci, diagnostics, verified, expectedSha, actualSha, projectRoot, workspace, sourceUnchanged, tracked, repository: process.env.GITHUB_REPOSITORY, serverUrl: process.env.GITHUB_SERVER_URL, workflowRunId: process.env.GITHUB_RUN_ID, coverageStatus, checkCounts });
+const tracked = new Set(git("-C", workspace, "-c", "core.quotepath=false", "ls-files", "--full-name", "-z").split("\0"));
+let mappingRoot = projectRoot;
+if (ci.context?.projectRoot && existsSync(ci.context.projectRoot)) {
+  const effectiveRoot = realpathSync.native(ci.context.projectRoot);
+  const effectiveRel = relative(workspace, effectiveRoot);
+  if (!isAbsolute(effectiveRel) && effectiveRel !== ".." && !effectiveRel.startsWith("../") && !effectiveRel.startsWith("..\\")) mappingRoot = effectiveRoot;
+  else verified = false;
+}
+const report = githubReport({ ci, diagnostics, verified, expectedSha, actualSha, projectRoot: mappingRoot, workspace, sourceUnchanged, tracked, repository: process.env.GITHUB_REPOSITORY, serverUrl: process.env.GITHUB_SERVER_URL, workflowRunId: process.env.GITHUB_RUN_ID, coverageStatus, checkCounts });
 writeFileSync(resolve(output, "summary.md"), report.summary);
 writeFileSync(resolve(output, "github-report.json"), JSON.stringify(report, null, 2) + "\n");
 if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, report.summary);
 for (const annotation of report.annotations) console.log(annotation);
-if (process.env.GITHUB_OUTPUT) appendFileSync(process.env.GITHUB_OUTPUT, `outcome=${report.outcome}\nexit-code=${report.exitCode}\nrun-id=${report.runId ?? ""}\nreport-path=${output}\n`);
+if (process.env.GITHUB_OUTPUT) appendFileSync(process.env.GITHUB_OUTPUT, `outcome=${report.outcome}\nexit-code=${report.exitCode}\nrun-id=${report.runId ?? ""}\nreport-path=${output}\nannotation-count=${report.annotations.length}\n`);
 console.log(`Canary: ${report.outcome}; commit ${actualSha || "unknown"}; run ${report.runId ?? "none"}`);
 // The composite action uploads reports before propagating this exit code.

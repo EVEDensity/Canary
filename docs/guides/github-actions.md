@@ -43,7 +43,7 @@ The job summary links to the workflow, report downloads and verified source posi
 
 Annotations require an unchanged checkout, matching evidence commit, a tracked repository file and a valid source line. Unknown or external locations remain in diagnostics without guessed annotations. A reported stack position is evidence of where an error was observed, not proof of its root cause.
 
-Each workflow retains its own commit-bound summary. Reruns do not create duplicate comments or replace another run's results. The structured outputs are `outcome`, `run-id` and `exit-code`.
+Each workflow retains its own commit-bound summary. Reruns do not create duplicate comments or replace another run's results. The structured outputs are `outcome`, `run-id`, `exit-code` and `annotation-count`. Nested projects follow Canary's configuration discovery; use `config` to explicitly select an independent plan.
 
 ## Fork PRs
 

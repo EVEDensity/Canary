@@ -36,11 +36,11 @@ test("real CLI checks produce passed/failed summaries, sealed evidence and stale
     writeFileSync(join(root, "check.mjs"), "import assert from 'node:assert/strict'; assert.equal(2+2,4);\n");
     git("add", "."); git("commit", "-qm", "Fixture baseline");
     let head = git("rev-parse", "HEAD");
-    function run(name, expected = head) {
+    function run(name, expected = head, project = ".") {
       const output = join(root, ".canary", name); mkdirSync(output, { recursive: true });
       const event = join(output, "event.json"); writeFileSync(event, JSON.stringify({ pull_request: { head: { sha: expected } } }));
       const summary = join(output, "job-summary.md");
-      const result = spawnSync(process.execPath, [tool], { cwd: root, encoding: "utf8", timeout: 30000, env: { ...process.env, GITHUB_WORKSPACE: root, GITHUB_EVENT_PATH: event, GITHUB_STEP_SUMMARY: summary, GITHUB_OUTPUT: join(output, "outputs"), GITHUB_REPOSITORY: "fixture/repo", GITHUB_RUN_ID: "123", CANARY_REPORT_DIR: output, CANARY_PROJECT: ".", CANARY_CONFIG: "", GITHUB_TOKEN: "" } });
+      const result = spawnSync(process.execPath, [tool], { cwd: root, encoding: "utf8", timeout: 30000, env: { ...process.env, GITHUB_WORKSPACE: root, GITHUB_EVENT_PATH: event, GITHUB_STEP_SUMMARY: summary, GITHUB_OUTPUT: join(output, "outputs"), GITHUB_REPOSITORY: "fixture/repo", GITHUB_RUN_ID: "123", CANARY_REPORT_DIR: output, CANARY_PROJECT: project, CANARY_CONFIG: "", GITHUB_TOKEN: "" } });
       assert.equal(result.status, 0, result.stderr);
       return { report: JSON.parse(readFileSync(join(output, "github-report.json"), "utf8")), stdout: result.stdout, output };
     }
@@ -52,6 +52,9 @@ test("real CLI checks produce passed/failed summaries, sealed evidence and stale
     const failed = run("fail");
     assert.equal(failed.report.outcome, "failed"); assert.equal(failed.report.exitCode, 1); assert.equal(failed.report.annotations.length, 1);
     assert.ok(failed.stdout.includes("::error file=check.mjs,line=1"));
+    mkdirSync(join(root, "nested"));
+    const nested = run("nested", head, "nested").report;
+    assert.equal(nested.locations[0]?.path, "check.mjs", JSON.stringify(nested));
     const stale = run("stale", "b".repeat(40)); assert.equal(stale.report.outcome, "stale"); assert.equal(stale.report.runId, null); assert.equal(stale.report.annotations.length, 0);
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
