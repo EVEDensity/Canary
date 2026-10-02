@@ -1,6 +1,7 @@
 import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+import { join, relative } from "node:path";
+import { fileURLToPath } from "node:url";
 import type { CanaryConfig, ProjectChecksConfig, ProjectContext, RunEvidence, RunLineage, RunSnapshot, TestCase } from "@canary/core";
 import { SECRET_KEY, sha256, stableHash } from "@canary/trace";
 
@@ -10,6 +11,7 @@ export function recordEvidence(
   cases: TestCase[],
   lineage: RunLineage,
   sourceHash: string,
+  environment: NodeJS.ProcessEnv = process.env,
 ): RunEvidence {
   const repro = "artifacts" in config ? config.artifacts?.reproducibility : undefined;
   const environmentNames = [...new Set(repro?.envAllowlist ?? ("checks" in config ? config.checks.flatMap((check) => check.envAllowlist) : []))].filter((name) => !SECRET_KEY.test(name)).sort();
@@ -19,6 +21,16 @@ export function recordEvidence(
     if (existsSync(file)) lockfiles[name] = sha256(readFileSync(file));
   }
   let gitCommit: string | undefined;
+  let gitDirty: boolean | undefined, projectPath: string | undefined;
+  const toolVersions: Record<string, string> = { node: process.versions.node };
+  const packageFile = fileURLToPath(new URL("../package.json", import.meta.url));
+  if (existsSync(packageFile)) toolVersions.canary = JSON.parse(readFileSync(packageFile, "utf8")).version;
+  const helperFile = fileURLToPath(new URL("./auto-script.js", import.meta.url));
+  if (existsSync(helperFile)) toolVersions.scriptDispatcher = sha256(readFileSync(helperFile));
+  const commandTools: NonNullable<RunEvidence["reproduction"]["commandTools"]> = {};
+  if ("checks" in config && existsSync(helperFile)) for (const check of config.checks)
+    if (check.type === "command" && check.command === "node" && check.args[0] === helperFile)
+      commandTools[check.id] = { kind: "canary-script", path: helperFile, sha256: toolVersions.scriptDispatcher! };
   try {
     const value = execFileSync("git", ["rev-parse", "HEAD"], {
       cwd: context.projectRoot,
@@ -28,6 +40,10 @@ export function recordEvidence(
       stdio: ["ignore", "pipe", "ignore"],
     }).trim();
     if (/^[a-f0-9]{40,64}$/.test(value)) gitCommit = value;
+    const git = (args: string[]) => execFileSync("git", args, { cwd: context.projectRoot, encoding: "utf8", timeout: 3000, windowsHide: true, stdio: ["ignore", "pipe", "ignore"] }).trim();
+    gitDirty = git(["status", "--porcelain", "--untracked-files=no"]) !== "";
+    projectPath = relative(git(["rev-parse", "--show-toplevel"]), context.projectRoot).replaceAll("\\", "/") || ".";
+    toolVersions.git = git(["--version"]);
   } catch {
     /* non-Git fixtures still have source/config hashes */
   }
@@ -42,10 +58,14 @@ export function recordEvidence(
       platform: process.platform,
       arch: process.arch,
       gitCommit,
+      gitDirty,
+      projectPath,
+      toolVersions,
+      commandTools,
       lockfiles,
       environmentNames,
       environmentHash: stableHash(
-        Object.fromEntries(environmentNames.map((name) => [name, process.env[name] ?? null])),
+        Object.fromEntries(environmentNames.map((name) => [name, environment[name] ?? null])),
       ),
       clock: repro?.clock,
       seed: repro?.seed,

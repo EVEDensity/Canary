@@ -43,6 +43,7 @@ import { diagnosticSnapshot, pathsSnapshot, versionSnapshot } from "./diagnostic
 import { CliFailure, printCiResult } from "./ci.js";
 import { ciExitCodeForRun } from "@canary/core";
 import { buildStructure, compareStructure, analyzeArchitecture, analyzeImpact, planAffectedChecks } from "@canary/structure";
+import { reproductionCommand } from "./reproduction.js";
 
 export interface CliOptions {
   /** Internal recursion guard for project agent subprocesses. */
@@ -68,6 +69,8 @@ export interface CliOptions {
   experiences?: ExperienceStore;
   experienceContext?: { checkId: string; checkType: string };
   suppressOutput?: boolean;
+  /** Internal, explicit environment for a reproduction; never inherited implicitly. */
+  executionEnv?: NodeJS.ProcessEnv;
 }
 const USAGE = `Usage: canary run [--ci] [--project <directory>] [--affected --base <git-ref>] [--headless|--artifacts-only] [--no-open] [--json] [--case <id>] [--tag <tag>] [--repetitions <n>] [--port <number>] [--config <path>] [--entry <path>] [--retry-of <runId>]
        canary discover [--json] [--config <path>]
@@ -86,6 +89,7 @@ const USAGE = `Usage: canary run [--ci] [--project <directory>] [--affected --ba
        canary replay <runId> [--headless] [--no-open]
        canary diagnostics <runId> [--out <bundle.json>] [--config <path>]
        canary diagnostics verify <bundle.json>
+       canary reproduce <runId> --check <id> [--prepare | --execute] [--workspace <id>] [--env <NAME>] [--ack-service <name>] [--ack-data <name>] [--project <directory>] [--config <path>] [--json]
        canary verify <runId> [--json] [--config <path>]
        canary prune [--apply] [--json] [--config <path>]
        canary host discover [--config <path>]
@@ -1338,6 +1342,7 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
       return 0;
     } catch (error) { console.error(error instanceof Error ? error.message : String(error)); return 1; }
   }
+  if (command === "reproduce") return reproductionCommand(rest);
   if (command === "diagnostics") {
     try {
       if (rest[0] === "verify") {

@@ -2,7 +2,7 @@
 
 Canary connects project checks, architecture, coverage and failure evidence. Upcoming work focuses on change verification and the repair workflow within existing CI.
 
-R16 is implemented. R17 is under integration review; it becomes available on the default branch after merging. R18–R21 are planned.
+R16 and R17 are implemented. R18 is under integration review; it becomes available on the default branch after merging. R19–R21 are planned.
 
 - **[R16 — Unified failure evidence](https://github.com/EVEDensity/Canary/issues/1):** structured diagnostics, conservative failure grouping and exportable evidence bundles.
 - **[R17 — Pull request integration](https://github.com/EVEDensity/Canary/issues/2):** CI summaries, version-bound results and optional source annotations.

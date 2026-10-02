@@ -71,6 +71,7 @@ canary run --port 4318 --no-open  # 展示交互式报告
 - [安装与启动](docs/guides/getting-started.md) · [项目检查](docs/guides/r4-project-checks.md)
 - [评估与覆盖率](docs/guides/evaluation-and-coverage.md) · [架构与 CI](docs/guides/architecture-ci.md)
 - [GitHub Actions](docs/guides/github-actions.md)：绑定提交版本的 PR 摘要、源码标注与证据下载
+- [失败复现](docs/guides/reproduction.md)：独立副本、显式执行与原运行证据关联
 - [适配器](docs/guides/adapters-and-environment.md) · [目录结构](docs/guides/repository-layout.md)
 - [贡献指南](CONTRIBUTING.md) · [翻译贡献](docs/guides/localization.md) · [安全政策](SECURITY.md)
 

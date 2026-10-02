@@ -36,12 +36,12 @@ export function projectPath(root: string, path: string): string {
   return target;
 }
 const runtimeEnv = ["PATH", "SystemRoot", "WINDIR", "COMSPEC", "PATHEXT"];
-export function checkEnvironment(check: ProjectCheck, workspace: ExecutionWorkspace): NodeJS.ProcessEnv {
+export function checkEnvironment(check: ProjectCheck, workspace: ExecutionWorkspace, base: NodeJS.ProcessEnv = process.env): NodeJS.ProcessEnv {
   const names = new Set([...runtimeEnv, ...check.envAllowlist].map((name) => name.toUpperCase()));
   return isolatedEnv(
     workspace.tmpDir,
     { CANARY_RUN_ID: workspace.runId, CANARY_WORKDIR: workspace.workDir },
-    Object.fromEntries(Object.entries(process.env).filter(([name]) => names.has(name.toUpperCase()))),
+    Object.fromEntries(Object.entries(base).filter(([name]) => names.has(name.toUpperCase()))),
   );
 }
 
@@ -136,6 +136,7 @@ export async function executeCheck(
     workspace: ExecutionWorkspace;
     signal: AbortSignal;
     onPid: (pid: number) => void;
+    environment?: NodeJS.ProcessEnv;
     runAgent: (
       config: string,
       signal: AbortSignal,
@@ -156,7 +157,7 @@ export async function executeCheck(
     return input.runAgent(
       projectPath(input.root, check.config),
       signal,
-      checkEnvironment(check, input.workspace),
+      checkEnvironment(check, input.workspace, input.environment),
       input.onPid,
       check.id,
     );
@@ -194,7 +195,7 @@ export async function executeCheck(
     command,
     args,
     input.cwd,
-    checkEnvironment(check, input.workspace),
+    checkEnvironment(check, input.workspace, input.environment),
     signal,
     input.onPid,
     check.type === "process" ? check.readyText : undefined,

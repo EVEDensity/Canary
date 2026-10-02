@@ -18,6 +18,7 @@ Run checks, explore project architecture, and verify fixes with traceable eviden
 - [Coverage and evaluation](guides/evaluation-and-coverage.md)
 - [Architecture and CI](guides/architecture-ci.md)
 - [GitHub Actions](guides/github-actions.md)
+- [Failure reproduction](guides/reproduction.md)
 - [Evidence integrity](guides/r3-artifact-evidence.md)
 - [Issue resolution](guides/improvement.md)
 

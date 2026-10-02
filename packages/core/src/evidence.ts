@@ -44,6 +44,10 @@ export interface RunEvidence {
     platform: string;
     arch: string;
     gitCommit?: string;
+    gitDirty?: boolean;
+    projectPath?: string;
+    toolVersions?: Record<string, string>;
+    commandTools?: Record<string, { kind: "canary-script"; path: string; sha256: string }>;
     lockfiles: Record<string, string>;
     environmentHash: string;
     environmentNames: string[];

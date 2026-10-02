@@ -72,6 +72,7 @@ The name comes from the canary in the coal mine: an early warning signal. Canary
 
 - [Installation & setup](docs/guides/getting-started.md) · [Project checks](docs/guides/r4-project-checks.md)
 - [Evaluation & coverage](docs/guides/evaluation-and-coverage.md) · [Architecture & CI](docs/guides/architecture-ci.md)
+- [GitHub Actions](docs/guides/github-actions.md) · [Failure reproduction](docs/guides/reproduction.md)
 - [Adapters](docs/guides/adapters-and-environment.md) · [Repository layout](docs/guides/repository-layout.md)
 - [Contributing](CONTRIBUTING.md) · [Translations](docs/guides/localization.md) · [Security policy](SECURITY.md)
 

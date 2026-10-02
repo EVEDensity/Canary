@@ -26,6 +26,10 @@ export interface RunDiagnostics {
   runId: string;
   reproduction: {
     gitCommit?: string;
+    gitDirty?: boolean;
+    projectPath?: string;
+    toolVersions?: Record<string, string>;
+    commandTools?: Record<string, { kind: "canary-script"; path: string; sha256: string }>;
     identity: { runId: string; startedAt: string };
     runtime?: { node: string; platform: string; arch: string };
     lockfiles: Record<string, string>;
@@ -119,6 +123,10 @@ export function buildRunDiagnostics(input: RunSnapshot, projectRoot: string): Ru
     v: 1, kind: "canary.diagnostics", runId: run.runId,
     reproduction: {
       gitCommit: recorded?.gitCommit,
+      gitDirty: recorded?.gitDirty,
+      projectPath: recorded?.projectPath,
+      toolVersions: recorded?.toolVersions,
+      commandTools: recorded?.commandTools,
       identity: { runId: run.runId, startedAt: run.startedAt },
       runtime: recorded ? { node: recorded.node, platform: recorded.platform, arch: recorded.arch } : undefined,
       lockfiles: recorded?.lockfiles ?? {},
