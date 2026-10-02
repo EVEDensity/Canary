@@ -59,6 +59,11 @@ export const projectChecksConfigSchema = z
     version: z.literal(1),
     budgetMs: z.number().int().positive().max(86_400_000).default(600_000),
     checks: z.array(projectCheckSchema).min(1),
+    reproduction: z.object({
+      requiredEnvironment: z.array(z.string().regex(/^[A-Za-z_][A-Za-z0-9_]*$/)).default([]),
+      services: z.array(z.string().min(1).max(256)).default([]),
+      data: z.array(z.string().min(1).max(256)).default([]),
+    }).strict().optional(),
     web: z.object({ enabled: z.boolean().optional(), host: z.enum(["127.0.0.1", "::1", "localhost"]).optional(), port: z.number().int().min(0).max(65535).optional(), open: z.boolean().optional() }).strict().optional(),
   })
   .strict()

@@ -96,7 +96,7 @@ export async function runProjectChecks(
   const ciPlan = planAffectedChecks(structure, impact, config.checks, Boolean(options.affected && !session?.lineage?.retryOf), [relative(context.projectRoot, context.configFile).replaceAll("\\", "/")]);
   const selectedIds = new Set(ciPlan.checks.filter((check) => check.action === "run").map((check) => check.id));
   config = { ...config, checks: config.checks.filter((check) => selectedIds.has(check.id)) };
-  const evidence = recordEvidence(config, context, [], session?.lineage ?? {}, stableHash(sources));
+  const evidence = recordEvidence(config, context, [], session?.lineage ?? {}, stableHash(sources), options.executionEnv);
   const selection = { requested: ciPlan.requested, mode: ciPlan.mode, planned: ciPlan.checks.length, selected: ciPlan.selectedCount, omitted: ciPlan.omittedCount, fallbackReasons: ciPlan.fallbackReasons };
   store.update(runId, { totalCases: config.checks.length, checkSelection: { ...selection, omittedChecks: ciPlan.checks.filter((check) => check.action === "omit").map(({ id, reason }) => ({ id, reason })) }, evidence, checks, ...(session?.lineage?.retryOf ? { retryOf: session.lineage.retryOf } : {}) });
   beginArtifacts(artifactDir, session?.lineage);
@@ -206,6 +206,7 @@ export async function runProjectChecks(
               root: context.projectRoot,
               cwd,
               workspace,
+              environment: options.executionEnv,
               signal: controller.signal,
               onPid: (pid) => {
                 workspace.recordChildPid(pid);
@@ -245,7 +246,7 @@ export async function runProjectChecks(
           retryable: ["timeout", "environment"].includes(outcome.category),
           durationMs: Math.round(monotonicNow() - started),
           cwd,
-          envAllowlist: Object.keys(checkEnvironment(check, workspace)).sort(),
+          envAllowlist: Object.keys(checkEnvironment(check, workspace, options.executionEnv)).sort(),
         }),
       );
       persist();
