@@ -16,7 +16,7 @@ export function selectProjectChecks(config: ProjectChecksConfig, ids: string[]):
     config.checks.find((check) => check.id === id)!.dependsOn.forEach(add);
   };
   ids.forEach(add);
-  return { ...config, checks: config.checks.filter((check) => selected.has(check.id)) };
+  return { ...config, checks: config.checks.filter((check) => selected.has(check.id)), ...(config.contracts ? { contracts: config.contracts.filter((contract) => selected.has(contract.checkId)) } : {}) };
 }
 
 export async function runProjectSession(

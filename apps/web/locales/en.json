@@ -1,4 +1,9 @@
 {
+  "查看源码位置": "Open source location",
+  "变更验证": "Change verification",
+  "执行覆盖不代表行为验证": "Execution coverage does not establish behavior verification",
+  "无行为证据": "Behavior evidence unknown",
+  "已关联断言": "Declared assertions verified",
   "已验证": "Verified",
   "修复验证": "Repair verification",
   "回归测试修复前": "Regression before repair",

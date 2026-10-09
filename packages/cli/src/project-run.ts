@@ -28,6 +28,7 @@ import {
 import { discoverProject, projectSourceInventory } from "./discovery.js";
 import { recordEvidence, conclusionHash } from "./evidence.js";
 import { CliFailure } from "./ci.js";
+import { evaluateBehaviorContracts } from "./change-verification.js";
 import type { CliOptions, RunCommandResult } from "./index.js";
 
 export async function runProjectChecks(
@@ -93,9 +94,11 @@ export async function runProjectChecks(
   structure.source.runId = runId;
   const analysis = analyzeArchitecture(structure), impact = analyzeImpact(structure, structureChange);
   const originalConfig = config;
-  const ciPlan = planAffectedChecks(structure, impact, config.checks, Boolean(options.affected && !session?.lineage?.retryOf), [relative(context.projectRoot, context.configFile).replaceAll("\\", "/")]);
+  const declaredGate = config.contracts?.some((contract) => contract.required);
+  const ciPlan = planAffectedChecks(structure, impact, config.checks, Boolean(options.affected && !session?.lineage?.retryOf && !declaredGate), [relative(context.projectRoot, context.configFile).replaceAll("\\", "/")]);
+  if (options.affected && declaredGate) ciPlan.fallbackReasons.push("Declared behavior contracts require full verification scope");
   const selectedIds = new Set(ciPlan.checks.filter((check) => check.action === "run").map((check) => check.id));
-  config = { ...config, checks: config.checks.filter((check) => selectedIds.has(check.id)) };
+  config = { ...config, checks: config.checks.filter((check) => selectedIds.has(check.id)), ...(config.contracts ? { contracts: config.contracts.filter((contract) => selectedIds.has(contract.checkId)) } : {}) };
   const evidence = recordEvidence(config, context, [], session?.lineage ?? {}, stableHash(sources), options.executionEnv);
   const selection = { requested: ciPlan.requested, mode: ciPlan.mode, planned: ciPlan.checks.length, selected: ciPlan.selectedCount, omitted: ciPlan.omittedCount, fallbackReasons: ciPlan.fallbackReasons };
   store.update(runId, { totalCases: config.checks.length, checkSelection: { ...selection, omittedChecks: ciPlan.checks.filter((check) => check.action === "omit").map(({ id, reason }) => ({ id, reason })) }, evidence, checks, ...(session?.lineage?.retryOf ? { retryOf: session.lineage.retryOf } : {}) });
@@ -257,6 +260,15 @@ export async function runProjectChecks(
     // Operational/privacy failures are global even for optional checks; ordinary optional assertions do not fail CI.
     const codes = checks.filter((check) => check.required || session?.lineage?.retryOf || check.exitCode > 1).map((check) => check.exitCode);
     exitCode = [6, 5, 3, 4, 10, 2, 1].find((code) => codes.includes(code)) ?? (required.length ? 0 : 2);
+    const contracts = evaluateBehaviorContracts(config, checks);
+    if (contracts.length) {
+      writePrivateJson(join(artifactDir, "behavior-contracts.json"), { v: 1, kind: "canary.behavior-contracts", contracts }, privacy);
+      const violations = contracts.filter((contract) => contract.required && contract.status !== "verified");
+      if (violations.length) {
+        if (exitCode === 0) exitCode = violations.some((contract) => contract.status === "unknown") ? 6 : 1;
+        store.update(runId, { gate: { passed: false, reason: "hard_gate_failed", failureCategory: "policy_violation", failures: violations.map((contract) => ({ code: "policy_violation", target: contract.id, status: contract.status, message: `Declared behavior contract ${contract.id}: ${contract.status}` })) } });
+      }
+    }
     store.finish(runId, exitCode === 0 ? "completed" : exitCode === 3 ? "cancelled" : "failed");
     store.update(runId, { evidence: { ...evidence, conclusionHash: conclusionHash(store.get(runId)!) } });
     persist();
