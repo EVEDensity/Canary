@@ -108,8 +108,8 @@ function baseEnvironment(): NodeJS.ProcessEnv {
     GIT_OPTIONAL_LOCKS: "0",
   };
 }
-function git(cwd: string, args: string[], environment = baseEnvironment()): string {
-  return execFileSync("git", ["-c", "core.hooksPath=/dev/null", "-c", "core.fsmonitor=false", ...args], {
+function git(cwd: string, args: string[], environment = baseEnvironment(), trim = true): string {
+  const output = execFileSync("git", ["-c", "core.hooksPath=/dev/null", "-c", "core.fsmonitor=false", ...args], {
     cwd,
     env: environment,
     encoding: "utf8",
@@ -117,7 +117,8 @@ function git(cwd: string, args: string[], environment = baseEnvironment()): stri
     timeout: 60000,
     maxBuffer: 16 * 1024 * 1024,
     stdio: ["ignore", "pipe", "pipe"],
-  }).trim();
+  });
+  return trim ? output.trim() : output;
 }
 /** Configuration data is read from sealed evidence; historical config modules are never imported. */
 function source(options: Options) {

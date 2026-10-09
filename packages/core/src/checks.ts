@@ -59,6 +59,13 @@ export const projectChecksConfigSchema = z
     version: z.literal(1),
     budgetMs: z.number().int().positive().max(86_400_000).default(600_000),
     checks: z.array(projectCheckSchema).min(1),
+    contracts: z.array(z.object({
+      id: z.string().regex(/^[A-Za-z0-9][A-Za-z0-9_.-]*$/),
+      paths: z.array(z.string().min(1).max(256).refine((value) => !value.startsWith("/") && !value.includes("..") && !value.includes("\\"))).nonempty(),
+      checkId: z.string().min(1),
+      assertionId: z.string().min(1),
+      required: z.boolean().default(false),
+    }).strict()).optional(),
     reproduction: z.object({
       requiredEnvironment: z.array(z.string().regex(/^[A-Za-z_][A-Za-z0-9_]*$/)).default([]),
       services: z.array(z.string().min(1).max(256)).default([]),
@@ -80,6 +87,7 @@ export const projectChecksConfigSchema = z
     }
     if (!config.checks.some((check) => check.required))
       ctx.addIssue({ code: "custom", message: "At least one required check is necessary" });
+    if (new Set(config.contracts?.map((contract) => contract.id)).size !== (config.contracts?.length ?? 0) || config.contracts?.some((contract) => !config.checks.some((check) => check.id === contract.checkId))) ctx.addIssue({ code: "custom", message: "Contracts require unique identities and declared check IDs" });
   });
 export type ProjectCheck = z.infer<typeof projectCheckSchema>;
 export type ProjectChecksConfig = z.infer<typeof projectChecksConfigSchema>;

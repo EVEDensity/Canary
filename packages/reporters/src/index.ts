@@ -1,4 +1,4 @@
-﻿import type { CoverageGateResult, CoverageSummary, EvalResult } from "@canary/core";
+import type { CoverageGateResult, CoverageSummary, EvalResult } from "@canary/core";
 
 export interface RunReportInput {
   checks?: import("@canary/core").ProjectCheckResult[];
@@ -27,7 +27,7 @@ export function toMarkdown(result: EvalResult): string {
 }
 
 export function renderJson(run: RunReportInput): string {
-  if (run.checks) return JSON.stringify({ v: 1, kind: "canary.project-report", runId: run.runId, status: run.status, checks: run.checks, ...(run.checkSelection ? { selection: run.checkSelection } : {}) }, null, 2);
+  if (run.checks) return JSON.stringify({ v: 1, kind: "canary.project-report", runId: run.runId, status: run.status, checks: run.checks, ...(run.gate ? { gate: run.gate } : {}), ...(run.checkSelection ? { selection: run.checkSelection } : {}) }, null, 2);
   return JSON.stringify({
     runId: run.runId,
     status: run.status,
@@ -120,7 +120,7 @@ function renderProjectJunit(run: RunReportInput, checks: NonNullable<RunReportIn
     return `  <testcase name="${xmlEscape(check.id)}" classname="canary.${check.type}" time="${(check.durationMs / 1000).toFixed(3)}">${detail}</testcase>`;
   });
   for (const omitted of run.checkSelection?.omittedChecks ?? []) { skipped++; rows.push(`  <testcase name="${xmlEscape(omitted.id)}" classname="canary.omitted" time="0"><skipped message="${xmlEscape(omitted.reason)}; not executed"/></testcase>`); }
-  if (run.status !== "completed" && !errors && !failures) { errors++; rows.push('  <testcase name="project.gate"><error message="Project gate did not complete successfully"/></testcase>'); }
+  if (run.status !== "completed" && !errors && !failures) { errors++; rows.push(`  <testcase name="project.gate"><error message="${xmlEscape(run.gate?.failures.map(failure => failure.message).join("; ") || "Project gate did not complete successfully")}"/></testcase>`); }
   return `<?xml version="1.0" encoding="UTF-8"?>\n<testsuite name="canary.project" tests="${rows.length}" failures="${failures}" errors="${errors}" skipped="${skipped}">\n${rows.join("\n")}\n</testsuite>\n`;
 }
 

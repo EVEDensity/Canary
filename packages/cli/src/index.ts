@@ -45,6 +45,7 @@ import { ciExitCodeForRun } from "@canary/core";
 import { buildStructure, compareStructure, analyzeArchitecture, analyzeImpact, planAffectedChecks } from "@canary/structure";
 import { reproductionCommand } from "./reproduction.js";
 import { repairCommand } from "./repair.js";
+import { changeVerificationCommand } from "./change-verification.js";
 
 export interface CliOptions {
   /** Internal recursion guard for project agent subprocesses. */
@@ -90,6 +91,7 @@ const USAGE = `Usage: canary run [--ci] [--project <directory>] [--affected --ba
        canary replay <runId> [--headless] [--no-open]
        canary diagnostics <runId> [--out <bundle.json>] [--config <path>]
        canary diagnostics verify <bundle.json>
+       canary change-verify <runId> --base <git-ref> [--project <directory>] [--config <path>]
        canary repair-verify <baseline> <candidate> --regression <checkId> --test <test.spec.mjs> [--execute] [--project <directory>] [--config <path>]
        canary reproduce <runId> --check <id> [--prepare | --execute] [--workspace <id>] [--env <NAME>] [--ack-service <name>] [--ack-data <name>] [--project <directory>] [--config <path>] [--json]
        canary verify <runId> [--json] [--config <path>]
@@ -1346,6 +1348,7 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
   }
   if (command === "reproduce") return reproductionCommand(rest);
   if (command === "repair-verify") return repairCommand(rest);
+  if (command === "change-verify") return changeVerificationCommand(rest);
   if (command === "diagnostics") {
     try {
       if (rest[0] === "verify") {
