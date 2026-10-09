@@ -83,7 +83,7 @@ try {
   }
   let pnpmReady = false;
   try {
-    pnpmReady = invoke("pnpm", ["--version"], dirname(process.execPath), true) === "10.15.0";
+    pnpmReady = invoke("pnpm", ["--version"], root, true) === "10.15.0";
   } catch {
     /* Fall back to pinned npm exec. */
   }
