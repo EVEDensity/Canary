@@ -609,3 +609,5 @@ export async function reproductionCommand(args: string[]): Promise<number> {
     return 5;
   }
 }
+// Shared version restoration and environment boundary for repair verification.
+export { parse as parseReproductionOptions, source as reproductionSource, initialConditions, executionConditions, prepare as prepareReproduction, executablePlan, baseEnvironment, homes, git as reproductionGit, dependencies as reproductionDependencies };

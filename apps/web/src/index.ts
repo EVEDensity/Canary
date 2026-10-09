@@ -418,6 +418,10 @@ async function handleRequest(
         }
         return;
       }
+      if (parts[3] === "repair-verification") {
+        if (request.method !== "GET" || !artifacts || artifacts.verify(runId).status !== "verified") { writeJson(response, 409, { error: "Sealed verification evidence required" }); return; }
+        writeJson(response, 200, artifacts.readJson(runId, "repair-verification.json") ?? { outcome: "evidence-insufficient", reasons: ["No repair verification was recorded"] }); return;
+      }
       if (parts[3] === "retry") {
         if (request.method !== "POST") {
           writeJson(response, 405, { error: "POST required" });
