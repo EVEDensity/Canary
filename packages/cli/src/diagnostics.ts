@@ -4,6 +4,7 @@ import { dirname, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { randomUUID } from "node:crypto";
 import { spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { automaticProjectConfig } from "./auto-project.js";
 import {
   CLI_EXIT,
@@ -264,6 +265,9 @@ export async function diagnosticSnapshot(cwd?: string, configPath?: string) {
       suggestion: "For source builds install the version pinned in package.json; do not automatically upgrade it.",
     });
   const version = versionSnapshot();
+  if (metadata.value?.version && metadata.value.version !== version.canaryVersion) issues.push({ code: "INSTALL_VERSION_MISMATCH", severity: "warning", message: "Executing version differs from the installation record.", suggestion: "Run canary installation --json; upgrade or restore a verified installation." });
+  const runtimeFile = join(RUNTIME_INSTALL_ROOT, "packages/cli/dist/index.js");
+  if (typeof metadata.value?.cliHash === "string" && (!existsSync(runtimeFile) || metadata.value.cliHash !== createHash("sha256").update(readFileSync(runtimeFile)).digest("hex"))) issues.push({ code: "INSTALL_HASH_MISMATCH", severity: "warning", message: "CLI bytes differ from the installation record.", suggestion: "Reinstall a verified release; do not regenerate integrity hashes over modified runtime files." });
   return doctorSnapshotSchema.parse({
     ...context,
     kind: "canary.doctor",

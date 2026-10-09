@@ -35,9 +35,23 @@ Automatic discovery uses existing project scripts and supported language test en
 canary version --json
 canary paths --json
 canary doctor --json
+canary installation --json
 ```
 
 See [automatic checks](automatic-checks.md), [support scope](support-matrix.md) and [troubleshooting](troubleshooting.md).
+
+## Releases and upgrades
+
+The installer selects the latest available stable version tag. Set `CANARY_CHANNEL=main` for development builds, or `CANARY_REF` for an explicit tag/commit. The installation record includes the actual CLI version, commit, channel and runtime hash.
+
+```bash
+canary upgrade
+canary upgrade --rollback
+```
+
+Each installation is built in an independent version directory. Launchers and registration change only after runtime validation; a failed upgrade retains the active version. Rollback validates and restores the previous version. Existing source checkouts, project files and evidence are preserved.
+
+中文：默认安装稳定版；设置 `CANARY_CHANNEL=main` 使用开发版，或通过 `CANARY_REF` 固定版本。升级先构建并验证独立副本，失败时保留原安装；`canary upgrade --rollback` 可恢复已验证的上一版本。通过 `canary installation --json` 查看实际版本与提交。
 
 ## Build from source
 

@@ -3,6 +3,7 @@
 set -euo pipefail
 
 REPO_URL="${CANARY_REPO_URL:-https://github.com/EVEDensity/Canary.git}"
+if [[ "$REPO_URL" =~ ^https?://[^/]*@ ]]; then printf 'Use external credential injection, not credentials in the clone URL.\n' >&2; exit 2; fi
 REPO_DIR="${CANARY_DIR:-$HOME/Canary}"
 CANARY_REF="${CANARY_REF:-}"
 
@@ -19,20 +20,19 @@ Environment:
   CANARY_REPO_URL  Override clone URL
   CANARY_DIR       Override clone destination (default: $HOME/Canary)
   CANARY_REF       Optional tag, branch, or commit to pin after cloning/updating
+  CANARY_CHANNEL   stable (default) or main development builds
 
-The installer refuses to overwrite a non-Git directory or update a dirty checkout.
-Offline failures leave the existing installation untouched and print the Git/pnpm error.
+Existing checkouts and the active installation are preserved during preparation.
+Stable tags are selected by default; publication happens only after runtime validation.
 USAGE
 }
 
 clone_or_update() {
   command -v git >/dev/null 2>&1 || { printf 'git is required but was not found on PATH.\n' >&2; exit 1; }
   if [[ -d "$REPO_DIR/.git" ]]; then
-    if [[ -n "$(git -C "$REPO_DIR" status --porcelain)" ]]; then
-      printf 'Refusing to update dirty checkout: %s\n' "$REPO_DIR" >&2; exit 1
-    fi
-    printf '→ Updating existing checkout at %s\n' "$REPO_DIR"
-    git -C "$REPO_DIR" pull --ff-only || { printf 'Offline/update failure: existing checkout was not rebuilt.\n' >&2; exit 1; }
+    REPO_DIR="${CANARY_INSTALL_HOME:-$HOME/.canary}/sources/setup-$(date +%s)-$$"
+    mkdir -p "$(dirname "$REPO_DIR")"
+    git clone --branch main "$REPO_URL" "$REPO_DIR"
   elif [[ -e "$REPO_DIR" ]]; then
     if [[ -n "$(find "$REPO_DIR" -mindepth 1 -maxdepth 1 -print -quit)" ]]; then
       printf 'Refusing to overwrite non-Git directory: %s\n' "$REPO_DIR" >&2; exit 1
@@ -43,10 +43,7 @@ clone_or_update() {
     printf '→ Cloning %s → %s\n' "$REPO_URL" "$REPO_DIR"
     git clone "$REPO_URL" "$REPO_DIR" || { printf 'Offline clone failure: no installation was registered.\n' >&2; exit 1; }
   fi
-  if [[ -n "$CANARY_REF" ]]; then
-    git -C "$REPO_DIR" fetch --tags --prune origin || { printf 'Unable to fetch CANARY_REF=%s; installation was not rebuilt.\n' "$CANARY_REF" >&2; exit 1; }
-    git -C "$REPO_DIR" checkout --detach "$CANARY_REF"
-  fi
+  # Ref/channel selection happens in the transactional Node installer.
 }
 install_canary() {
   [[ -f "$REPO_DIR/scripts/install-global.mjs" ]] || { printf 'Missing installer script at %s/scripts/install-global.mjs\n' "$REPO_DIR" >&2; exit 1; }

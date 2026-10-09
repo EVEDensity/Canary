@@ -1,9 +1,45 @@
 #!/usr/bin/env node
-import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
-import { spawnSync } from "node:child_process";
-import { homedir, platform } from "node:os";
+import { existsSync, mkdirSync, readFileSync } from "node:fs";
+import { homedir } from "node:os";
 import { join, resolve } from "node:path";
-const home=join(homedir(),".canary"), state=join(home,"home.json"), current=join(home,"current"), staging=join(home,"staging-"+Date.now());
-const source=process.env.CANARY_SOURCE; const ref=process.env.CANARY_REF||"HEAD"; if(!source) { console.error("CANARY_SOURCE is required for remote upgrade"); process.exit(2); }
-const run=(c,a,cwd)=>{const r=spawnSync(c,a,{cwd,stdio:"inherit",shell:platform()==="win32"}); if(r.status!==0) throw new Error(`${c} failed (${r.status})`)};
-try { mkdirSync(home,{recursive:true}); run("git",["clone","--no-checkout",source,staging]); run("git",["fetch","--tags","origin"],staging); run("git",["checkout","--detach",ref],staging); const pin=spawnSync("git",["rev-parse","HEAD"],{cwd:staging,encoding:"utf8"}).stdout.trim(); if(!pin) throw Error("cannot resolve pinned commit"); run("pnpm",["install","--frozen-lockfile"],staging); run("pnpm",["build"],staging); run("pnpm",["test"],staging); const old=existsSync(current)?current:null; const backup=join(home,"rollback-"+Date.now()); if(old) renameSync(current,backup); renameSync(staging,current); writeFileSync(state+".tmp",JSON.stringify({root:current,previousRoot:backup,ref,commit:pin,migrationVersion:3,updatedAt:new Date().toISOString()},null,2)); renameSync(state+".tmp",state); console.log(JSON.stringify({status:"upgraded",root:current,commit:pin,previousRoot:backup})); } catch(e) { if(existsSync(staging)) rmSync(staging,{recursive:true,force:true}); console.error(`offline-or-upgrade-failure: ${e.message}`); process.exit(1); }
+import { randomUUID } from "node:crypto";
+import { runCommand } from "./lib/command-runner.mjs";
+import { publishInstallation, validateInstallation, digest } from "./lib/install-state.mjs";
+const metaDir = resolve(process.env.CANARY_INSTALL_HOME ?? join(homedir(), ".canary")),
+  state = join(metaDir, "home.json");
+try {
+  if (process.argv.slice(2).some((arg) => arg !== "--rollback")) throw new Error("Use upgrade-global.mjs [--rollback]");
+  const current = existsSync(state) ? JSON.parse(readFileSync(state, "utf8")) : undefined;
+  if (process.argv.includes("--rollback")) {
+    const previous = current?.previous;
+    if (
+      !previous?.root ||
+      !previous.cliHash ||
+      digest(join(previous.root, "packages/cli/dist/index.js")) !== previous.cliHash
+    )
+      throw new Error("Verified previous installation is unavailable; active installation was retained");
+    validateInstallation(previous.root);
+    const metadata = publishInstallation({ root: previous.root, binDir: current.binDir, metaDir, metadata: previous });
+    console.log(
+      JSON.stringify({ status: "rolled-back", version: metadata.version, commit: metadata.commit ?? metadata.ref }),
+    );
+  } else {
+    const source = process.env.CANARY_SOURCE ?? "https://github.com/EVEDensity/Canary.git";
+    if (/^https?:/.test(source) && (new URL(source).username || new URL(source).password))
+      throw new Error("Use external credential injection, not credentials in the clone URL");
+    const bootstrap = join(metaDir, "sources", randomUUID());
+    mkdirSync(join(metaDir, "sources"), { recursive: true });
+    const clone = runCommand("git", ["clone", "--branch", "main", "--", source, bootstrap], { stdio: "inherit" });
+    if (clone.status !== 0) throw new Error("Upgrade source is unavailable; active installation was retained");
+    const channel =
+      process.env.CANARY_CHANNEL ?? (["stable", "main"].includes(current?.channel) ? current.channel : "stable");
+    const install = runCommand(process.execPath, [join(bootstrap, "scripts/install-global.mjs")], {
+      stdio: "inherit",
+      env: { ...process.env, CANARY_CHANNEL: channel, CANARY_BIN_DIR: process.env.CANARY_BIN_DIR ?? current?.binDir },
+    });
+    if (install.status !== 0) throw new Error("Upgrade validation failed; active installation was retained");
+  }
+} catch (error) {
+  console.error(error.message);
+  process.exitCode = 1;
+}

@@ -5,7 +5,7 @@ import { join, resolve } from 'node:path';
 
 const isWin = platform() === 'win32';
 const home = homedir();
-const metaDir = join(home, '.canary');
+const metaDir = resolve(process.env.CANARY_INSTALL_HOME ?? join(home, '.canary'));
 const homeFile = join(metaDir, 'home.json');
 const defaultBinDir = isWin
   ? join(process.env.LOCALAPPDATA ?? join(home, 'AppData', 'Local'), 'canary', 'bin')
@@ -45,7 +45,7 @@ function removeUnixPathEntries(binDir) {
 }
 
 if (process.argv.includes('--help') || process.argv.includes('-h')) { usage(); process.exit(0); }
-const unsupported = process.argv.find((arg) => !['--remove-root'].includes(arg));
+const unsupported = process.argv.slice(2).find((arg) => !['--remove-root'].includes(arg));
 if (unsupported) { console.error(`Unknown option: ${unsupported}`); usage(); process.exit(2); }
 const metadata = readMetadata();
 const root = metadata?.root ? resolve(metadata.root) : null;

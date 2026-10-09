@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 import { projectContextSchema, type ProjectContext } from "@canary/core";
 import { hasProjectMarker, hasWorkspaceMarker } from "./auto-project.js";
 
-export const CANARY_HOME_FILE = resolve(homedir(), ".canary", "home.json");
+export const CANARY_HOME_FILE = resolve(process.env.CANARY_INSTALL_HOME ?? resolve(homedir(), ".canary"), "home.json");
 export const RUNTIME_INSTALL_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
 
 export function invocationRoot(cwd?: string): string {

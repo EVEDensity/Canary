@@ -47,6 +47,8 @@ curl -fsSL https://raw.githubusercontent.com/EVEDensity/Canary/main/scripts/inst
 
 Open a new terminal and run from your project or any subdirectory. No Canary configuration is required:
 
+Stable releases are selected by default. Set `CANARY_CHANNEL=main` for development builds. Upgrade with `canary upgrade`, restore with `canary upgrade --rollback`, and inspect the installed commit with `canary installation --json`.
+
 ```bash
 canary run --ci                  # Discover and execute project checks
 canary run --port 4318 --no-open  # Open an interactive report

@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 import { existsSync, mkdirSync, readFileSync, writeFileSync, unlinkSync, statSync } from "node:fs";
 import { randomUUID } from "node:crypto";
-import { missingConfigMessage, resolveProjectContext } from "./home.js";
+import { missingConfigMessage, resolveProjectContext, installationMetadata, RUNTIME_INSTALL_ROOT } from "./home.js";
+import { spawnSync } from "node:child_process";
 import { readdir } from "node:fs/promises";
 import { resolve, relative } from "node:path";
 import { pathToFileURL, fileURLToPath } from "node:url";
@@ -91,6 +92,8 @@ const USAGE = `Usage: canary run [--ci] [--project <directory>] [--affected --ba
        canary replay <runId> [--headless] [--no-open]
        canary diagnostics <runId> [--out <bundle.json>] [--config <path>]
        canary diagnostics verify <bundle.json>
+       canary installation [--json]
+       canary upgrade [--rollback]
        canary change-verify <runId> --base <git-ref> [--project <directory>] [--config <path>]
        canary repair-verify <baseline> <candidate> --regression <checkId> --test <test.spec.mjs> [--execute] [--project <directory>] [--config <path>]
        canary reproduce <runId> --check <id> [--prepare | --execute] [--workspace <id>] [--env <NAME>] [--ack-service <name>] [--ack-data <name>] [--project <directory>] [--config <path>] [--json]
@@ -1338,6 +1341,15 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
   if (command === "uninstall") {
     console.log("Use scripts/install/uninstall.ps1 on Windows or scripts/install/uninstall.sh on macOS/Linux to remove the global launcher safely.");
     return 0;
+  }
+  if (command === "installation") {
+    if (rest.some((arg) => arg !== "--json")) return 2;
+    const metadata = installationMetadata();
+    console.log(JSON.stringify(redactValue({ kind: "canary.installation", status: metadata.status, version: metadata.value?.version, commit: metadata.value?.commit ?? metadata.value?.ref, channel: metadata.value?.channel ?? "legacy", root: metadata.value?.root, previousAvailable: Boolean(metadata.value?.previous) }), null, 2)); return metadata.status === "valid" ? 0 : 4;
+  }
+  if (command === "upgrade") {
+    if (rest.some((arg) => arg !== "--rollback")) return 2;
+    return spawnSync(process.execPath, [resolve(RUNTIME_INSTALL_ROOT, "scripts/upgrade-global.mjs"), ...rest], { stdio: "inherit", windowsHide: true }).status ?? 4;
   }
   if (command === "repair") {
     try {
