@@ -10,7 +10,7 @@ import { verifyArtifacts } from "../packages/trace/dist/index.js";
 
 const root = realpathSync.native(resolve(import.meta.dirname, ".."));
 const meta = JSON.parse(readFileSync(join(homedir(), ".canary/home.json"), "utf8"));
-assert.equal(realpathSync.native(meta.root), root, "Install this checkout first");
+assert.equal(realpathSync.native(meta.sourceRoot ?? meta.root), root, "Install this checkout first");
 const base = realpathSync.native(mkdtempSync(join(tmpdir(), "Canary global entry ")));
 const report = {
   kind: "canary.entry.acceptance",

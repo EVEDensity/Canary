@@ -2,7 +2,7 @@
 
 Canary connects project checks, architecture, coverage and failure evidence. Upcoming work focuses on change verification and the repair workflow within existing CI.
 
-R16–R20 are implemented in this revision. R21 is next.
+R16–R21 are implemented in this revision. The next roadmap will be based on usage feedback and measured validation gaps.
 
 - **[R16 — Unified failure evidence](https://github.com/EVEDensity/Canary/issues/1):** structured diagnostics, conservative failure grouping and exportable evidence bundles.
 - **[R17 — Pull request integration](https://github.com/EVEDensity/Canary/issues/2):** CI summaries, version-bound results and optional source annotations.

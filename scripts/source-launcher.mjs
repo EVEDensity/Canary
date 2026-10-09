@@ -2,13 +2,17 @@ import { chmodSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 /** Source-checkout launcher. Deliberately does not alter PATH or installation metadata. */
-export function writeSourceLauncher(repoRoot, binDir) {
+export function writeSourceLauncher(repoRoot, binDir, finalBinDir = binDir, registryFile) {
   mkdirSync(binDir, { recursive: true });
   const runnerPath = join(binDir, "canary-run.mjs");
   const runner = `import { spawnSync } from "node:child_process";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-const repoRoot = ${JSON.stringify(repoRoot)};
+const fallbackRoot = ${JSON.stringify(repoRoot)};
+const registryFile = ${JSON.stringify(registryFile ?? null)};
+let repoRoot = fallbackRoot;
+try { if (registryFile && existsSync(registryFile)) { const record = JSON.parse(readFileSync(registryFile, "utf8")); if (typeof record.root !== "string") throw new Error(); repoRoot = record.root; } }
+catch { console.error("Canary installation registry is invalid; rerun the installer"); process.exit(4); }
 const cli = join(repoRoot, "packages/cli/dist/index.js");
 if (!existsSync(cli)) { console.error("Canary build is missing. Run pnpm build in " + repoRoot); process.exit(4); }
 const env = Object.fromEntries(Object.entries(process.env).filter(([key]) => !["init_cwd", "npm_package_name", "npm_lifecycle_event", "canary_home"].includes(key.toLowerCase())));
@@ -21,12 +25,12 @@ process.exit(result.status ?? 4);
   if (process.platform === "win32")
     writeFileSync(
       launcher,
-      `@echo off\r\n"${process.execPath}" "${runnerPath}" %*\r\nexit /b %ERRORLEVEL%\r\n`,
+      `@echo off\r\n"${process.execPath}" "${join(finalBinDir, "canary-run.mjs")}" %*\r\nexit /b %ERRORLEVEL%\r\n`,
       "utf8",
     );
   else {
     const quote = (value) => "'" + value.replaceAll("'", "'\\''") + "'";
-    writeFileSync(launcher, `#!/bin/sh\nexec ${quote(process.execPath)} ${quote(runnerPath)} "$@"\n`, "utf8");
+    writeFileSync(launcher, `#!/bin/sh\nexec ${quote(process.execPath)} ${quote(join(finalBinDir, "canary-run.mjs"))} "$@"\n`, "utf8");
     chmodSync(launcher, 0o755);
   }
   return { runnerPath, launcher };

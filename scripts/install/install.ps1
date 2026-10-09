@@ -8,25 +8,26 @@ param(
 )
 $ErrorActionPreference = 'Stop'
 $RepoUrl = if ($env:CANARY_REPO_URL) { $env:CANARY_REPO_URL } else { 'https://github.com/EVEDensity/Canary.git' }
+if ($RepoUrl -match '^https?://[^/]*@') { throw 'Use external credential injection, not credentials in the clone URL.' }
 $RepoDir = if ($env:CANARY_DIR) { $env:CANARY_DIR } else { Join-Path $HOME 'Canary' }
-$CanaryRef = $env:CANARY_REF
 
 function Show-Usage {
   @"
 Canary installer (Windows, source checkout)
 
 Usage:
-  install.ps1          Clone or update, then install the global canary command
-  install.ps1 -Update  Pull the pinned/default ref and reinstall
+  install.ps1          Prepare source, then install the global canary command
+  install.ps1 -Update  Prepare a fresh source and reinstall the selected release
   install.ps1 -Help    Show this help
 
 Environment:
   CANARY_REPO_URL  Override clone URL
   CANARY_DIR       Override clone destination (default: %USERPROFILE%\Canary)
   CANARY_REF       Optional tag, branch, or commit to pin after cloning/updating
+  CANARY_CHANNEL   stable (default) or main development builds
 
-The installer refuses to overwrite a non-Git directory or update a dirty checkout.
-Offline failures leave the existing installation untouched and print the Git/pnpm error.
+Existing checkouts and the active installation are preserved during preparation.
+Stable tags are selected by default; publication happens only after runtime validation.
 "@
 }
 function Invoke-Checked([string]$Command, [string[]]$Arguments) {
@@ -39,10 +40,11 @@ function Assert-Tool([string]$Command) {
 function Clone-Or-Update {
   Assert-Tool 'git'
   if (Test-Path (Join-Path $RepoDir '.git')) {
-    $status = (& git -C $RepoDir status --porcelain)
-    if ($status) { throw "Refusing to update dirty checkout: $RepoDir" }
-    Write-Host "-> Updating existing checkout at $RepoDir"
-    Invoke-Checked 'git' @('-C', $RepoDir, 'pull', '--ff-only')
+    # Keep legacy active checkouts untouched until the new runtime is validated.
+    $installState = if ($env:CANARY_INSTALL_HOME) { $env:CANARY_INSTALL_HOME } else { Join-Path $HOME '.canary' }
+    $script:RepoDir = Join-Path (Join-Path $installState 'sources') ([guid]::NewGuid().ToString())
+    New-Item -ItemType Directory -Path (Split-Path -Parent $RepoDir) -Force | Out-Null
+    Invoke-Checked 'git' @('clone', '--branch', 'main', $RepoUrl, $RepoDir)
   } elseif (Test-Path $RepoDir) {
     $entries = Get-ChildItem -Force $RepoDir
     if ($entries.Count -gt 0) { throw "Refusing to overwrite non-Git directory: $RepoDir" }
@@ -53,10 +55,7 @@ function Clone-Or-Update {
     New-Item -ItemType Directory -Path (Split-Path -Parent $RepoDir) -Force | Out-Null
     Invoke-Checked 'git' @('clone', $RepoUrl, $RepoDir)
   }
-  if ($CanaryRef) {
-    Invoke-Checked 'git' @('-C', $RepoDir, 'fetch', '--tags', '--prune', 'origin')
-    Invoke-Checked 'git' @('-C', $RepoDir, 'checkout', '--detach', $CanaryRef)
-  }
+  # CANARY_REF and CANARY_CHANNEL are resolved by the transactional Node installer.
 }
 function Install-Canary {
   $installer = Join-Path $RepoDir 'scripts\install-global.mjs'

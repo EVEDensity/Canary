@@ -47,6 +47,8 @@ curl -fsSL https://raw.githubusercontent.com/EVEDensity/Canary/main/scripts/inst
 
 安装后新开终端，在项目目录或其子目录执行，无需 Canary 配置：
 
+默认使用稳定版，设置 `CANARY_CHANNEL=main` 可使用开发版。通过 `canary upgrade` 升级，`canary upgrade --rollback` 恢复上一版本，`canary installation --json` 查看实际安装提交。
+
 ```bash
 canary run --ci                  # 自动识别并执行项目检查
 canary run --port 4318 --no-open  # 展示交互式报告

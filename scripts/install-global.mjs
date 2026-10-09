@@ -1,145 +1,136 @@
 #!/usr/bin/env node
-import { spawnSync } from "node:child_process";
-import {
-  chmodSync,
-  existsSync,
-  mkdirSync,
-  readFileSync,
-  writeFileSync,
-  copyFileSync,
-  renameSync,
-  rmSync,
-} from "node:fs";
-import { createHash } from "node:crypto";
-import { homedir, platform } from "node:os";
-import { dirname, join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { existsSync, mkdirSync, readFileSync, cpSync, realpathSync, appendFileSync } from "node:fs";
+import { randomUUID } from "node:crypto";
+import { homedir } from "node:os";
+import { dirname, join, resolve, relative } from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
+import { runCommand } from "./lib/command-runner.mjs";
+import { publishInstallation, validateInstallation } from "./lib/install-state.mjs";
 
-import { writeSourceLauncher } from "./source-launcher.mjs";
-
-const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const isWin = platform() === "win32";
-const binDir = isWin
-  ? join(process.env.LOCALAPPDATA ?? join(homedir(), "AppData", "Local"), "canary", "bin")
-  : join(homedir(), ".local", "bin");
-const metaDir = join(homedir(), ".canary");
-const homeFile = join(metaDir, "home.json");
-const expectedNodeMajor = 24;
-const migrationVersion = 2;
-const requestedRef = process.env.CANARY_REF?.trim();
-const expectedPnpm = "10.15.0";
-const workingTree = process.argv.includes("--working-tree");
-if (process.argv.slice(2).some((arg) => arg !== "--working-tree"))
-  fail("Unknown installation option. Supported: --working-tree");
-if (workingTree && requestedRef) fail("--working-tree cannot be combined with CANARY_REF.");
-let sourceDirty = false;
-let pinnedPnpm = false;
-
-function fail(message) {
-  console.error(`Canary installation failed: ${message}`);
-  process.exit(1);
-}
-function run(command, args) {
-  if (command === "pnpm" && pinnedPnpm) {
-    command = "npm";
-    args = ["exec", "--yes", "--package", `pnpm@${expectedPnpm}`, "--", "pnpm", ...args];
-  }
-  const result = spawnSync(command, args, { cwd: repoRoot, stdio: "inherit", shell: isWin });
-  if (result.status !== 0) fail(`${command} ${args.join(" ")} exited with ${result.status ?? 1}`);
-}
-function probe(command, args) {
-  return spawnSync(command, args, { cwd: repoRoot, stdio: "pipe", shell: isWin, encoding: "utf8" });
-}
-function ensureRuntime() {
-  if (Number(process.versions.node.split(".")[0]) < expectedNodeMajor) {
-    fail(`Node.js ${expectedNodeMajor}+ is required; found ${process.versions.node}.`);
-  }
-  const git = probe("git", ["--version"]);
-  if (git.status !== 0) fail("Git is required but was not found on PATH.");
-  const pnpm = probe("pnpm", ["--version"]);
-  if (pnpm.status !== 0 || pnpm.stdout.trim() !== expectedPnpm) {
-    if (probe("npm", ["--version"]).status !== 0) fail("npm is required to prepare the pinned build runtime.");
-    pinnedPnpm = true;
-    console.log(`Using pnpm ${expectedPnpm} through npm exec for this installation.`);
-  }
-}
-function assertCheckout() {
-  const gitDir = join(repoRoot, ".git");
-  if (!existsSync(gitDir)) fail(`installation root is not a Git checkout: ${repoRoot}`);
-  const status = probe("git", ["status", "--porcelain"]);
-  if (status.status !== 0) fail("could not inspect the Git checkout.");
-  sourceDirty = Boolean(status.stdout.trim());
-  if (sourceDirty && !workingTree)
-    fail(
-      `refusing to install a dirty checkout: ${repoRoot}. To deliberately install this working tree, pass --working-tree.`,
-    );
-}
-function resolveRef() {
-  const r = probe("git", ["rev-parse", "--verify", requestedRef ? `${requestedRef}^{commit}` : "HEAD"]);
-  if (r.status !== 0) fail(`CANARY_REF is invalid or unavailable: ${requestedRef}`);
-  return r.stdout.trim();
-}
-function addToPath() {
-  if (isWin) {
-    const escaped = binDir.replace(/'/g, "''");
-    const script = `$bin='${escaped}'; $path=[Environment]::GetEnvironmentVariable('Path','User'); if ($null -eq $path) { $path='' }; if (($path -split ';') -notcontains $bin) { [Environment]::SetEnvironmentVariable('Path', (($path.TrimEnd(';') + ';' + $bin).Trim(';')), 'User') }`;
-    const result = spawnSync("powershell", ["-NoProfile", "-Command", script], { stdio: "inherit" });
-    if (result.status !== 0)
-      console.warn(`Could not update PATH automatically. Add this folder manually:\n  ${binDir}`);
-    return;
-  }
-  const rc = join(homedir(), ".profile");
-  const line = `export PATH="${binDir}:$PATH"`;
-  const current = readFileIfExists(rc);
-  if (!current.includes(line)) writeFileSync(rc, `${current.trimEnd()}\n${line}\n`, "utf8");
-}
-function readFileIfExists(path) {
-  try {
-    return readFileSync(path, "utf8");
-  } catch {
-    return "";
-  }
-}
-function writeLauncher() {
-  writeSourceLauncher(repoRoot, binDir);
-}
-
-ensureRuntime();
-assertCheckout();
-console.log(`Installing Canary from source checkout: ${repoRoot}`);
-run("pnpm", ["install", "--frozen-lockfile"]);
-run("pnpm", ["build"]);
-const ref = resolveRef();
-mkdirSync(metaDir, { recursive: true });
-const backupDir = join(metaDir, "backups", new Date().toISOString().replace(/[:.]/g, "-"));
-mkdirSync(backupDir, { recursive: true });
-for (const file of [homeFile, join(binDir, isWin ? "canary.cmd" : "canary"), join(binDir, "canary-run.mjs")])
-  if (existsSync(file)) copyFileSync(file, join(backupDir, file.split(/[\\/]/).pop()));
-const metadata = {
-  root: repoRoot,
-  installedAt: new Date().toISOString(),
-  version: "0.1.0",
-  migrationVersion,
-  sourceInstall: true,
-  node: process.versions.node,
-  pnpm: expectedPnpm,
-  ref,
-  canaryRef: workingTree ? "working-tree" : (requestedRef ?? "HEAD"),
-  sourceDirty,
-  cliHash: createHash("sha256")
-    .update(readFileSync(join(repoRoot, "packages/cli/dist/index.js")))
-    .digest("hex"),
-  binDir,
+const source = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const metaDir = resolve(process.env.CANARY_INSTALL_HOME ?? join(homedir(), ".canary"));
+const binDir = resolve(
+  process.env.CANARY_BIN_DIR ??
+    (process.platform === "win32"
+      ? join(process.env.LOCALAPPDATA ?? join(homedir(), "AppData/Local"), "canary/bin")
+      : join(homedir(), ".local/bin")),
+);
+const working = process.argv.includes("--working-tree"),
+  channel = process.env.CANARY_CHANNEL ?? "stable",
+  ref = process.env.CANARY_REF?.trim();
+const invoke = (command, args, cwd = source, capture = false) => {
+  const result = runCommand(command, args, {
+    cwd,
+    encoding: "utf8",
+    stdio: capture ? "pipe" : "inherit",
+    timeout: 600000,
+  });
+  if (result.status !== 0)
+    throw new Error(`Installation command ${command} failed; previous installation was retained`);
+  return result.stdout?.trim() ?? "";
 };
-writeFileSync(homeFile + ".tmp", JSON.stringify(metadata, null, 2), "utf8");
-writeLauncher();
-const launcher = join(binDir, isWin ? "canary.cmd" : "canary");
-if (!existsSync(launcher) || !existsSync(join(binDir, "canary-run.mjs"))) {
-  if (existsSync(homeFile)) copyFileSync(join(backupDir, "home.json"), homeFile);
-  fail("installation state validation failed");
+try {
+  if (
+    process.argv.slice(2).some((arg) => arg !== "--working-tree") ||
+    !["stable", "main"].includes(channel) ||
+    (working && ref)
+  )
+    throw new Error("Choose stable/main or an explicit ref; --working-tree cannot be combined with a ref");
+  if (Number(process.versions.node.split(".")[0]) < 24) throw new Error("Node.js 24 or later is required");
+  const dirty = invoke("git", ["status", "--porcelain"], source, true) !== "";
+  if (dirty && !working)
+    throw new Error("Refusing to install an uncommitted checkout; use --working-tree deliberately");
+  const tags = invoke(
+    "git",
+    ["for-each-ref", "--sort=-version:refname", "--format=%(refname:short)", "refs/tags"],
+    source,
+    true,
+  ).split(/\r?\n/);
+  const selected = working
+    ? "HEAD"
+    : (ref ?? (channel === "main" ? "origin/main" : tags.find((tag) => /^v\d+\.\d+\.\d+$/.test(tag))));
+  if (!selected || selected.startsWith("-"))
+    throw new Error("No stable release tag is available; choose CANARY_CHANNEL=main explicitly");
+  const commit = invoke("git", ["rev-parse", "--verify", `${selected}^{commit}`], source, true);
+  mkdirSync(join(metaDir, "versions"), { recursive: true });
+  const root = join(metaDir, "versions", commit.slice(0, 12) + "-" + randomUUID());
+  if (working) {
+    cpSync(source, root, {
+      recursive: true,
+      filter: (path) =>
+        !relative(source, path)
+          .split(/[\\/]/)
+          .some((part) => [".git", ".canary", "node_modules", "dist", ".venv"].includes(part)),
+    });
+    invoke("git", ["init", "-q"], root);
+    if (process.platform === "win32") invoke("git", ["config", "core.longpaths", "true"], root);
+    invoke(
+      "git",
+      ["-c", "protocol.file.allow=always", "fetch", "--no-tags", "--depth=1", pathToFileURL(source).href, commit],
+      root,
+    );
+    invoke("git", ["reset", "--mixed", commit], root);
+  } else {
+    mkdirSync(root);
+    invoke("git", ["init", "-q"], root);
+    if (process.platform === "win32") invoke("git", ["config", "core.longpaths", "true"], root);
+    invoke(
+      "git",
+      ["-c", "protocol.file.allow=always", "fetch", "--no-tags", "--depth=1", pathToFileURL(source).href, commit],
+      root,
+    );
+    invoke("git", ["checkout", "--detach", commit], root);
+  }
+  let pnpmReady = false;
+  try {
+    pnpmReady = invoke("pnpm", ["--version"], root, true) === "10.15.0";
+  } catch {
+    /* Fall back to pinned npm exec. */
+  }
+  const pnpm = (args) =>
+    pnpmReady
+      ? invoke("pnpm", args, root)
+      : invoke("npm", ["exec", "--yes", "--package", "pnpm@10.15.0", "--", "pnpm", ...args], root);
+  pnpm(["install", "--frozen-lockfile"]);
+  pnpm(["build"]);
+  const runtime = validateInstallation(root);
+  const metadata = publishInstallation({
+    root: realpathSync.native(root),
+    binDir,
+    metaDir,
+    metadata: {
+      ...runtime,
+      ref: commit,
+      commit,
+      channel: working ? "working-tree" : ref ? "pinned" : channel,
+      sourceRoot: source,
+      sourceDirty: dirty,
+      migrationVersion: 4,
+      sourceInstall: true,
+      installedAt: new Date().toISOString(),
+      node: process.versions.node,
+      pnpm: "10.15.0",
+    },
+  });
+  if (!process.env.CANARY_BIN_DIR) {
+    if (process.platform === "win32") {
+      const escaped = binDir.replaceAll("'", "''");
+      const ps = `$bin='${escaped}'; $path=[Environment]::GetEnvironmentVariable('Path','User'); if ($null -eq $path) {$path=''}; if (($path -split ';') -notcontains $bin) {[Environment]::SetEnvironmentVariable('Path',(($path.TrimEnd(';')+';'+$bin).Trim(';')),'User')}`;
+      if (runCommand("powershell", ["-NoProfile", "-Command", ps], { stdio: "inherit" }).status !== 0)
+        console.warn("Add the reported launcher directory to PATH");
+    } else {
+      const profile = join(homedir(), ".profile"),
+        shellBin = "'" + binDir.replaceAll("'", "'\\''") + "'",
+        line = "export PATH=" + shellBin + ":$PATH";
+      const text = existsSync(profile) ? readFileSync(profile, "utf8") : "";
+      if (!text.includes(line)) appendFileSync(profile, "\n" + line + "\n");
+    }
+  }
+  console.log(`Canary ${metadata.version} installed (${metadata.commit.slice(0, 12)}, ${metadata.channel})`);
+  console.log(`Launcher: ${join(binDir, process.platform === "win32" ? "canary.cmd" : "canary")}`);
+  console.log("Open a new terminal, enter your project, then run: canary run --ci");
+  console.log("Interactive report: canary run --port 4318");
+} catch (error) {
+  console.error(error.message);
+  process.exitCode = 1;
 }
-renameSync(homeFile + ".tmp", homeFile);
-addToPath();
-console.log(`Restart the terminal to refresh PATH. Launcher: ${launcher}`);
-console.log(`Installation backup: ${backupDir}`);
-console.log(`Canary installed. Project root remains the caller's current directory; installation root is ${repoRoot}.`);
