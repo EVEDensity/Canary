@@ -98,6 +98,7 @@ it("publishes a real global entry, checks an independent project and page, and p
       cwd: nested,
       env,
       stdio: "ignore",
+      detached: process.platform !== "win32",
     });
     let data: Array<{ runId: string; status: string }> = [];
     for (let attempt = 0; attempt < 150; attempt++) {
@@ -120,8 +121,8 @@ it("publishes a real global entry, checks an independent project and page, and p
     if (child?.pid) {
       const { killProcessTree, waitForExit } = await import("@canary/isolation");
       killProcessTree(child.pid);
-      await waitForExit(child.pid);
+      expect(await waitForExit(child.pid)).toBe(true);
     }
-    rmSync(root, { recursive: true, force: true });
+    rmSync(root, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 });
   }
 }, 90000);
