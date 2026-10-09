@@ -19,6 +19,7 @@ Run checks, explore project architecture, and verify fixes with traceable eviden
 - [Architecture and CI](guides/architecture-ci.md)
 - [GitHub Actions](guides/github-actions.md)
 - [Failure reproduction](guides/reproduction.md)
+- [Repair verification](guides/repair-verification.md)
 - [Evidence integrity](guides/r3-artifact-evidence.md)
 - [Issue resolution](guides/improvement.md)
 

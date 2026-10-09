@@ -1,4 +1,8 @@
 {
+  "已验证": "Verified",
+  "修复验证": "Repair verification",
+  "回归测试修复前": "Regression before repair",
+  "修复后": "After repair",
   "展开侧边栏": "Expand sidebar",
   "折叠侧边栏": "Collapse sidebar",
   "未运行": "Not run",

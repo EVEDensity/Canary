@@ -423,3 +423,4 @@ export function linkCoverage(snapshot: StructureSnapshot, coverage: { files?: Ar
 }
 
 export * from "./analysis.js";
+export * from "./test-audit.js";
