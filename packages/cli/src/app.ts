@@ -141,7 +141,7 @@ export async function runEvaluation(input: EvaluationInput): Promise<{ runId: st
     experienceByCase.set(testCase.id, loaded);
     for (const item of loaded.loaded) {
       const prior = experienceRefs.get(item.id);
-      experienceRefs.set(item.id, { id: item.id, key: item.key, version: item.version, contentHash: item.contentHash, loadedAt: prior?.loadedAt ?? new Date().toISOString(), selection: { caseIds: [...(prior?.selection?.caseIds ?? []), testCase.id], ...input.experienceContext } });
+      experienceRefs.set(item.id, { id: item.id, key: item.key, version: item.version, contentHash: item.contentHash, loadedAt: prior?.loadedAt ?? new Date().toISOString(), selection: { caseIds: [...new Set([...(prior?.selection?.caseIds ?? []), testCase.id])], ...input.experienceContext }, delivery: { status: input.config.agent.adapter === "function" ? "selected" : "unsupported", adapter: input.config.agent.adapter } });
     }
   }
   if (input.candidateOf) input.store.update(run.runId, { candidateOf: input.candidateOf } as Partial<RunSnapshot>);
@@ -247,6 +247,20 @@ export async function runEvaluation(input: EvaluationInput): Promise<{ runId: st
         },
       }, item.testCase);
       await withWriteLock(() => {
+        const delivered = result.experienceDelivery;
+        if (input.config.agent.adapter === "function" && delivered?.status === "delivered" && delivered.adapter === "function" && delivered.deliveredAt) {
+          for (const reference of delivered.references) {
+            const selected = experienceRefs.get(reference.id);
+            if (!selected || selected.key !== reference.key || selected.version !== reference.version || selected.contentHash !== reference.contentHash || !selected.selection?.caseIds?.includes(result.caseId)) continue;
+            selected.delivery = {
+              status: "delivered", adapter: "function",
+              caseIds: [...new Set([...(selected.delivery?.caseIds ?? []), result.caseId])],
+              executionIds: [...new Set([...(selected.delivery?.executionIds ?? []), result.executionId])],
+              deliveredAt: selected.delivery?.deliveredAt ?? delivered.deliveredAt,
+            };
+          }
+          input.store.update(run.runId, { experiences: [...experienceRefs.values()] });
+        }
         if (summaries.length) input.store.setCoverage(run.runId, mergeCoverageSummaries(run.runId, summaries, input.config.features, cwd));
         if (!result.passed) input.store.update(run.runId, { status: result.failureCategory === "cancelled" ? "cancelled" : "failed" });
         if (input.consoleReporter && !input.silent) {

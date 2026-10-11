@@ -1,4 +1,5 @@
 /** Versioned future contracts. Only ProjectContext is wired into the default run path. */
+import type { RunSnapshot } from "./types.js";
 
 export const CONTRACT_VERSION = 1 as const;
 
@@ -170,14 +171,57 @@ export interface LoadedExperience {
   scope: ExperienceScope;
 }
 
-/** Audit-only reference stored on RunSnapshot; content is deliberately omitted. */
-export interface ExperienceLoadRecord {
+export interface ExperienceReference {
   id: string;
   key: string;
   version: number;
   contentHash: string;
+}
+
+/** Delivery confirms function context arguments, not whether the agent used them. */
+export interface ExperienceDeliveryEvidence {
+  status: "selected" | "delivered" | "unsupported";
+  adapter: "function" | "http" | "mcp";
+  references: ExperienceReference[];
+  deliveredAt?: string;
+}
+
+/** Audit-only selection stored on RunSnapshot; content is deliberately omitted.
+ * Legacy records without delivery evidence do not prove delivery. */
+export interface ExperienceLoadRecord extends ExperienceReference {
   loadedAt: string;
   selection?: { caseIds?: string[]; checkId?: string; checkType?: string; tool?: string; language?: string };
+  delivery?: {
+    status: ExperienceDeliveryEvidence["status"];
+    adapter: ExperienceDeliveryEvidence["adapter"];
+    caseIds?: string[];
+    executionIds?: string[];
+    deliveredAt?: string;
+  };
+}
+
+export interface ExecutionOutputCapture {
+  maxBytes: number;
+  observedBytes: number;
+  retainedBytes: number;
+  truncated: boolean;
+  stdout: string;
+  stderr: string;
+}
+
+/** New trial evidence must bind every regression execution to actual context delivery. */
+export function hasExperienceDelivery(run: Pick<RunSnapshot, "experiences" | "results">, experience: ExperienceReference, regressionCaseIds: string[], holdoutCaseIds: string[]): boolean {
+  const matches = (reference: ExperienceReference) => reference.id === experience.id && reference.key === experience.key && reference.version === experience.version && reference.contentHash === experience.contentHash;
+  const sameSet = (actual: string[] | undefined, expected: string[]) => Boolean(actual && new Set(actual).size === new Set(expected).size && expected.every((value) => actual.includes(value)));
+  const selected = run.experiences?.find(matches);
+  const delivered = selected?.delivery;
+  const regression = run.results.filter((result) => regressionCaseIds.includes(result.caseId));
+  if (!regressionCaseIds.length || !regression.length || !selected || delivered?.status !== "delivered" || delivered.adapter !== "function" || !delivered.deliveredAt) return false;
+  if (new Set(regression.map((result) => result.executionId)).size !== regression.length) return false;
+  if (!sameSet(selected.selection?.caseIds, regressionCaseIds) || !sameSet(delivered.caseIds, regressionCaseIds) || !sameSet(delivered.executionIds, regression.map((result) => result.executionId))) return false;
+  if (!regressionCaseIds.every((caseId) => regression.some((result) => result.caseId === caseId))) return false;
+  if (!regression.every((result) => result.experienceDelivery?.status === "delivered" && result.experienceDelivery.adapter === "function" && result.experienceDelivery.deliveredAt && result.experienceDelivery.references.some(matches))) return false;
+  return run.results.every((result) => (!holdoutCaseIds.includes(result.caseId) && regressionCaseIds.includes(result.caseId)) || !result.experienceDelivery?.references.some((reference) => reference.id === experience.id));
 }
 
 export interface ActivationRecord {

@@ -26,12 +26,15 @@
 - **Failure diagnosis** — Inspect categorized issues, redacted logs and source locations. Link original failures to reruns and before/after comparisons.
 - **Coverage navigation** — Map collected line, function and branch coverage to structure nodes and locate verification gaps.
 - **Traceable evidence** — Connect code versions, check results and execution history through manifests, content hashes and run lineage.
+- **Agent workflows** — Install the official project Skill and expose bounded diagnosis and verification tools through the CLI or MCP.
 
 See the [support scope](docs/guides/support-matrix.md).
 
 ## Quick start
 
 Use **Node.js 24 and Git**, then run one installation command for your platform:
+
+Canary is delivered through GitHub source and Releases. The installer builds a selected source version; no npm publication or npm account is required.
 
 **Windows / PowerShell**
 
@@ -64,6 +67,19 @@ Use the [GitHub Action](docs/guides/github-actions.md) for commit-bound PR summa
 
 Automatic discovery uses your existing checks. Configure custom commands, timeouts and coverage using the [configuration guide](docs/guides/r4-project-checks.md). Artifacts belong to the project’s `.canary/` directory; add it to `.gitignore`.
 
+## Agent integration
+
+Install the official verification Skill from your project or a subdirectory:
+
+```bash
+canary skill install
+canary skill status --json
+```
+
+The default destination is `.agents/skills/canary-verify`. Managed updates, conflict protection, rollback and removal use the current Node runtime. The Skill guides the current task's checks and evidence; it grants no extra source, network or merge permission. See the [Skill guide](docs/guides/skills.md) for alternate project directories and the GitHub Release ZIP. Client discovery and invocation have not been tested across every Agent Skills client.
+
+Use the [CLI guide](docs/guides/cli.md) for diagnosis, reproduction and verification, or the [MCP guide](docs/guides/mcp.md) to connect a host to one trusted project. Reviewed project experiences track selection separately from delivery to function adapter context. Delivery does not establish that the agent used the guidance or improved; HTTP and MCP adapters do not inject that context. See [project experience](docs/guides/r8-project-experience.md).
+
 ## Why Canary?
 
 The name comes from the canary in the coal mine: an early warning signal. Canary brings that idea to software—run checks early, make failures visible, and verify fixes with traceable evidence.
@@ -75,12 +91,13 @@ The name comes from the canary in the coal mine: an early warning signal. Canary
 - [Installation & setup](docs/guides/getting-started.md) · [Project checks](docs/guides/r4-project-checks.md)
 - [Evaluation & coverage](docs/guides/evaluation-and-coverage.md) · [Architecture & CI](docs/guides/architecture-ci.md)
 - [GitHub Actions](docs/guides/github-actions.md) · [Failure reproduction](docs/guides/reproduction.md)
+- [Official Skill](docs/guides/skills.md) · [CLI](docs/guides/cli.md) · [MCP](docs/guides/mcp.md)
 - [Adapters](docs/guides/adapters-and-environment.md) · [Repository layout](docs/guides/repository-layout.md)
 - [Contributing](CONTRIBUTING.md) · [Translations](docs/guides/localization.md) · [Security policy](SECURITY.md)
 
 Add a language with `pnpm i18n:add <locale>` and validate it with `pnpm i18n:check`. Complete, reviewed resources appear automatically in the language menu after merging.
 
-Issues, documentation improvements and code contributions are welcome. Upcoming work focuses on PR diagnosis, repair verification and change verification gaps. See the [roadmap](docs/roadmap/README.md).
+Issues, documentation improvements and code contributions are welcome. R22–R24 add trusted evidence/state handling, official Skill delivery and unified CLI/MCP verification entry points. R25–R30 remain planned; see the [roadmap](docs/roadmap/README.md).
 
 ## License
 

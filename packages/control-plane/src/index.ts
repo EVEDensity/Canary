@@ -1,6 +1,7 @@
 ﻿import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import type { ActiveExperiencePointer, AuthorizationRecord, ExperienceRecord, RunSnapshot } from "@canary/core";
+import type { ActiveExperiencePointer, AuthorizationRecord, ExperienceLoadRecord, ExperienceRecord, ExperienceReference, RunSnapshot } from "@canary/core";
+import { hasExperienceDelivery } from "@canary/core";
 import { FileArtifactRepository, redactValue } from "@canary/trace";
 import { assessSoftTrial, compareRuns, isHoldoutCase, softTrialDatasetIdentity, type SoftTrialRecord } from "@canary/improvement";
 import { ExperienceStore, experienceIdentityHash, validateExperienceInput } from "@canary/experience";
@@ -87,6 +88,37 @@ function publicEvidence<T>(value: T, key = ""): T {
     return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, publicEvidence(v, k)])) as T;
   return value;
 }
+function sameExperience(reference: ExperienceReference, experience: ExperienceReference): boolean {
+  return reference.id === experience.id && reference.key === experience.key && reference.version === experience.version && reference.contentHash === experience.contentHash;
+}
+function contextDelivery(run: RunSnapshot, reference: ExperienceLoadRecord) {
+  const delivery = reference.delivery;
+  if (!delivery) return { status: "unknown" as const };
+  if (delivery.status === "unsupported" && delivery.adapter !== "function") return { status: "unsupported" as const };
+  if (delivery.status === "selected") return { status: "selected" as const };
+  const verified = delivery.status === "delivered" && delivery.adapter === "function" ? run.results.filter((result) =>
+    delivery.executionIds?.includes(result.executionId) && delivery.caseIds?.includes(result.caseId) &&
+    result.experienceDelivery?.status === "delivered" && result.experienceDelivery.adapter === "function" && result.experienceDelivery.deliveredAt &&
+    result.experienceDelivery.references.some((item) => sameExperience(item, reference)),
+  ) : [];
+  if (!verified.length) return { status: "unknown" as const };
+  return {
+    status: hasExperienceDelivery(run, reference, reference.selection?.caseIds ?? [], []) ? "delivered" as const : "partial" as const,
+    verified: { caseIds: [...new Set(verified.map((result) => result.caseId))], executionIds: verified.map((result) => result.executionId) },
+  };
+}
+function experienceReferences(run: RunSnapshot) {
+  return (run.experiences ?? []).map((reference) => {
+    const delivery = contextDelivery(run, reference);
+    return {
+      id: reference.id, version: reference.version, contentHash: reference.contentHash,
+      selection: reference.selection ?? null,
+      deliveryStatus: delivery.status,
+      ...(reference.delivery ? { delivery: reference.delivery } : {}),
+      ...(delivery.verified ? { verifiedDelivery: delivery.verified } : {}),
+    };
+  });
+}
 const ACTIONS: Action[] = [
   "audit.reconcile",
   "anchor.create",
@@ -166,7 +198,10 @@ export class ControlPlane {
     return run;
   }
   private pointer(): ActiveExperiencePointer | undefined {
-    return this.get(".canary/experiences/active.json");
+    if (!existsSync(this.path(".canary/experiences"))) return undefined;
+    const store = new ExperienceStore(this.path(".canary/experiences"));
+    const pointer = store.activePointer(this.projectRoot);
+    return existsSync(this.path(".canary/experiences/active.json")) ? pointer : undefined;
   }
   private trial(id: string): SoftTrialRecord {
     const t = this.get<SoftTrialRecord>(this.artifactRoot, "soft-trials", safeId(id), "trial.json");
@@ -177,7 +212,8 @@ export class ControlPlane {
     return t;
   }
   private experience(id: string): ExperienceRecord {
-    const e = this.get<ExperienceRecord>(".canary/experiences/records", `${safeId(id)}.json`);
+    assert(existsSync(this.path(".canary/experiences")), "Experience not found", 404);
+    const e = new ExperienceStore(this.path(".canary/experiences")).get(safeId(id));
     assert(e && e.projectRoot === this.projectRoot && e.id === id, "Experience not found or wrong project", 404);
     return e;
   }
@@ -273,7 +309,7 @@ export class ControlPlane {
       state = this.state();
     const trials = this.nested<SoftTrialRecord>(resolve(this.artifactRoot, "soft-trials"), "trial.json");
     const candidates = this.nested<CandidateManifest>(".canary/candidates", "manifest.json");
-    const experiences = this.jsonFiles<ExperienceRecord>(".canary/experiences/records");
+    const experiences = existsSync(this.path(".canary/experiences")) ? new ExperienceStore(this.path(".canary/experiences")).list() : [];
     const journals = this.jsonFiles<ApplyJournal>(".canary/apply");
     const authorizations = this.jsonFiles<AuthorizationRecord>(".canary/policy/authorizations");
     const loop = this.loop();
@@ -319,12 +355,8 @@ export class ControlPlane {
         baselineRunId: r.candidateOf ?? r.replayOf ?? null,
         quality: quality(r),
         measured: { completed: r.completedCases, total: r.totalCases, passed: r.passedCases },
-        loadedExperiences: (r.experiences ?? []).map((e) => ({
-          id: e.id,
-          version: e.version,
-          contentHash: e.contentHash,
-          selection: e.selection ?? null,
-        })),
+        experienceReferences: experienceReferences(r),
+        loadedExperiences: experienceReferences(r).filter((reference) => reference.deliveryStatus === "delivered"),
         agentClaims: { status: "not_used_as_evidence", count: r.results.filter((x) => x.output !== undefined).length },
         admission:
           r.candidateOf && runs.some((b) => b.runId === r.candidateOf)
@@ -344,6 +376,11 @@ export class ControlPlane {
         datasetIdentity: t.datasetIdentity,
         regressionCaseIds: t.regressionCaseIds,
         holdoutCaseIds: t.holdoutCaseIds,
+        deliveryVerified: (() => {
+          const candidate = runs.find((run) => run.runId === t.validation?.candidateRunId);
+          const experience = experiences.find((record) => record.id === t.experienceId && record.contentHash === t.experienceContentHash);
+          return Boolean(candidate && experience && hasExperienceDelivery(candidate, experience, t.regressionCaseIds, t.holdoutCaseIds));
+        })(),
         comparison: (() => {
           const report = this.get<{ verdict?: string; improvements?: string[]; regressions?: string[]; completeness?: { passed?: boolean; reasons?: string[] } }>(this.artifactRoot, "soft-trials", safeId(t.id), "comparison.json");
           return report ? { verdict: report.verdict, improvements: report.improvements ?? [], regressions: report.regressions ?? [], completeness: report.completeness ?? null } : null;
@@ -366,7 +403,14 @@ export class ControlPlane {
       activeVersions: journals
         .filter((j) => j.status === "applied")
         .map((j) => ({ journalId: j.id, candidateId: j.candidateId, hash: j.approvedHash, appliedAt: j.appliedAt })),
-      experiences: experiences.map((e) => ({
+      experiences: experiences.map((e) => {
+        const selectedRun = runs.find((run) => run.experiences?.some((reference) => sameExperience(reference, e)));
+        const deliveredRun = runs.find((run) => {
+          const reference = run.experiences?.find((item) => sameExperience(item, e));
+          return reference && contextDelivery(run, reference).status === "delivered";
+        });
+        const selectedReference = selectedRun?.experiences?.find((reference) => sameExperience(reference, e));
+        return {
         id: e.id,
         key: e.key,
         version: e.version,
@@ -378,8 +422,11 @@ export class ControlPlane {
         provenance: e.provenance ?? null,
         limitations: e.limitations ?? [],
         validation: e.validation ?? null,
-        lastLoadedRunId: runs.find((r) => r.experiences?.some((item) => item.id === e.id && item.contentHash === e.contentHash))?.runId ?? null,
-      })),
+        lastSelectedRunId: selectedRun?.runId ?? null,
+        lastDeliveredRunId: deliveredRun?.runId ?? null,
+        lastLoadedRunId: deliveredRun?.runId ?? null,
+        latestDeliveryStatus: selectedRun && selectedReference ? contextDelivery(selectedRun, selectedReference).status : "unrecorded",
+      }; }),
       activeExperience: this.pointer() ?? null,
       loop: loop
         ? {
@@ -641,6 +688,7 @@ export class ControlPlane {
           "Independent comparison no longer passes",
         );
         const checkedExperience = validateExperienceInput(experience);
+        assert(hasExperienceDelivery(candidateRun, experience, trial.regressionCaseIds, trial.holdoutCaseIds), "Candidate experience has no verified function context delivery only for regression cases");
         if (experience.provenance) {
           const source = experience.provenance;
           const repository = new FileArtifactRepository(this.artifactRoot);
@@ -648,8 +696,6 @@ export class ControlPlane {
           const sourceRun = sourceIntegrity.status === "verified" && sourceIntegrity.manifestHash === source.manifestHash ? this.run(source.runId) : undefined;
           const check = sourceRun?.checks?.find((item) => item.id === source.checkId);
           assert(check?.type === "agent" && check.childRun?.runId === trial.baselineRunId, "Project candidate source is no longer verified");
-          const loaded = candidateRun.experiences?.find((item) => item.id === experience.id && item.version === experience.version && item.contentHash === experience.contentHash);
-          assert(loaded && trial.regressionCaseIds.every((caseId) => loaded.selection?.caseIds?.includes(caseId)) && trial.holdoutCaseIds.every((caseId) => !loaded.selection?.caseIds?.includes(caseId)), "Project candidate was not independently loaded only for regression cases");
         }
         assert(
           checkedExperience.valid &&

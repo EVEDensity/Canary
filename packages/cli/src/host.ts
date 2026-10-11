@@ -1,8 +1,8 @@
 import { createHash } from "node:crypto";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
-import type { ProjectContext, RunSnapshot } from "@canary/core";
-import { FileArtifactRepository } from "@canary/trace";
+import type { ProjectContext, RunSnapshot, ExperienceDeliveryEvidence } from "@canary/core";
+import { FileArtifactRepository, redactValue } from "@canary/trace";
 
 export const HOST_PROTOCOL_VERSION = 1 as const;
 
@@ -44,7 +44,10 @@ export interface HostEvidenceOutput {
     assertions: Array<{ id: string; passed: boolean; message?: string }>;
     metrics?: { latencyMs: number; steps: number; toolCalls: number; budgetUsed?: number };
     traceEventTypes: string[];
+    experienceDelivery?: ExperienceDeliveryEvidence;
   }>;
+  checks?: Array<{ reference: { runId: string; checkId: string }; status: string; category: string; required: boolean; exitCode: number; outputTruncated: boolean; diagnosticExcerpt: string }>;
+  checkPage?: { offset: number; returned: number; total: number; nextOffset: number | null };
   bounds: {
     maxCases: number;
     maxEventsPerCase: number;
@@ -69,7 +72,7 @@ export interface HostProposalValidation {
   v: typeof HOST_PROTOCOL_VERSION;
   kind: "canary.host.proposal-validation";
   valid: boolean;
-  status: "recorded_unapproved" | "rejected";
+  status: "validated_unapproved" | "recorded_unapproved" | "rejected";
   proposalId?: string;
   runId?: string;
   caseRefs?: string[];
@@ -117,11 +120,14 @@ function boundedPositiveInteger(value: number | undefined, fallback: number, max
 }
 
 export function hostEvidenceOutput(
-  run: RunSnapshot,
-  options: { caseId?: string; maxCases?: number; maxEventsPerCase?: number } = {},
+  input: RunSnapshot,
+  options: { caseId?: string; maxCases?: number; maxEventsPerCase?: number; maxChecks?: number; checkOffset?: number } = {},
 ): HostEvidenceOutput {
+  const run = redactValue(input, { maxStringLength: Infinity }) as RunSnapshot;
   const maxCases = boundedPositiveInteger(options.maxCases, 8, 32);
   const maxEventsPerCase = boundedPositiveInteger(options.maxEventsPerCase, 16, 64);
+  const maxChecks = boundedPositiveInteger(options.maxChecks, 16, 32), checkOffset = options.checkOffset ?? 0;
+  if (!Number.isInteger(checkOffset) || checkOffset < 0 || checkOffset > 1_000_000) throw new Error("Invalid check offset");
   const selected = options.caseId ? run.results.filter((result) => result.caseId === options.caseId) : run.results;
   if (options.caseId && selected.length === 0) throw new Error(`Case not found in run ${run.runId}: ${options.caseId}`);
   return {
@@ -153,7 +159,16 @@ export function hostEvidenceOutput(
       })),
       ...(result.metrics ? { metrics: result.metrics } : {}),
       traceEventTypes: (result.trajectory?.events ?? []).slice(0, maxEventsPerCase).map((event) => event.type),
+      ...(result.experienceDelivery ? { experienceDelivery: result.experienceDelivery } : {}),
     })),
+    ...(run.checks ? {
+      checks: run.checks.slice(checkOffset, checkOffset + maxChecks).map(check => ({
+        reference: { runId: run.runId, checkId: check.id }, status: check.status, category: check.category,
+        required: check.required, exitCode: check.exitCode, outputTruncated: Boolean(check.outputTruncated),
+        diagnosticExcerpt: String(redactValue(check.stderr || check.stdout || "", { maxStringLength: Infinity })).slice(0, 3000),
+      })),
+      checkPage: { offset: checkOffset, returned: run.checks.slice(checkOffset, checkOffset + maxChecks).length, total: run.checks.length, nextOffset: checkOffset + maxChecks < run.checks.length ? checkOffset + maxChecks : null },
+    } : {}),
     bounds: {
       maxCases,
       maxEventsPerCase,
@@ -204,14 +219,14 @@ export function validateHostProposal(value: unknown, run: RunSnapshot): HostProp
       }
     });
   }
-  const knownCaseIds = new Set(run.results.map((result) => result.caseId));
+  const knownCaseIds = new Set([...run.results.map((result) => result.caseId), ...(run.checks ?? []).map(check => check.id)]);
   for (const caseId of caseRefs) if (!knownCaseIds.has(caseId)) errors.push(`caseRefs includes unknown case: ${caseId}`);
   if (Array.isArray(value.observations)) {
     for (const observation of value.observations) {
       if (isRecord(observation) && typeof observation.caseId === "string" && !caseRefs.includes(observation.caseId)) errors.push(`observations references a case not declared in caseRefs: ${observation.caseId}`);
     }
   }
-  if (run.status !== "completed") errors.push(`Run ${run.runId} is ${run.status}, not completed`);
+  if (!["completed", "failed"].includes(run.status)) errors.push(`Run ${run.runId} is ${run.status}, not a terminal checked run`);
   if (errors.length) return rejected(errors);
 
   const proposal: HostProposal = {
@@ -229,7 +244,7 @@ export function validateHostProposal(value: unknown, run: RunSnapshot): HostProp
     v: HOST_PROTOCOL_VERSION,
     kind: "canary.host.proposal-validation",
     valid: true,
-    status: "recorded_unapproved",
+    status: "validated_unapproved",
     proposalId,
     runId: proposal.runId,
     caseRefs: proposal.caseRefs,
@@ -262,19 +277,28 @@ export function validateHostProposalFile(proposalPath: string, run: RunSnapshot,
   } catch (error) {
     return rejected([`Proposal file is not valid JSON: ${error instanceof Error ? error.message : String(error)}`]);
   }
+  return recordHostProposal(raw, run, artifactRoot);
+}
+
+/** Validation alone never claims persistence. Recording updates the sealed artifact manifest. */
+export function recordHostProposal(raw: unknown, run: RunSnapshot, artifactRoot: string): HostProposalValidation {
   const validation = validateHostProposal(raw, run);
   if (!validation.valid) return validation;
-  const artifactPath = resolve(artifactRoot, run.runId, "host-proposal.json");
+  const repository = new FileArtifactRepository(artifactRoot);
+  if (repository.verify(run.runId).status !== "verified") return rejected(["A sealed source run is required to record a proposal"]);
+  const name = `host-${validation.proposalId}.json`;
+  const artifactPath = resolve(artifactRoot, run.runId, name);
+  if (repository.readJson(run.runId, name)) return { ...validation, status: "recorded_unapproved", artifactPath };
   const record = {
     proposalId: validation.proposalId,
     proposal: raw,
     validation: {
       valid: true,
-      status: validation.status,
+      status: "recorded_unapproved",
       recordedAt: new Date().toISOString(),
       approval: validation.approval,
     },
   };
-  new FileArtifactRepository(artifactRoot).writeJson(run.runId, "host-proposal.json", record);
-  return { ...validation, artifactPath };
+  repository.writeJson(run.runId, name, record);
+  return { ...validation, status: "recorded_unapproved", artifactPath };
 }

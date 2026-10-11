@@ -10,7 +10,7 @@ pnpm logs:status
 pnpm logs:prune
 ```
 
-`test:quick` 只验证日志路径、退出码、脱敏、限量和清理边界，通常几秒完成，不调用模型。完整测试仍是 `pnpm test`，结果自动保存到 `.canary/logs/tests/<时间-随机ID>/`。验收入口保存到 `.canary/logs/verification/<阶段>/<时间-随机ID>/`。终端会打印本次目录。
+`test:quick` 保留日志路径、退出码、脱敏、限量和清理边界测试，并实际验证官方 Skill 的安装、重复安装、更新、冲突保护、回滚和移除，通常几秒完成，不调用模型。完整测试仍是 `pnpm test`，结果自动保存到 `.canary/logs/tests/<时间-随机ID>/`；快速测试保存到 `.canary/logs/quick/<时间-随机ID>/`。验收入口保存到 `.canary/logs/verification/<阶段>/<时间-随机ID>/`。终端会打印本次目录。
 
 stdout/stderr 分别保存开头、错误附近与末尾上下文，每流少于 70,000 字符；日志说明是否省略了中间输出。终端输出保持原样，落盘内容先脱敏。结束时保存最终日志；强制杀进程可能只留下 running 记录及锁，不能视为通过。
 

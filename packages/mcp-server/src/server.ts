@@ -20,7 +20,7 @@ import {
   type JsonRpcRequest,
   type JsonRpcResponse,
 } from "./protocol.js";
-import { isCanaryTool, parseEvidenceArgs, parseProposalArgs, parseRunArgs, parseStructureArgs, toolList, type CanaryMcpPorts } from "./tools.js";
+import { isCanaryTool, parseEvidenceArgs, parseProposalArgs, parseRunArgs, parseStructureArgs, parseVerificationArgs, parseOperationArgs, toolList, type CanaryMcpPorts } from "./tools.js";
 
 export interface CanaryMcpServerOptions {
   token: string;
@@ -240,6 +240,18 @@ export class CanaryMcpServer {
     }
     if (params.name === "canary.structure") {
       return toolContent(this.ports.structure(parseStructureArgs(args)));
+    }
+    if (params.name === "canary.diagnostics") {
+      if (!this.ports.diagnostics) throw new Error("Diagnostics are unavailable in this binding");
+      return toolContent(this.ports.diagnostics(parseEvidenceArgs(args, "canary.diagnostics")));
+    }
+    if (params.name === "canary.verification") {
+      if (!this.ports.verification) throw new Error("Verification evidence is unavailable in this binding");
+      return toolContent(await this.ports.verification(parseVerificationArgs(args)));
+    }
+    if (["canary.reproduce", "canary.repair_verify", "canary.change_verify"].includes(params.name)) {
+      if (!this.ports.executeVerification) throw new Error("Verification execution is unavailable in this binding");
+      return toolContent(await this.ports.executeVerification(parseOperationArgs(params.name, args), signal));
     }
     return toolContent(this.ports.submitProposal(parseProposalArgs(args)));
   }
