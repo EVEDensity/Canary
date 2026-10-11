@@ -67,7 +67,7 @@ export async function runCheckProcess(
       detached: process.platform !== "win32",
       stdio: ["ignore", "pipe", "pipe"],
     });
-    const stdout = new DiagnosticOutput(env), stderr = new DiagnosticOutput(env);
+    const stdout = new DiagnosticOutput(env, args), stderr = new DiagnosticOutput(env, args);
     let readiness = "", ready = false,
       done = false;
     const finish = (outcome: CheckOutcome): void => {

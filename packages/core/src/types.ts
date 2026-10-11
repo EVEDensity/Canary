@@ -1,4 +1,4 @@
-import type { ExperienceLoadRecord } from "./contracts.js";
+import type { ExecutionOutputCapture, ExperienceDeliveryEvidence, ExperienceLoadRecord } from "./contracts.js";
 import type { ArtifactOptions, RunEvidence } from "./evidence.js";
 import type { ProjectCheckResult } from "./checks.js";
 /** Domain types shared by config, runner, storage, and UI. Mechanical split from the former barrel. */
@@ -298,6 +298,8 @@ export interface EvalResult {
   stateDiff?: StateDiff;
   createdAt?: string;
   sourceCase?: SourceCaseSnapshot;
+  experienceDelivery?: ExperienceDeliveryEvidence;
+  outputCapture?: ExecutionOutputCapture;
 }
 
 export type RunnerEvent =

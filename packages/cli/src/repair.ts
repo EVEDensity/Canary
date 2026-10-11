@@ -7,6 +7,7 @@ import { auditTestChanges } from "@canary/structure";
 import { isInsideRoot } from "./home.js";
 import { runProjectChecks } from "./project-run.js";
 import { blocked } from "./check-executor.js";
+import { baselineMatches, executionSourceReasons, sourceFingerprint } from "./source-identity.js";
 import {
   parseReproductionOptions,
   reproductionSource,
@@ -77,10 +78,15 @@ export async function repairCommand(args: string[]): Promise<number> {
     if (stableHash(candidatePlan) !== candidate.evidence.reproduction.configHash)
       throw new Error("Candidate plan mismatch");
     const candidateSource = { ...base, run: candidate, selected: candidatePlan, parentHash: integrity.manifestHash };
+    const sourceProof = (runId: string): unknown => {
+      try { return repository.readJson(runId, "execution-source.json"); } catch { return undefined; }
+    };
     const reasons = [
       ...initialConditions(base),
       ...initialConditions(candidateSource),
       ...executionConditions(candidateSource, options),
+      ...executionSourceReasons(sourceProof(baselineId), base.run, "Original"),
+      ...executionSourceReasons(sourceProof(candidateId), candidate, "Candidate"),
     ];
     for (const check of baselinePlan.checks) {
       const after = candidatePlan.checks.find((next) => next.id === check.id);
@@ -134,18 +140,20 @@ export async function repairCommand(args: string[]): Promise<number> {
         after: blob(afterSha, path),
       })),
     );
-    if (findings.length)
-      reasons.push(...findings.map((finding) => `${finding.type}: ${finding.path} (${finding.certainty})`));
+    reasons.push(...findings.filter((finding) => finding.certainty === "observed")
+      .map((finding) => `${finding.type}: ${finding.path} (${finding.certainty})`));
     const report: Record<string, unknown> = {
       v: 1,
       kind: "canary.repair-verification",
       outcome: "evidence-insufficient",
       original: { runId: baselineId, commit: beforeSha, manifestHash: base.parentHash },
       candidate: { runId: candidateId, commit: afterSha, manifestHash: integrity.manifestHash },
+      executionSources: { original: sourceProof(baselineId), candidate: sourceProof(candidateId) },
       regressionChecks: regression,
       testFiles: tests,
       changedFiles: paths,
       findings,
+      reviewRequired: findings.some((finding) => finding.certainty === "advisory"),
       reasons,
       executed: false,
       scope: "selected regression files and retained original checks; no claim of overall correctness",
@@ -161,6 +169,7 @@ export async function repairCommand(args: string[]): Promise<number> {
         runId: candidateId,
         workspace: candidateWorkspace,
       });
+    if (!baselineMatches(beforeWork.checkout, beforeSha)) throw new Error("Prepared checkout no longer matches baseline tracked inputs");
     if (options.prepare) {
       print({
         ...report,
@@ -209,6 +218,7 @@ export async function repairCommand(args: string[]): Promise<number> {
       configRoot: beforeWork.project,
       configFile: join(beforeWork.project, "canary.project.json"),
     };
+    const executionSource = sourceFingerprint(beforeWork.checkout);
     const lock = join(beforeWork.dir, "execution.lock"),
       fd = openSync(lock, "wx");
     let result;
@@ -240,11 +250,9 @@ export async function repairCommand(args: string[]): Promise<number> {
     const unchangedTests = overlays.every(
       (overlay) => stableHash(readFileSync(join(beforeWork.project, overlay.path), "utf8")) === overlay.hash,
     );
-    const unexpected = reproductionGit(beforeWork.checkout, ["diff", "--name-only", "-z"])
-      .split("\0")
-      .filter(Boolean)
-      .some((path) => !tests.includes(prefix ? path.slice(prefix.length) : path));
-    const verified = regressionFailed && unchangedTests && !unexpected && beforeIntegrity.status === "verified";
+    const observedSource = sourceFingerprint(beforeWork.checkout);
+    const sourceUnchanged = executionSource.commit === beforeSha && stableHash(executionSource) === stableHash(observedSource);
+    const verified = regressionFailed && unchangedTests && sourceUnchanged && beforeIntegrity.status === "verified";
     const receipt = {
       ...report,
       outcome: verified ? "verified" : "evidence-insufficient",
@@ -256,6 +264,9 @@ export async function repairCommand(args: string[]): Promise<number> {
         runId,
         manifestHash: beforeIntegrity.manifestHash,
         commit: beforeSha,
+        sourceUnchanged,
+        executionSource,
+        observedSource,
         testOverlay: overlays,
         sourceBasis: "baseline production source with candidate regression files",
       },
@@ -264,8 +275,8 @@ export async function repairCommand(args: string[]): Promise<number> {
     updateArtifact(join(context.artifactRoot, candidateId), "repair-verification.json", receipt);
     print(receipt);
     return verified ? 0 : 4;
-  } catch {
-    console.error("Repair evidence is unavailable or invalid; no repair verification was established");
+  } catch (error) {
+    console.error("Repair evidence is unavailable or invalid; no repair verification was established: " + String(redactValue(error instanceof Error ? error.message : "Invalid evidence", { maxStringLength: 1200 })));
     return 5;
   }
 }

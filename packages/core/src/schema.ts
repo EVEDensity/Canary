@@ -133,11 +133,16 @@ export const coverageScriptSchema = z.object({
   functions: z.array(z.any()).default([]),
 }).passthrough();
 
+const experienceReferenceSchema = z.object({ id: z.string().min(1), key: z.string().min(1), version: z.number().int().positive(), contentHash: z.string().min(1) }).strict();
+const experienceDeliverySchema = z.object({ status: z.enum(["selected", "delivered", "unsupported"]), adapter: z.enum(["function", "http", "mcp"]), references: z.array(experienceReferenceSchema), deliveredAt: z.string().optional() }).strict();
+const outputCaptureSchema = z.object({ maxBytes: z.number().int().positive(), observedBytes: z.number().int().nonnegative(), retainedBytes: z.number().int().nonnegative(), truncated: z.boolean(), stdout: z.string(), stderr: z.string() }).strict();
+
 export const childMessageSchema = z.discriminatedUnion("type", [
   z.object({ v: z.literal(IPC_PROTOCOL_VERSION), type: z.literal("ready") }),
   z.object({ v: z.literal(IPC_PROTOCOL_VERSION), type: z.literal("event"), event: trajectoryEventSchema }),
   z.object({ v: z.literal(IPC_PROTOCOL_VERSION), type: z.literal("result"), value: z.unknown() }),
   z.object({ v: z.literal(IPC_PROTOCOL_VERSION), type: z.literal("error"), error: z.string() }),
+  z.object({ v: z.literal(IPC_PROTOCOL_VERSION), type: z.literal("experiences.delivered"), references: z.array(experienceReferenceSchema), deliveredAt: z.string().min(1) }).strict(),
   z.object({
     v: z.literal(IPC_PROTOCOL_VERSION),
     type: z.literal("coverage"),
@@ -188,6 +193,8 @@ export const evalResultSchema = z.object({
   trajectoryId: z.string().optional(),
   trajectory: z.unknown().optional(),
   createdAt: z.string().optional(),
+  experienceDelivery: experienceDeliverySchema.optional(),
+  outputCapture: outputCaptureSchema.optional(),
 }).passthrough();
 
 export const runSnapshotSchema = z.object({
@@ -202,7 +209,7 @@ export const runSnapshotSchema = z.object({
   coverage: coverageSummarySchema.optional(),
   events: z.array(z.unknown()).default([]),
   improvements: z.array(z.unknown()).optional(),
-  experiences: z.array(z.object({ id: z.string().min(1), key: z.string().min(1), version: z.number().int().positive(), contentHash: z.string().min(1), loadedAt: z.string().min(1), selection: z.object({ caseIds: z.array(z.string()).optional(), checkId: z.string().optional(), checkType: z.string().optional(), tool: z.string().optional(), language: z.string().optional() }).strict().optional() }).strict()).optional(),
+  experiences: z.array(experienceReferenceSchema.extend({ loadedAt: z.string().min(1), selection: z.object({ caseIds: z.array(z.string()).optional(), checkId: z.string().optional(), checkType: z.string().optional(), tool: z.string().optional(), language: z.string().optional() }).strict().optional(), delivery: z.object({ status: z.enum(["selected", "delivered", "unsupported"]), adapter: z.enum(["function", "http", "mcp"]), caseIds: z.array(z.string()).optional(), executionIds: z.array(z.string()).optional(), deliveredAt: z.string().optional() }).strict().optional() }).strict()).optional(),
   gate: z.unknown().optional(),
   replayOf: z.string().optional(),
   recoveryOf: z.string().optional(),

@@ -36,6 +36,10 @@ function soft() {
   store.transition(exp.id, "validated");
   const baseline = fixtureRun("baseline", 1),
     candidate = fixtureRun("candidate");
+  const reference = { id: exp.id, key: exp.key, version: exp.version, contentHash: exp.contentHash };
+  const deliveredAt = candidate.startedAt;
+  candidate.results[0]!.experienceDelivery = { status: "delivered", adapter: "function", references: [reference], deliveredAt };
+  candidate.experiences = [{ ...reference, loadedAt: deliveredAt, selection: { caseIds: ["case0"] }, delivery: { status: "delivered", adapter: "function", caseIds: ["case0"], executionIds: [candidate.results[0]!.executionId], deliveredAt } }];
   atomic(join(root, ".canary/artifacts/baseline/run.json"), baseline);
   atomic(join(root, ".canary/artifacts/candidate/run.json"), candidate);
   const trial = {
@@ -107,6 +111,17 @@ function hard() {
   return { root, auth, policy, p: new ControlPlane(root) };
 }
 describe("L02 protected operations", () => {
+  it.each(["legacy", "unsupported", "missing-execution", "holdout"])("rejects false experience delivery evidence: %s", (kind) => {
+    const { p, root } = soft();
+    const file = join(root, ".canary/artifacts/candidate/run.json");
+    const candidate = JSON.parse(readFileSync(file, "utf8"));
+    if (kind === "legacy") { delete candidate.experiences[0].delivery; delete candidate.results[0].experienceDelivery; }
+    if (kind === "unsupported") { candidate.experiences[0].delivery.status = "unsupported"; candidate.experiences[0].delivery.adapter = "http"; }
+    if (kind === "missing-execution") delete candidate.results[0].experienceDelivery;
+    if (kind === "holdout") candidate.results[99].experienceDelivery = candidate.results[0].experienceDelivery;
+    atomic(file, candidate);
+    expect(() => act(p, "soft.approve", "trial", "invalid")).toThrow(/delivery/);
+  });
   it("approves independent soft evidence, revalidates on use, and revokes", () => {
     const { p, root } = soft();
     act(p, "soft.approve", "trial", "approve");

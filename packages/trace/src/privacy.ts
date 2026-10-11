@@ -21,6 +21,14 @@ export function collectSecretValues(value: unknown): string[] {
   const seen = new WeakSet<object>();
   const walk = (item: unknown, sensitive = false): void => {
     if (typeof item === "string" && sensitive && item.length >= 4 && item !== "[redacted]") found.add(item);
+    // Command arguments carry sensitivity in the preceding flag, not their object key.
+    if (Array.isArray(item)) for (const [index, arg] of item.entries()) {
+      if (typeof arg !== "string" || !arg.startsWith("-")) continue;
+      const [flag, ...inline] = arg.split("=");
+      if (!SECRET_KEY.test(flag!.replace(/^-+/, ""))) continue;
+      const secret = inline.length ? inline.join("=") : item[index + 1];
+      if (typeof secret === "string" && secret.length >= 4 && !secret.startsWith("--") && secret !== "[redacted]") found.add(secret);
+    }
     if (item && typeof item === "object" && !seen.has(item)) {
       seen.add(item);
       for (const [key, child] of Object.entries(item)) walk(child, sensitive || SECRET_KEY.test(key));

@@ -2,6 +2,8 @@
 
 Prepare Node.js 24, Git, and your project's dependencies.
 
+Canary is delivered through GitHub source and Releases. The installer builds a selected source revision; an npm publication or account is not required. Workspace tarballs are downloadable artifacts with workspace dependencies, rather than a standalone global install channel.
+
 ## Install
 
 Windows / PowerShell:
@@ -39,6 +41,8 @@ canary installation --json
 ```
 
 See [automatic checks](automatic-checks.md), [support scope](support-matrix.md) and [troubleshooting](troubleshooting.md).
+
+Install the project verification Skill with `canary skill install`, and inspect it with `canary skill status --json`. See the [Skill guide](skills.md), [CLI verification](cli.md) and [MCP host integration](mcp.md).
 
 ## Releases and upgrades
 

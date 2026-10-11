@@ -282,6 +282,24 @@ function prepare(input: Source, options: Options) {
       git(checkout, ["config", "core.autocrlf", "true"]);
       git(checkout, ["checkout", "--force", expected.commit!, "--", "."]);
     }
+    if (stableHash(projectSourceInventory(project)) !== input.run.evidence!.reproduction.sourceHash) {
+      const repository = new FileArtifactRepository(input.context.artifactRoot);
+      const inventory = repository.readJson<ReturnType<typeof projectSourceInventory>>(input.run.runId, "source-inventory.json");
+      if (inventory?.v === 1 && stableHash(inventory) === input.run.evidence!.reproduction.sourceHash && Array.isArray(inventory.files)) {
+        for (const entry of inventory.files) {
+          if (typeof entry.path !== "string" || !portable(entry.path) || !Number.isSafeInteger(entry.bytes) || entry.bytes < 0 || entry.bytes > 16_777_216 || !/^[a-f0-9]{64}$/.test(entry.sha256)) throw new Error("Invalid retained source inventory");
+          const target = resolve(project, entry.path);
+          if (!existsSync(target) || !isInsideRoot(target, project)) throw new Error("Unsafe retained source position");
+          const bytes = readFileSync(target);
+          if (sha256(bytes) === entry.sha256) continue;
+          // Restore only an exact retained hash; no heuristic normalization can authorize different source.
+          const lf = bytes.toString("utf8").replaceAll("\r\n", "\n");
+          const candidates = [Buffer.from(lf), Buffer.from(lf.replaceAll("\n", "\r\n"))];
+          const exact = candidates.find(candidate => candidate.length === entry.bytes && sha256(candidate) === entry.sha256);
+          if (exact) writeFileSync(target, exact);
+        }
+      }
+    }
     writeFileSync(join(dir, "workspace.json"), JSON.stringify(expected, null, 2), { flag: "wx", mode: 0o600 });
   }
   if (!isInsideRoot(checkout, dir)) throw new Error("Prepared checkout escapes its workspace");

@@ -13,6 +13,12 @@ For projects with dependencies, first use `--prepare` with the same regression s
 
 A verified result requires assertion failure at a regression source location on baseline code, a passing candidate, all retained original checks passing, unchanged regression bytes and no unexpected production changes during execution. The before run explicitly records its hybrid basis: baseline production source with candidate test input. Hashes and manifests link all three runs.
 
+Both original and candidate runs must retain matching execution boundary observations in sealed `execution-source.json` files. The receipt includes both under `executionSources`; missing historical proofs require fresh runs. These compare source identities before execution and after cleanup, rather than continuously monitoring every filesystem operation. Project commands remain trusted code.
+
+The restored baseline must match its recorded commit across tracked ordinary files. Verification compares tracked bytes and the Git HEAD, index, status and inventory before and after execution. Unsupported special tracked files or resource budgets prevent a `verified` result; the current budget is 10,000 tracked files, 16 MiB per file and 256 MiB total. A source mutation remains evidence insufficient even when a regression assertion fails.
+
+Git text checkout rules may change line endings. Restoration accepts a line-ending conversion only when its bytes match the sealed source-inventory hash, then checks the Git blob and index identities. Other content differences remain invalid.
+
 Deleted test files, added skip/todo/only and removed or changed checks prevent verification. Other assertion edits are review advisories, not claims about test semantics. This is bounded repair evidence, not proof of overall correctness. The workspace's evidence view links the original failure, before-regression execution and candidate.
 
 ## 中文说明

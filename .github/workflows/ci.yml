@@ -75,12 +75,16 @@ jobs:
       - run: pnpm build
       - run: pnpm typecheck
       - run: pnpm test
+      - name: Verify local logs and official Skill delivery
+        run: pnpm test:quick
       - name: Preserve failure logs
         if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: node24-failure-logs
-          path: .canary/logs/tests/
+          path: |
+            .canary/logs/tests/
+            .canary/logs/quick/
           include-hidden-files: true
           retention-days: 7
           if-no-files-found: ignore
