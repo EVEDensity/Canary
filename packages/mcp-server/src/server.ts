@@ -20,7 +20,7 @@ import {
   type JsonRpcRequest,
   type JsonRpcResponse,
 } from "./protocol.js";
-import { isCanaryTool, parseEvidenceArgs, parseProposalArgs, parseRunArgs, parseStructureArgs, parseVerificationArgs, parseRepairTaskArgs, parseOperationArgs, toolList, type CanaryMcpPorts } from "./tools.js";
+import { isCanaryTool, parseEvidenceArgs, parseProposalArgs, parseRunArgs, parseStructureArgs, parseVerificationArgs, parseRepairTaskArgs, parseMemoryArgs, parseOperationArgs, toolList, type CanaryMcpPorts } from "./tools.js";
 
 export interface CanaryMcpServerOptions {
   token: string;
@@ -249,6 +249,11 @@ export class CanaryMcpServer {
       const input = parseRepairTaskArgs(args);
       if (!this.ports.repairTask) throw new Error("Repair task evidence is unavailable in this binding");
       return toolContent(this.ports.repairTask(input));
+    }
+    if (params.name === "canary.memory") {
+      const input = parseMemoryArgs(args);
+      if (!this.ports.memory) throw new Error("Project memory is unavailable in this binding");
+      return toolContent(this.ports.memory(input));
     }
     if (params.name === "canary.verification") {
       if (!this.ports.verification) throw new Error("Verification evidence is unavailable in this binding");

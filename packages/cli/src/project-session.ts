@@ -4,6 +4,7 @@ import { FileArtifactRepository, RunStore, stableHash } from "@canary/trace";
 import { CliFailure } from "./ci.js";
 import type { CliOptions, RunCommandResult } from "./index.js";
 import { runProjectChecks } from "./project-run.js";
+import { queryProjectMemory } from "./project-memory.js";
 
 /** Fresh dependencies are rerun too; old passes are never silently reused. */
 export function selectProjectChecks(config: ProjectChecksConfig, ids: string[]): ProjectChecksConfig {
@@ -93,6 +94,7 @@ export async function runProjectSession(
   };
   const web = createWebServer(store, config.web?.host ?? "127.0.0.1", port, context.artifactRoot, {
     projectPage: true,
+    onMemoryQuery: (sourceId, checkId) => queryProjectMemory(context, { runId: sourceId, checks: checkId ? [checkId] : undefined }),
     writeToken: randomUUID(),
     onClose: () => {
       setImmediate(() => {

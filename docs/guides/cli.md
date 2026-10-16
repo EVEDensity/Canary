@@ -44,6 +44,17 @@ Reproduction previews conditions by default. Preparation creates a separate sour
 
 See [reproduction](reproduction.md), [repair verification](repair-verification.md) and [change verification](change-verification.md) for requirements and result interpretation. Project code runs with host permissions; separate processes/checkouts do not provide an operating system sandbox. Gathering verification evidence does not grant source-edit, network, publication or merge permission.
 
+## Reuse verified repair history
+
+```sh
+canary memory record <candidateRunId> --actor maintainer --reason "Reviewed regression evidence"
+canary memory query <failedRunId> --check <checkId> --max-items 5 --max-chars 8000
+canary memory list --json
+canary memory revoke <memoryId> --actor maintainer --reason "Superseded repair"
+```
+
+[Project memory](project-memory.md) rechecks sealed repair facts before recording or retrieval. `related` and `needs-revalidation` describe historical evidence, never a verified current fix. Recording accepts an expiry of 1–365 days (default 90) and requires `--ack-review` when reviewed advisories exist. Lookup is bounded, project-scoped and read-only; unavailable results have unknown counts.
+
 ## Skill and host integration
 
 ```sh

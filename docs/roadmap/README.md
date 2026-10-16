@@ -2,7 +2,7 @@
 
 Canary connects project checks, architecture, coverage and failure evidence. Distribution uses GitHub source and Releases.
 
-R16–R26 have implemented workflows within the documented support boundaries.
+R16–R27 have implemented workflows within the documented support boundaries.
 
 - **[R16 — Unified failure evidence](https://github.com/EVEDensity/Canary/issues/1):** structured diagnostics, conservative failure grouping and exportable evidence bundles.
 - **[R17 — Pull request integration](https://github.com/EVEDensity/Canary/issues/2):** CI summaries, version-bound results and optional source annotations.
@@ -16,6 +16,8 @@ R16–R26 have implemented workflows within the documented support boundaries.
 - **R25 — Controlled repair tasks:** bounded CLI/MCP handoffs bind sealed failures, source identity and declared repair scope. Candidate admission preserves original checks and requirements, reviews committed changes and test weakening, and remains separate from executed regression verification. See [repair tasks](../guides/repair-tasks.md).
 - **R26 — Change evidence and verification gaps:** `run --base` and historical analysis produce one version-bound report for CLI, MCP and workspace views. Changed execution denominators, unknown files, explicit behavior and check scope remain separate; classified gaps link to sealed source. Missing execution identity and unsupported ranges remain unknown. See [change verification](../guides/change-verification.md).
 
-**R27–R30 remain planned.** Priorities include project memory, delivery upgrades, performance/reliability and observability, and v1.0 acceptance. Scope will follow usage feedback and measured gaps.
+- **R27 — Verified project repair memory:** explicitly retain verified repair facts with an operator, reason and expiry. Project/check/source-bound retrieval rechecks sealed history, budgets context and distinguishes related history from conditions requiring revalidation. CLI recording/revocation and read-only MCP/workspace lookup remain separate from Agent experience activation. See [project memory](../guides/project-memory.md).
+
+**R28–R30 remain planned.** Priorities include delivery upgrades, performance/reliability and observability, and v1.0 acceptance. Scope will follow usage feedback and measured gaps.
 
 Contributions should preserve existing CLI contracts and evidence integrity. Discuss substantial changes in a repository Issue before implementation.

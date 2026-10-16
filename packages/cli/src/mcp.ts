@@ -13,6 +13,7 @@ import { CanaryMcpServer, COMPATIBILITY_MATRIX, serveStdio, type CanaryMcpPorts 
 import { resolveProjectContext } from "./home.js";
 import { hostEvidenceOutput, recordHostProposal } from "./host.js";
 import { buildProjectRepairTask } from "./repair-task.js";
+import { queryProjectMemory } from "./project-memory.js";
 
 export interface McpCliBindings {
   readRun(runId: string, context: ProjectContext): RunSnapshot | undefined;
@@ -84,6 +85,12 @@ export function bindPorts(context: ProjectContext, bindings: McpCliBindings): Ca
     },
     repairTask(input) {
       return buildProjectRepairTask(context, input);
+    },
+    memory(input) {
+      const report = queryProjectMemory(context, input);
+      if (Buffer.byteLength(JSON.stringify(report), "utf8") > 65_536)
+        throw new Error("Project memory query exceeded its bounded response size");
+      return report;
     },
     verification(input) {
       const run = sealedRun(input.runId);
