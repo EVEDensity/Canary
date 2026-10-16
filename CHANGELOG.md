@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## 0.6.0
+
+- R27: record structured facts from verified repair receipts with an operator, reason, expiry and explicit revocation.
+- Recheck project, check, failure, source scope and retained evidence during bounded retrieval; distinguish related history, revalidation and unavailable results.
+- Add read-only historical repair lookup to MCP and the bilingual workspace, with original/candidate/regression run navigation and on-demand refresh.
+- Keep repair memory separate from Agent experience activation, Skill installation and execution permission.
+- 项目修复记忆支持明确录入、过期、撤回和有界检索；页面与 MCP 只读，历史验证不代表本次问题已修复。
+
 ## 0.5.0
 
 - R26: seal version-bound change analysis with `run --base` or analyze a retained run with `change-verify`; use `--summary` for bounded operation output.

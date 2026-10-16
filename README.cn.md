@@ -29,6 +29,7 @@
 - **Agent 集成** — 安装官方项目 Skill，通过 CLI 或 MCP 使用限量的诊断与验证入口。
 - **修复交接** — 导出[限定范围的修复任务](docs/guides/repair-tasks.md)，检查候选变更，再收集回归验证证据。
 - **变更验证** — 运行时添加 `--base main`，基于封存源码查看[变更覆盖、显式行为与验证缺口](docs/guides/change-verification.md)。
+- **修复记忆** — 保留[已验证的修复事实](docs/guides/project-memory.md)，检索同项目的相关历史，并明确源码范围与重新验证条件。
 
 了解[支持范围](docs/guides/support-matrix.md)。
 

@@ -1,5 +1,5 @@
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, realpathSync } from "node:fs";
 import { basename, dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
@@ -11,6 +11,8 @@ import {
   parseSuggestionDecision,
   changeVerificationSchema,
   isChangeVerificationBound,
+  projectMemoryProjectId,
+  projectMemoryQuerySchema,
   SchemaValidationError,
   invalidInput,
   type ProjectChecksConfig,
@@ -52,6 +54,8 @@ export interface WebServerHooks {
   onRetry?: (runId: string, request: { checkId?: string; failed?: boolean }) => Promise<{ runId: string }>;
   onClose?: () => void;
   onReplay?: (runId: string, request: { caseId?: string }) => Promise<{ replayRunId: string }>;
+  /** Read-only, project-bound historical repair lookup. Never records or revokes memory. */
+  onMemoryQuery?: (runId: string, checkId?: string) => Promise<unknown> | unknown;
   /** Required for POST replay/improvements. CORS is not authorization. */
   writeToken?: string;
 }
@@ -401,6 +405,83 @@ async function handleRequest(
       if (!run) {
         response.writeHead(404);
         response.end("Not found");
+        return;
+      }
+      if (parts[3] === "memory") {
+        if (request.method !== "GET" || parts.length !== 4) {
+          writeJson(response, 405, { error: "GET required" });
+          return;
+        }
+        const memoryIntegrity = artifacts?.verify(runId);
+        if (!artifacts || memoryIntegrity?.status !== "verified") {
+          writeJson(response, 409, { error: "Sealed verification evidence required" });
+          return;
+        }
+        const memoryManifestHash = memoryIntegrity.manifestHash;
+        response.setHeader("cache-control", "no-store");
+        const checkIds = url.searchParams.getAll("checkId");
+        if (
+          [...url.searchParams.keys()].some((key) => key !== "checkId" && key !== "token") ||
+          checkIds.length > 1 ||
+          (checkIds.length && !/^[A-Za-z0-9][A-Za-z0-9_.-]{0,159}$/.test(checkIds[0]!)) ||
+          (checkIds[0] && !run.checks?.some((check) => check.id === checkIds[0] && ["failed", "blocked"].includes(check.status)))
+        ) {
+          writeJson(response, 400, { error: "A single retained checkId is required" });
+          return;
+        }
+        const projectId = projectMemoryProjectId(realpathSync.native(resolveProjectRootFromArtifacts(artifacts.rootDir)));
+        const unavailable = () => ({
+          v: 1,
+          kind: "canary.project-memory-query",
+          runId,
+          projectId,
+          status: "unavailable",
+          items: [],
+          skipped: [],
+          total: null,
+          omitted: null,
+          omittedSkipped: 0,
+          budget: { maxItems: 5, maxChars: 8000, usedChars: 0 },
+          advisoryOnly: true,
+          executionGranted: false,
+          reasons: ["Historical repair evidence is unavailable or cannot be verified"],
+        });
+        if (!hooks?.onMemoryQuery) {
+          writeJson(response, 200, unavailable());
+          return;
+        }
+        try {
+          const raw = redactValue(await hooks.onMemoryQuery(runId, checkIds[0]), { maxStringLength: Infinity });
+          const parsed = projectMemoryQuerySchema.safeParse(raw);
+          const finalIntegrity = artifacts.verify(runId);
+          if (
+            !parsed.success ||
+            finalIntegrity.status !== "verified" ||
+            finalIntegrity.manifestHash !== memoryManifestHash ||
+            parsed.data.runId !== runId ||
+            parsed.data.projectId !== projectId ||
+            parsed.data.budget.maxItems > 5 ||
+            parsed.data.budget.maxChars > 8000 ||
+            parsed.data.items.some((item) =>
+              item.record.status !== "retained" ||
+              Date.parse(item.record.expiresAt) <= Date.now() ||
+              !item.checkIds.length ||
+              item.checkIds.some((id) => !run.checks?.some((check) =>
+                check.id === id && ["failed", "blocked"].includes(check.status) &&
+                item.record.failures.some((failure) => failure.checkId === id && failure.checkType === check.type && failure.category === check.category),
+              )) ||
+              (checkIds[0] && (!item.checkIds.length || item.checkIds.some((id) => id !== checkIds[0]))),
+            ) ||
+            Buffer.byteLength(JSON.stringify(parsed.data)) > 65536
+          ) {
+            writeJson(response, 200, unavailable());
+            return;
+          }
+          response.writeHead(200, { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" });
+          response.end(JSON.stringify(parsed.data));
+        } catch {
+          writeJson(response, 200, unavailable());
+        }
         return;
       }
       if (parts[3] === "diagnostics") {

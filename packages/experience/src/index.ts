@@ -329,3 +329,4 @@ export function formatExperienceContext(result: ExperienceLoadResult): string {
 }
 
 export { candidateFromProjectCheck, candidateFromQualityGate } from "./project-candidates.js";
+export { ProjectMemoryStore } from "./project-memory.js";

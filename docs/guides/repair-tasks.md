@@ -46,6 +46,8 @@ canary repair-verify <originalRunId> <candidateRunId> --regression regression --
 
 This checks that the regression passes on the candidate and fails against the original production source while preserving execution evidence. See [repair verification](repair-verification.md) for prerequisites and the scope of `verified`.
 
+After verification and any required advisory review, retain the structured facts with `canary memory record <candidateRunId> --actor maintainer --reason "Reviewed regression evidence"`. [Project memory](project-memory.md) can retrieve that history for a later failure, without applying a repair or replacing fresh verification.
+
 Exit codes: `0` for a successful operation, `2` for invalid arguments or an invalid bundle, and `4` for a blocked candidate assessment. A valid export can retain blockers; inspect its contents. Receiving a task grants no source-edit, network, credential, commit, push or merge permission. Project code retains host permissions when separately executed.
 
 中文：修复任务包将封存失败、源码身份、原检查和明确的修改范围交给开发者或编码 Agent。`create` 导出，不执行检查；`verify` 仅校验包完整性，不证明作者、可信来源或执行授权；`check` 将候选与项目原证据重新绑定，检查全部原检查、提交关系、全仓库修改范围和测试削弱。`ready-for-regression` 仍是 `repairVerified: false`，最终修复验证继续使用 `repair-verify --execute`。

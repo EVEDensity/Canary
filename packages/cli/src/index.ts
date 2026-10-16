@@ -49,6 +49,7 @@ import { buildStructure, compareStructure, analyzeArchitecture, analyzeImpact, p
 import { reproductionCommand } from "./reproduction.js";
 import { repairCommand } from "./repair.js";
 import { repairTaskCommand } from "./repair-task.js";
+import { projectMemoryCommand, queryProjectMemory } from "./project-memory.js";
 import { changeVerificationCommand } from "./change-verification.js";
 
 export interface CliOptions {
@@ -102,6 +103,9 @@ const USAGE = `Usage: canary run [--ci] [--project <directory>] [--affected --ba
        canary repair-task create <runId> [--check <id>] [--allow <path>] [--out <bundle.json>] [--project <directory>] [--config <path>]
        canary repair-task verify <bundle.json>
        canary repair-task check <bundle.json> <candidateRunId> [--out <receipt.json>] [--project <directory>] [--config <path>]
+       canary memory record <candidateRunId> --actor <operator> --reason <reason> [--days <1..365>] [--ack-review]
+       canary memory query <failedRunId> [--check <id>] [--max-items <1..10>] [--max-chars <512..32768>]
+       canary memory list | revoke <memoryId> --actor <operator> --reason <reason>
        canary reproduce <runId> --check <id> [--prepare | --execute] [--workspace <id>] [--env <NAME>] [--ack-service <name>] [--ack-data <name>] [--project <directory>] [--config <path>] [--json]
        canary verify <runId> [--json] [--config <path>]
        canary prune [--apply] [--json] [--config <path>]
@@ -445,6 +449,7 @@ export async function runCommandDetailed(options: CliOptions = {}): Promise<RunC
       context.artifactRoot,
       {
         writeToken,
+        onMemoryQuery: (sourceId, checkId) => queryProjectMemory(context, { runId: sourceId, checks: checkId ? [checkId] : undefined }),
         onReplay: async (sourceId, request) => {
           const source = store.get(sourceId);
           if (!source) throw new Error(`Run not found: ${sourceId}`);
@@ -1372,6 +1377,7 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
   if (command === "reproduce") return reproductionCommand(rest);
   if (command === "repair-verify") return repairCommand(rest);
   if (command === "repair-task") return repairTaskCommand(rest);
+  if (command === "memory") return projectMemoryCommand(rest);
   if (command === "change-verify") return changeVerificationCommand(rest);
   if (command === "diagnostics") {
     try {

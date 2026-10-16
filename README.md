@@ -29,6 +29,7 @@
 - **Agent workflows** — Install the official project Skill and expose bounded diagnosis and verification tools through the CLI or MCP.
 - **Repair handoffs** — Share [scoped repair tasks](docs/guides/repair-tasks.md), assess candidate changes, then verify regression evidence.
 - **Change verification** — Add `--base main` to project runs and inspect [changed-code coverage, explicit behavior and verification gaps](docs/guides/change-verification.md) against sealed source.
+- **Repair memory** — Retain [verified repair facts](docs/guides/project-memory.md) and retrieve related project history with explicit source scope and revalidation conditions.
 
 See the [support scope](docs/guides/support-matrix.md).
 

@@ -42,6 +42,7 @@ if (command === "add") {
     "architecture-r12",
     "architecture-analysis",
     "change-verification-ui",
+    "project-memory-ui",
   ];
   for (const name of names) {
     const content = readFileSync(resolve(`apps/web/src/${name}.ts`), "utf8"),

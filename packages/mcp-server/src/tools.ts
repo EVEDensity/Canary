@@ -34,6 +34,13 @@ export interface CanaryMcpRepairTaskInput {
   allowedPaths?: string[];
 }
 
+export interface CanaryMcpMemoryInput {
+  runId: string;
+  checks?: string[];
+  maxItems?: number;
+  maxChars?: number;
+}
+
 export interface CanaryMcpPorts {
   projectRoot: string;
   run(input: CanaryMcpRunInput, signal: AbortSignal): Promise<unknown>;
@@ -42,6 +49,7 @@ export interface CanaryMcpPorts {
   submitProposal(input: CanaryMcpProposalInput): unknown;
   diagnostics?(input: CanaryMcpEvidenceInput): unknown;
   repairTask?(input: CanaryMcpRepairTaskInput): unknown;
+  memory?(input: CanaryMcpMemoryInput): unknown;
   verification?(input: CanaryMcpVerificationInput): Promise<unknown> | unknown;
   executeVerification?(input: CanaryMcpOperationInput, signal: AbortSignal): Promise<unknown>;
 }
@@ -97,6 +105,19 @@ export function parseRepairTaskArgs(args: unknown): CanaryMcpRepairTaskInput {
   const allowedPaths = record.allowedPaths;
   if (allowedPaths !== undefined && (!Array.isArray(allowedPaths) || !allowedPaths.length || allowedPaths.length > 32 || new Set(allowedPaths).size !== allowedPaths.length || allowedPaths.some(path => !isRepairTaskPath(path)))) throw invalid("Invalid allowedPaths");
   return { runId, ...(checks ? { checks } : {}), ...(allowedPaths ? { allowedPaths: allowedPaths as string[] } : {}) };
+}
+
+/** A memory query never changes the bound project, grants execution or records a repair. */
+export function parseMemoryArgs(args: unknown): CanaryMcpMemoryInput {
+  const record = exactArgs("canary.memory", args, ["runId", "checks", "maxItems", "maxChars"]);
+  const maxChars = record.maxChars;
+  if (maxChars !== undefined && (!Number.isInteger(maxChars) || (maxChars as number) < 512 || (maxChars as number) > 32768)) throw invalid("maxChars must be an integer from 512 to 32768");
+  return {
+    runId: requiredIdentifier(record.runId, "runId"),
+    ...(record.checks === undefined ? {} : { checks: requiredList(record.checks, "checks", IDENTIFIER) }),
+    ...(record.maxItems === undefined ? {} : { maxItems: optionalBoundInt(record.maxItems, "maxItems", 10) }),
+    ...(maxChars === undefined ? {} : { maxChars: maxChars as number }),
+  };
 }
 
 function isRepairTaskPath(value: unknown): value is string {
@@ -233,6 +254,7 @@ export function toolList() {
       },
       { name: "canary.diagnostics", description: "Read a bounded page of sealed failures and original evidence locations.", annotations: { readOnlyHint: true }, inputSchema: { type: "object", additionalProperties: false, required: ["runId"], properties: { runId: identifierProperty, maxChecks: { type: "integer", minimum: 1, maximum: 32 }, checkOffset: { type: "integer", minimum: 0, maximum: 1000000 } } } },
       { name: "canary.repair_task", description: "Build a bounded repair task from sealed project failures and source evidence. Returns untrusted evidence and explicit limits; never executes checks, writes files, approves a repair or grants source permissions.", annotations: { readOnlyHint: true }, inputSchema: { type: "object", additionalProperties: false, required: ["runId"], properties: { runId: identifierProperty, checks: { type: "array", minItems: 1, maxItems: 16, uniqueItems: true, items: identifierProperty }, allowedPaths: { type: "array", minItems: 1, maxItems: 32, uniqueItems: true, items: { type: "string", minLength: 1, maxLength: 256, description: "Canonical project-relative path using /; no traversal, glob, private state or credential files." } } } } },
+      { name: "canary.memory", description: "Read bounded, related historical repair facts for a sealed failed run in the bound project. Advisory evidence only; historical verification does not verify this failure or grant execution, source writes, activation or approval. No memory is recorded or revoked by this tool.", annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false }, inputSchema: { type: "object", additionalProperties: false, required: ["runId"], properties: { runId: identifierProperty, checks: { type: "array", minItems: 1, maxItems: 16, uniqueItems: true, items: identifierProperty }, maxItems: { type: "integer", minimum: 1, maximum: 10 }, maxChars: { type: "integer", minimum: 512, maximum: 32768 } } } },
       { name: "canary.verification", description: "Read the sealed repair, change or reproduction receipt. Missing or incompatible evidence is unavailable.", annotations: { readOnlyHint: true }, inputSchema: { type: "object", additionalProperties: false, required: ["runId", "kind"], properties: { runId: identifierProperty, kind: { type: "string", enum: ["repair", "change", "reproduction"] } } } },
       ...(Object.keys(OPERATION_SPECS) as OperationToolName[]).map(name => {
         const spec = OPERATION_SPECS[name];
