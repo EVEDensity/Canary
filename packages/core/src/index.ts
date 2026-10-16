@@ -49,4 +49,5 @@ export * from "./cli-contracts.js";
 export * from "./evidence.js";
 export * from "./checks.js";
 export * from "./verification.js";
+export * from "./change-verification.js";
 export * from "./repair-task.js";

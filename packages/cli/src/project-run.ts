@@ -28,7 +28,7 @@ import {
 import { discoverProject, projectSourceInventory } from "./discovery.js";
 import { recordEvidence, conclusionHash } from "./evidence.js";
 import { CliFailure } from "./ci.js";
-import { evaluateBehaviorContracts } from "./change-verification.js";
+import { evaluateBehaviorContracts, saveChangeVerification, saveUnavailableChangeVerification } from "./change-verification.js";
 import type { CliOptions, RunCommandResult } from "./index.js";
 import { executionSourceProof, trySourceFingerprint } from "./source-identity.js";
 
@@ -295,6 +295,10 @@ export async function runProjectChecks(
     throw error;
   }
   const snapshot: RunSnapshot = store.get(runId)!;
+  if (options.baseRef && structureChange) {
+    try { saveChangeVerification(context, runId, structureChange.baseline.commit); }
+    catch { saveUnavailableChangeVerification(context, runId); }
+  }
   if (!options.suppressOutput) console.log(options.json ? JSON.stringify(snapshot) : renderReport(snapshot, "console"));
   return {
     exitCode,

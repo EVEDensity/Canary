@@ -4,12 +4,13 @@ import { dashboardMarkup, dashboardStyles, dashboardClient } from "./dashboard-u
 import { architectureMarkup, architectureStyles, architectureClient } from "./architecture-map.js";
 import { architectureR12Styles, architectureR12Client } from "./architecture-r12.js";
 import { architectureAnalysisStyles, architectureAnalysisClient } from "./architecture-analysis.js";
+import { changeVerificationStyles, changeVerificationClient } from "./change-verification-ui.js";
 export function renderWorkspace(
   token = "",
   capabilities: { retry?: boolean; replay?: boolean; close?: boolean } = {},
 ): string {
   const settings = JSON.stringify({ token, ...capabilities }).replaceAll("<", "\\u003c");
-  return `<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Canary · 验证工作台</title><link rel="stylesheet" href="/assets/fonts/fonts.css"><style>${styles}${dashboardStyles}${architectureStyles}${architectureR12Styles}${architectureAnalysisStyles}</style></head><body>${iconSprite()}
+  return `<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Canary · 验证工作台</title><link rel="stylesheet" href="/assets/fonts/fonts.css"><style>${styles}${dashboardStyles}${architectureStyles}${architectureR12Styles}${architectureAnalysisStyles}${changeVerificationStyles}</style></head><body>${iconSprite()}
 <a class="skip" href="#content">跳至主要内容</a><div class="app">
 <aside class="sidebar" id="workspace-sidebar"><a class="brand" href="/" aria-label="Canary 首页"><span class="brand-mark">${iconMarkup("bird")}</span><span>canary</span></a>
 <div class="workspace-name">${iconMarkup("folder-open")}本地项目工作台<span class="local-badge">项目</span></div>
@@ -29,7 +30,7 @@ ${architectureMarkup}
 <div class="panel" id="panel-evidence" hidden><div class="overview-grid"><section class="surface"><h2>证据完整性与运行谱系</h2><div id="evidence-content"></div></section><section class="surface"><h2>与历史运行比较</h2><p class="muted">配对观察改善与回归；样本量和证据缺口会一同显示。</p><label class="field">基线运行<select id="baseline"></select></label><button id="compare" class="secondary">比较运行</button><div id="comparison" aria-live="polite"></div></section></div></div>
 <div class="panel" id="panel-improve" hidden><section class="surface"><h2>问题与改进</h2><div id="improvements"></div></section></div>
 <footer><span><span class="dot"></span>本地优先 · 真实运行 · 可核验的证据</span><span>Canary / 验证工作台</span></footer><noscript>此工作台需要 JavaScript 获取实时数据。可用 canary report &lt;runId&gt; --format json 查看本地报告。</noscript></main></div></div>
-<script>const writeToken=${JSON.stringify(token).replaceAll("<", "\\u003c")};const settings=${settings};${i18nClient()}${iconClient}${architectureClient}${architectureR12Client}${architectureAnalysisClient}${client}${dashboardClient}</script></body></html>`;
+<script>const writeToken=${JSON.stringify(token).replaceAll("<", "\\u003c")};const settings=${settings};${i18nClient()}${iconClient}${architectureClient}${architectureR12Client}${architectureAnalysisClient}${changeVerificationClient}${client}${dashboardClient}</script></body></html>`;
 }
 
 const styles = String.raw`
@@ -84,9 +85,7 @@ function renderEvidence(run){$('evidence-content').replaceChildren();const field
 async function renderRepairEvidence(id){
  const box=text('section',undefined,'comparison-assessment');box.hidden=true;$('evidence-content').append(box);try{const receipt=await api('/api/runs/'+encodeURIComponent(id)+'/repair-verification');if(selected!==id||!box.isConnected)return;if(!receipt.original){box.remove();return}box.hidden=false;box.append(text('h3',t('修复验证')),text('strong',receipt.outcome==='verified'?t('已验证'):t('证据不足'),'comparison-verdict'));for(const [label,reference] of [[t('来源运行'),receipt.original],[t('回归测试修复前'),receipt.beforeRegression],[t('修复后'),receipt.candidate]])if(reference)box.append(button(label+' · '+reference.commit.slice(0,8),async()=>{await select(reference.runId);showTab('checks')},'text-button'));for(const reason of receipt.reasons||[])box.append(text('p',reason,'scope'));}catch{box.remove()}
 }
-async function renderChangeEvidence(id){
- const box=text('section',undefined,'comparison-assessment');box.hidden=true;$('coverage-content').append(box);try{const report=await api('/api/runs/'+encodeURIComponent(id)+'/change-verification');if(selected!==id||!box.isConnected)return;if(!report.files){box.remove();return}box.hidden=false;box.append(text('h3',t('变更验证')),text('p',t('执行覆盖不代表行为验证'),'scope'));for(const file of report.files){const row=text('div',undefined,'evidence-line');row.append(text('strong',file.path));for(const [key,label] of [['lines',t('行')],['functions',t('函数')],['branches',t('分支')]]){const value=file.execution[key];row.append(text('span',label+' '+(value&&value.total!==null&&value.covered!==null?value.covered+' / '+value.total:t('未知'))))}row.append(text('span',file.behavior==='declared-assertions-verified'?t('已关联断言'):file.behavior==='declared-assertion-failed'?t('失败'):t('无行为证据')));if(file.nodes?.length)row.append(button(t('查看源码位置'),async()=>{showTab('structure');await renderArchitecture();architectureFocus(file.nodes.find(n=>n.kind==='file')?.id||file.nodes[0].id)},'text-button'));box.append(row)}}catch{box.remove()}
-}
+
 function renderImprovements(run){
  const box=$('improvements');box.replaceChildren();const issues=run.issues||[],names={assertion:t('断言 / 测试'),configuration:t('配置'),environment:t('环境'),dependency:t('依赖'),timeout:t('超时'),budget:t('预算'),cancelled:t('中断'),platform:t('平台'),artifact:t('证据完整性'),policy:t('策略'),quality:t('质量门禁'),agent:t('Agent 用例'),internal:t('内部错误')},states={open:t('待处理'),verified:t('重跑已验证'),waiting:t('验证中'),failed:t('重跑仍失败'),unverified:t('验证证据不足')};
  if(issues.length){

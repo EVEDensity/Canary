@@ -1,28 +1,69 @@
 import { describe, expect, it } from "vitest";
 import { repairVerificationSchema, reproductionResultSchema, verificationReceiptSchema } from "../src/verification.js";
 
-const digest = "a".repeat(64), originalCommit = "b".repeat(40), candidateCommit = "c".repeat(40);
+const digest = "a".repeat(64),
+  originalCommit = "b".repeat(40),
+  candidateCommit = "c".repeat(40);
 function verifiedRepair() {
-  const source = { commit: originalCommit, indexHash: digest, trackedStatusHash: digest, sourceHash: digest, trackedFilesHash: digest };
+  const source = {
+    commit: originalCommit,
+    indexHash: digest,
+    trackedStatusHash: digest,
+    sourceHash: digest,
+    trackedFilesHash: digest,
+  };
   return {
-    v: 1, kind: "canary.repair-verification", outcome: "verified",
+    v: 1,
+    kind: "canary.repair-verification",
+    outcome: "verified",
     original: { runId: "run_original", commit: originalCommit, manifestHash: digest },
     candidate: { runId: "run_candidate", commit: candidateCommit, manifestHash: digest },
     executionSources: {
-      original: { v: 1, kind: "canary.execution-source", runId: "run_original", status: "unchanged", before: { ...source }, after: { ...source } },
-      candidate: { v: 1, kind: "canary.execution-source", runId: "run_candidate", status: "unchanged", before: { ...source, commit: candidateCommit }, after: { ...source, commit: candidateCommit } },
+      original: {
+        v: 1,
+        kind: "canary.execution-source",
+        runId: "run_original",
+        status: "unchanged",
+        before: { ...source },
+        after: { ...source },
+      },
+      candidate: {
+        v: 1,
+        kind: "canary.execution-source",
+        runId: "run_candidate",
+        status: "unchanged",
+        before: { ...source, commit: candidateCommit },
+        after: { ...source, commit: candidateCommit },
+      },
     },
-    regressionChecks: ["regression"], testFiles: ["regression.test.mjs"], executed: true, reasons: [] as string[], reviewRequired: true,
+    regressionChecks: ["regression"],
+    testFiles: ["regression.test.mjs"],
+    executed: true,
+    reasons: [] as string[],
+    reviewRequired: true,
     beforeRegression: {
-      runId: "run_regression", commit: originalCommit, manifestHash: digest, sourceUnchanged: true,
-      executionSource: { ...source }, observedSource: { ...source },
+      runId: "run_regression",
+      commit: originalCommit,
+      manifestHash: digest,
+      sourceUnchanged: true,
+      executionSource: { ...source },
+      observedSource: { ...source },
       testOverlay: [{ path: "regression.test.mjs", hash: digest }],
       sourceBasis: "baseline production source with candidate regression files",
     },
   };
 }
 function reproduced() {
-  return { v: 1, kind: "canary.reproduction-result", sourceRunId: "run_original", sourceManifestHash: digest, runId: "run_reproduced", outcome: "reproduced", executed: true, sourceUnchanged: true };
+  return {
+    v: 1,
+    kind: "canary.reproduction-result",
+    sourceRunId: "run_original",
+    sourceManifestHash: digest,
+    runId: "run_reproduced",
+    outcome: "reproduced",
+    executed: true,
+    sourceUnchanged: true,
+  };
 }
 function rejectedRepair(value: unknown) {
   expect(repairVerificationSchema.safeParse(value).success).toBe(false);
@@ -36,7 +77,15 @@ describe("verification receipt semantics", () => {
     expect(verificationReceiptSchema.parse(receipt)).toMatchObject({ outcome: "verified", reviewRequired: true });
   });
 
-  it.each(["executed", "sourceUnchanged", "regressionCommit", "executionCommit", "observedCommit", "reasons", "sameRun"])("rejects contradictory verified repair evidence: %s", (change) => {
+  it.each([
+    "executed",
+    "sourceUnchanged",
+    "regressionCommit",
+    "executionCommit",
+    "observedCommit",
+    "reasons",
+    "sameRun",
+  ])("rejects contradictory verified repair evidence: %s", (change) => {
     const receipt = verifiedRepair();
     if (change === "executed") receipt.executed = false;
     if (change === "sourceUnchanged") receipt.beforeRegression.sourceUnchanged = false;
@@ -48,22 +97,28 @@ describe("verification receipt semantics", () => {
     rejectedRepair(receipt);
   });
 
-  it.each(["indexHash", "trackedStatusHash", "sourceHash", "trackedFilesHash"] as const)("rejects changed %s even when sourceUnchanged is true", (field) => {
-    const receipt = verifiedRepair();
-    receipt.beforeRegression.observedSource[field] = "d".repeat(64);
-    rejectedRepair(receipt);
-  });
+  it.each(["indexHash", "trackedStatusHash", "sourceHash", "trackedFilesHash"] as const)(
+    "rejects changed %s even when sourceUnchanged is true",
+    (field) => {
+      const receipt = verifiedRepair();
+      receipt.beforeRegression.observedSource[field] = "d".repeat(64);
+      rejectedRepair(receipt);
+    },
+  );
 
-  it.each(["beforeRegression", "executionSource", "observedSource", "trackedFilesHash", "testOverlay"])("does not upgrade legacy selection or incomplete proof: %s", (missing) => {
-    const receipt = verifiedRepair() as Record<string, any>;
-    if (missing === "beforeRegression") delete receipt.beforeRegression;
-    else if (missing === "trackedFilesHash") {
-      delete receipt.beforeRegression.executionSource.trackedFilesHash;
-      delete receipt.beforeRegression.observedSource.trackedFilesHash;
-    } else delete receipt.beforeRegression[missing];
-    receipt.selection = { caseIds: ["regression"] };
-    rejectedRepair(receipt);
-  });
+  it.each(["beforeRegression", "executionSource", "observedSource", "trackedFilesHash", "testOverlay"])(
+    "does not upgrade legacy selection or incomplete proof: %s",
+    (missing) => {
+      const receipt = verifiedRepair() as Record<string, any>;
+      if (missing === "beforeRegression") delete receipt.beforeRegression;
+      else if (missing === "trackedFilesHash") {
+        delete receipt.beforeRegression.executionSource.trackedFilesHash;
+        delete receipt.beforeRegression.observedSource.trackedFilesHash;
+      } else delete receipt.beforeRegression[missing];
+      receipt.selection = { caseIds: ["regression"] };
+      rejectedRepair(receipt);
+    },
+  );
 
   it("requires exactly the same test overlay and rejects duplicate check identities", () => {
     const receipt = verifiedRepair();
@@ -78,15 +133,18 @@ describe("verification receipt semantics", () => {
     rejectedRepair(repeatedTest);
   });
 
-  it.each(["missing", "status", "runId", "commit", "hash"])("requires candidate execution observations: %s", change => {
-    const receipt = verifiedRepair() as Record<string, any>;
-    if (change === "missing") delete receipt.executionSources;
-    else if (change === "status") receipt.executionSources.candidate.status = "changed";
-    else if (change === "runId") receipt.executionSources.candidate.runId = "run_other";
-    else if (change === "commit") receipt.executionSources.candidate.after.commit = originalCommit;
-    else receipt.executionSources.candidate.after.trackedFilesHash = "d".repeat(64);
-    rejectedRepair(receipt);
-  });
+  it.each(["missing", "status", "runId", "commit", "hash"])(
+    "requires candidate execution observations: %s",
+    (change) => {
+      const receipt = verifiedRepair() as Record<string, any>;
+      if (change === "missing") delete receipt.executionSources;
+      else if (change === "status") receipt.executionSources.candidate.status = "changed";
+      else if (change === "runId") receipt.executionSources.candidate.runId = "run_other";
+      else if (change === "commit") receipt.executionSources.candidate.after.commit = originalCommit;
+      else receipt.executionSources.candidate.after.trackedFilesHash = "d".repeat(64);
+      rejectedRepair(receipt);
+    },
+  );
 
   it("keeps unsuccessful historical receipts readable without claiming verification", () => {
     const receipt = { ...verifiedRepair(), outcome: "evidence-insufficient", executed: false } as Record<string, any>;
@@ -96,8 +154,30 @@ describe("verification receipt semantics", () => {
     rejectedRepair({ ...receipt, outcome: "prepared", executed: true });
     rejectedRepair({ ...receipt, outcome: "blocked", executed: true });
   });
+  it("rejects explicit commit mismatch in original or candidate execution while keeping overlay semantics", () => {
+    for (const key of ["original", "candidate"] as const) {
+      const receipt = verifiedRepair() as Record<string, any>;
+      receipt.executionSources[key].before.commitMatches = false;
+      receipt.executionSources[key].after.commitMatches = false;
+      rejectedRepair(receipt);
+    }
+    const overlay = verifiedRepair() as Record<string, any>;
+    overlay.executionSources.original.before.commitMatches = true;
+    overlay.executionSources.original.after.commitMatches = true;
+    overlay.executionSources.candidate.before.commitMatches = true;
+    overlay.executionSources.candidate.after.commitMatches = true;
+    overlay.beforeRegression.executionSource.commitMatches = false;
+    overlay.beforeRegression.observedSource.commitMatches = false;
+    expect(repairVerificationSchema.safeParse(overlay).success).toBe(true);
+    overlay.beforeRegression.observedSource.commitMatches = true;
+    rejectedRepair(overlay);
+  });
 
-  it.each([[false, true], [true, false], [false, false]])("rejects reproduced with executed=%s and sourceUnchanged=%s", (executed, sourceUnchanged) => {
+  it.each([
+    [false, true],
+    [true, false],
+    [false, false],
+  ])("rejects reproduced with executed=%s and sourceUnchanged=%s", (executed, sourceUnchanged) => {
     const receipt = { ...reproduced(), executed, sourceUnchanged };
     expect(reproductionResultSchema.safeParse(receipt).success).toBe(false);
     expect(verificationReceiptSchema.safeParse(receipt).success).toBe(false);
@@ -106,10 +186,30 @@ describe("verification receipt semantics", () => {
   it("accepts an actual reproduced result and honest blocked evidence", () => {
     expect(reproductionResultSchema.safeParse(reproduced()).success).toBe(true);
     expect(verificationReceiptSchema.safeParse(reproduced()).success).toBe(true);
-    expect(verificationReceiptSchema.safeParse({ ...reproduced(), outcome: "blocked", executed: false, sourceUnchanged: false }).success).toBe(true);
+    expect(
+      verificationReceiptSchema.safeParse({
+        ...reproduced(),
+        outcome: "blocked",
+        executed: false,
+        sourceUnchanged: false,
+      }).success,
+    ).toBe(true);
   });
 
-  it.each([verifiedRepair(), reproduced(), { v: 1, kind: "canary.change-verification", runId: "run_candidate", baseline: originalCommit, commit: candidateCommit, manifestHash: digest, files: [], contracts: [] }])("rejects unknown receipt versions and kinds", (receipt) => {
+  it.each([
+    verifiedRepair(),
+    reproduced(),
+    {
+      v: 1,
+      kind: "canary.change-verification",
+      runId: "run_candidate",
+      baseline: originalCommit,
+      commit: candidateCommit,
+      manifestHash: digest,
+      files: [],
+      contracts: [],
+    },
+  ])("rejects unknown receipt versions and kinds", (receipt) => {
     expect(verificationReceiptSchema.safeParse({ ...receipt, v: 2 }).success).toBe(false);
     expect(verificationReceiptSchema.safeParse({ ...receipt, kind: "canary.future-verification" }).success).toBe(false);
   });
@@ -118,6 +218,12 @@ describe("verification receipt semantics", () => {
     const receipt = verifiedRepair();
     rejectedRepair({ ...receipt, original: { ...receipt.original, commit: "HEAD" } });
     rejectedRepair({ ...receipt, candidate: { ...receipt.candidate, manifestHash: "unsealed" } });
-    rejectedRepair({ ...receipt, beforeRegression: { ...receipt.beforeRegression, executionSource: { ...receipt.beforeRegression.executionSource, indexHash: "claimed" } } });
+    rejectedRepair({
+      ...receipt,
+      beforeRegression: {
+        ...receipt.beforeRegression,
+        executionSource: { ...receipt.beforeRegression.executionSource, indexHash: "claimed" },
+      },
+    });
   });
 });
