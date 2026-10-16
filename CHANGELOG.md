@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## 0.4.0
+
+- R25: export bounded repair tasks through the CLI and MCP with sealed source/failure identity and explicit repair scope.
+- Assess candidate source, unchanged original checks, requirements, contracts, repository changes and test weakening before regression verification. Candidate admission remains `repairVerified: false`.
+- Add offline task integrity checks, atomic non-overwriting exports and an official Skill handoff reference. Delivery continues through GitHub source and Releases without npm publication.
+- 受控修复任务支持失败证据交接、离线完整性校验和限定范围的候选审查；候选准入与真正的修复回归验证分别记录。
+
 ## 0.3.0
 
 - R22: distinguish scoped experience selection from confirmed function-context delivery; retain bounded, redacted child output and reject corrupt experience state before mutation.

@@ -12,6 +12,7 @@ import {
   serveStdio,
   parseEvidenceArgs,
   parseOperationArgs,
+  parseRepairTaskArgs,
   parseProposalArgs,
   parseVerificationArgs,
   toolList,
@@ -52,7 +53,7 @@ describe("S-02 compatibility matrix and dual-era protocol", () => {
     expect(COMPATIBILITY_MATRIX.sampling).toBe(false);
     expect(COMPATIBILITY_MATRIX.sourceWrite).toBe(false);
     expect(COMPATIBILITY_MATRIX.streamableHttpSession).toBe(false);
-    expect(COMPATIBILITY_MATRIX.tools).toEqual(["canary.run", "canary.evidence", "canary.structure", "canary.submit_proposal", "canary.diagnostics", "canary.verification", "canary.reproduce", "canary.repair_verify", "canary.change_verify"]);
+    expect(COMPATIBILITY_MATRIX.tools).toEqual(["canary.run", "canary.evidence", "canary.structure", "canary.submit_proposal", "canary.diagnostics", "canary.repair_task", "canary.verification", "canary.reproduce", "canary.repair_verify", "canary.change_verify"]);
   });
 
   it("serves a modern client with per-request _meta without initialize", async () => {
@@ -263,6 +264,54 @@ describe("S-02 compatibility matrix and dual-era protocol", () => {
     });
     expect(second?.error?.message).toMatch(/resource limit/);
     await first;
+  });
+});
+
+describe("MCP repair task read boundary", () => {
+  it("advertises a read-only task builder and accepts only bounded selectors", () => {
+    const tool = toolList().tools.find(tool => tool.name === "canary.repair_task")!;
+    expect(tool.annotations).toEqual({ readOnlyHint: true });
+    expect(tool.inputSchema).toMatchObject({ additionalProperties: false, required: ["runId"] });
+    expect(Object.keys(tool.inputSchema.properties).sort()).toEqual(["allowedPaths", "checks", "runId"]);
+    expect(parseRepairTaskArgs({ runId: "run_original" })).toEqual({ runId: "run_original" });
+    expect(parseRepairTaskArgs({ runId: "run_original", checks: ["workspace.test"], allowedPaths: ["src/invoice.ts", "test/invoice.test.ts"] })).toEqual({ runId: "run_original", checks: ["workspace.test"], allowedPaths: ["src/invoice.ts", "test/invoice.test.ts"] });
+    expect(parseRepairTaskArgs({ runId: "run_original", checks: Array.from({ length: 16 }, (_, n) => `check-${n}`), allowedPaths: Array.from({ length: 32 }, (_, n) => `src/file-${n}.ts`) }).allowedPaths).toHaveLength(32);
+  });
+
+  it("rejects empty, duplicate, oversized, nonliteral or extra selectors", () => {
+    for (const args of [
+      {}, null, [], { runId: "../outside" }, { runId: "run_original", checks: [] },
+      { runId: "run_original", checks: ["test", "test"] }, { runId: "run_original", checks: ["--project"] },
+      { runId: "run_original", checks: Array.from({ length: 17 }, (_, n) => `check-${n}`) },
+      { runId: "run_original", allowedPaths: [] }, { runId: "run_original", allowedPaths: ["src/a.ts", "src/a.ts"] },
+      { runId: "run_original", allowedPaths: Array.from({ length: 33 }, (_, n) => `src/file-${n}.ts`) },
+      { runId: "run_original", allowedPaths: "src/a.ts" }, { runId: "run_original", allowedPaths: [null] },
+      { runId: "run_original", allowedPaths: ["x".repeat(257)] },
+      ...["project", "projectRoot", "cwd", "configPath", "secret", "apiKey", "token", "authorization", "credentials", "execute", "action", "write", "command", "candidateRunId"].map(key => ({ runId: "run_original", [key]: "forbidden" })),
+    ]) expect(() => parseRepairTaskArgs(args), JSON.stringify(args)).toThrow();
+  });
+
+  it.each([
+    "../src/a.ts", "src/../a.ts", "src/./a.ts", "./src/a.ts", "/src/a.ts", "C:/src/a.ts", "C:\\src\\a.ts", "src\\a.ts",
+    "src//a.ts", "src/", " src/a.ts", "src/a.ts ", "src/a.ts.", "src/*.ts", "src/[ab].ts", "src/{a,b}.ts", "src/a?.ts", "src/a\0.ts", "src/a\n.ts",
+    ".git/config", "src/.git/HEAD", ".canary/artifacts/run.json", "NODE_MODULES/pkg/index.js", ".env", ".env.production", "src/.env.test", "config/production.env", "certs/key.pem", "certs/key.KEY", ".ssh/id_rsa", ".aws/config", "credentials.p12", "CON.txt", "src/aux",
+  ])("rejects private or noncanonical path %s", path => {
+    expect(() => parseRepairTaskArgs({ runId: "run_original", allowedPaths: [path] })).toThrow(/allowedPaths/);
+  });
+
+  it("dispatches the read port without invoking run or verification and rejects escalation before the port", async () => {
+    let reads = 0;
+    const server = new CanaryMcpServer({ token: "fixture", ports: ports({
+      run: async () => { throw new Error("run must not execute"); },
+      executeVerification: async () => { throw new Error("verification must not execute"); },
+      repairTask(input) { reads++; return { v: 1, kind: "canary.repair-task", untrustedEvidence: true, selected: input }; },
+    }) });
+    const call = (args: unknown, id = 1) => server.handleRequestAsync({ jsonrpc: "2.0", id, method: "tools/call", params: { name: "canary.repair_task", arguments: args, _meta: modernMeta() } });
+    expect(await call({ runId: "run_original", checks: ["test"], allowedPaths: ["src/invoice.ts"] })).toMatchObject({ result: { isError: false, structuredContent: { untrustedEvidence: true, selected: { runId: "run_original", checks: ["test"], allowedPaths: ["src/invoice.ts"] } } } });
+    for (const args of [{ runId: "run_original", execute: true }, { runId: "run_original", token: "forbidden" }, { runId: "run_original", allowedPaths: ["../outside"] }]) expect((await call(args))?.error).toBeDefined();
+    expect(reads).toBe(1);
+    const unavailable = new CanaryMcpServer({ token: "fixture", ports: ports() });
+    expect(await unavailable.handleRequestAsync({ jsonrpc: "2.0", id: 1, method: "tools/call", params: { name: "canary.repair_task", arguments: { runId: "run_original" }, _meta: modernMeta() } })).toMatchObject({ error: { message: expect.stringMatching(/unavailable/) } });
   });
 });
 

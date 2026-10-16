@@ -21,3 +21,4 @@ export * from "./retention.js";
 export { redactText, containsSensitiveText, containsSensitiveValue, collectSecretValues, SECRET_KEY } from "./privacy.js";
 
 export * from "./diagnostics.js";
+export * from "./repair-task.js";

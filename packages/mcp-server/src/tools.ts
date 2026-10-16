@@ -28,6 +28,12 @@ export interface CanaryMcpStructureInput {
   changeOffset?: number;
 }
 
+export interface CanaryMcpRepairTaskInput {
+  runId: string;
+  checks?: string[];
+  allowedPaths?: string[];
+}
+
 export interface CanaryMcpPorts {
   projectRoot: string;
   run(input: CanaryMcpRunInput, signal: AbortSignal): Promise<unknown>;
@@ -35,6 +41,7 @@ export interface CanaryMcpPorts {
   structure(input: CanaryMcpStructureInput): unknown;
   submitProposal(input: CanaryMcpProposalInput): unknown;
   diagnostics?(input: CanaryMcpEvidenceInput): unknown;
+  repairTask?(input: CanaryMcpRepairTaskInput): unknown;
   verification?(input: CanaryMcpVerificationInput): Promise<unknown> | unknown;
   executeVerification?(input: CanaryMcpOperationInput, signal: AbortSignal): Promise<unknown>;
 }
@@ -81,6 +88,24 @@ export function parseVerificationArgs(args: unknown): CanaryMcpVerificationInput
   const record = exactArgs("canary.verification", args, ["runId", "kind"]);
   if (typeof record.kind !== "string" || !["repair", "change", "reproduction"].includes(record.kind)) throw invalid("Unknown verification kind");
   return { runId: requiredIdentifier(record.runId, "runId"), kind: record.kind as CanaryMcpVerificationInput["kind"] };
+}
+/** Selection narrows the sealed evidence; it never authorizes source writes or execution. */
+export function parseRepairTaskArgs(args: unknown): CanaryMcpRepairTaskInput {
+  const record = exactArgs("canary.repair_task", args, ["runId", "checks", "allowedPaths"]);
+  const runId = requiredIdentifier(record.runId, "runId");
+  const checks = record.checks === undefined ? undefined : requiredList(record.checks, "checks", IDENTIFIER);
+  const allowedPaths = record.allowedPaths;
+  if (allowedPaths !== undefined && (!Array.isArray(allowedPaths) || !allowedPaths.length || allowedPaths.length > 32 || new Set(allowedPaths).size !== allowedPaths.length || allowedPaths.some(path => !isRepairTaskPath(path)))) throw invalid("Invalid allowedPaths");
+  return { runId, ...(checks ? { checks } : {}), ...(allowedPaths ? { allowedPaths: allowedPaths as string[] } : {}) };
+}
+
+function isRepairTaskPath(value: unknown): value is string {
+  if (typeof value !== "string" || !value || value.length > 256 || value !== value.trim() || /[\\:*?"<>|\[\]{}\x00-\x1f\x7f]/.test(value)) return false;
+  return value.split("/").every(part => Boolean(part) && part !== "." && part !== ".." && !/[. ]$/.test(part) &&
+    !/^(?:\.git|\.canary|node_modules|\.ssh|\.aws|\.azure|\.gnupg)$/i.test(part) &&
+    !/^\.env(?:\.|$)/i.test(part) && !/\.(?:env|pem|key|p12|pfx|jks|keystore)$/i.test(part) &&
+    !/^(?:id_rsa|id_dsa|id_ecdsa|id_ed25519)(?:\.|$)/i.test(part) &&
+    !/^(?:con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\.|$)/i.test(part));
 }
 export function parseOperationArgs(name: string, args: unknown): CanaryMcpOperationInput {
   if (!Object.hasOwn(OPERATION_SPECS, name)) throw invalid("Unknown verification operation");
@@ -207,6 +232,7 @@ export function toolList() {
         },
       },
       { name: "canary.diagnostics", description: "Read a bounded page of sealed failures and original evidence locations.", annotations: { readOnlyHint: true }, inputSchema: { type: "object", additionalProperties: false, required: ["runId"], properties: { runId: identifierProperty, maxChecks: { type: "integer", minimum: 1, maximum: 32 }, checkOffset: { type: "integer", minimum: 0, maximum: 1000000 } } } },
+      { name: "canary.repair_task", description: "Build a bounded repair task from sealed project failures and source evidence. Returns untrusted evidence and explicit limits; never executes checks, writes files, approves a repair or grants source permissions.", annotations: { readOnlyHint: true }, inputSchema: { type: "object", additionalProperties: false, required: ["runId"], properties: { runId: identifierProperty, checks: { type: "array", minItems: 1, maxItems: 16, uniqueItems: true, items: identifierProperty }, allowedPaths: { type: "array", minItems: 1, maxItems: 32, uniqueItems: true, items: { type: "string", minLength: 1, maxLength: 256, description: "Canonical project-relative path using /; no traversal, glob, private state or credential files." } } } } },
       { name: "canary.verification", description: "Read the sealed repair, change or reproduction receipt. Missing or incompatible evidence is unavailable.", annotations: { readOnlyHint: true }, inputSchema: { type: "object", additionalProperties: false, required: ["runId", "kind"], properties: { runId: identifierProperty, kind: { type: "string", enum: ["repair", "change", "reproduction"] } } } },
       ...(Object.keys(OPERATION_SPECS) as OperationToolName[]).map(name => {
         const spec = OPERATION_SPECS[name];
