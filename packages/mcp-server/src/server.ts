@@ -20,7 +20,7 @@ import {
   type JsonRpcRequest,
   type JsonRpcResponse,
 } from "./protocol.js";
-import { isCanaryTool, parseEvidenceArgs, parseProposalArgs, parseRunArgs, parseStructureArgs, parseVerificationArgs, parseOperationArgs, toolList, type CanaryMcpPorts } from "./tools.js";
+import { isCanaryTool, parseEvidenceArgs, parseProposalArgs, parseRunArgs, parseStructureArgs, parseVerificationArgs, parseRepairTaskArgs, parseOperationArgs, toolList, type CanaryMcpPorts } from "./tools.js";
 
 export interface CanaryMcpServerOptions {
   token: string;
@@ -244,6 +244,11 @@ export class CanaryMcpServer {
     if (params.name === "canary.diagnostics") {
       if (!this.ports.diagnostics) throw new Error("Diagnostics are unavailable in this binding");
       return toolContent(this.ports.diagnostics(parseEvidenceArgs(args, "canary.diagnostics")));
+    }
+    if (params.name === "canary.repair_task") {
+      const input = parseRepairTaskArgs(args);
+      if (!this.ports.repairTask) throw new Error("Repair task evidence is unavailable in this binding");
+      return toolContent(this.ports.repairTask(input));
     }
     if (params.name === "canary.verification") {
       if (!this.ports.verification) throw new Error("Verification evidence is unavailable in this binding");

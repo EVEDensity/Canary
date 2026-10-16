@@ -15,8 +15,11 @@ Set `CANARY_MCP_TOKEN` in the host's process environment before `serve`, or supp
 - `canary.diagnostics`: a bounded page of retained failures and source positions; pass `maxChecks` and `checkOffset` as needed.
 - `canary.structure`: a bounded page of sealed historical structure; missing snapshots are not reconstructed from current source.
 - `canary.verification`: read an existing receipt with `runId` and `kind: repair|change|reproduction`. Missing/incompatible receipts return unavailable; incomplete historical evidence cannot become verified.
+- `canary.repair_task`: create a read-only [repair task bundle](repair-tasks.md) with `runId`, optional failed check IDs in `checks`, and project-relative files/directories in `allowedPaths`. Returns the same bundle as the CLI, within 65,536 encoded bytes; it does not execute checks or grant repair permission.
 
 Evidence reads require a sealed run in the bound project's artifact collection. Follow pagination metadata instead of treating a bounded page as a complete result. Truncated receipts direct you to the CLI or full project artifact. Source positions and hashes do not establish a root cause or artifact authorship.
+
+Repair task scope must include the authorized source, regression test and any new check configuration. Missing scope remains blocked; the tool does not expand it. Use CLI `repair-task verify` for offline integrity and `repair-task check` to assess a sealed candidate in the original project. Candidate admission is `ready-for-regression`, never repair verification; the existing `canary.repair_verify` operation provides the subsequent regression evidence.
 
 ## Execute a scoped operation
 

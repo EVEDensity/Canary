@@ -27,6 +27,7 @@
 - **覆盖率联动** — 将采集到的行、函数与分支覆盖映射到结构节点，定位未覆盖范围。
 - **可信证据** — 用 manifest、内容哈希和运行谱系关联代码版本、检查结果与历史记录。
 - **Agent 集成** — 安装官方项目 Skill，通过 CLI 或 MCP 使用限量的诊断与验证入口。
+- **修复交接** — 导出[限定范围的修复任务](docs/guides/repair-tasks.md)，检查候选变更，再收集回归验证证据。
 
 了解[支持范围](docs/guides/support-matrix.md)。
 
@@ -96,7 +97,7 @@ canary skill status --json
 
 新增语言：`pnpm i18n:add <locale>` 创建草稿，`pnpm i18n:check` 校验翻译契约。审核并合并完整资源后，语言自动出现在界面菜单中。
 
-欢迎提交 Issue、改进文档或贡献代码。本批 R22–R24 提供可信证据与状态收口、官方 Skill 交付及统一 CLI/MCP 验证入口；R25–R30 仍为规划，详见[路线图](docs/roadmap/README.md)。
+欢迎提交 Issue、改进文档或贡献代码。R22–R25 提供可信证据与状态收口、官方 Skill、统一验证入口及受控修复交接；R26–R30 仍为规划，详见[路线图](docs/roadmap/README.md)。
 
 ## 许可证
 

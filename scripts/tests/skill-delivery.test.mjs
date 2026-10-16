@@ -36,6 +36,7 @@ test("official package validates specification metadata and resolves each bundle
   assert.equal(skill.name, "canary-verify");
   assert.ok(skill.description.length > 0 && skill.description.length <= 1024);
   assert.ok(skill.files.some((file) => file.path === "references/reproduction.md"));
+  assert.ok(skill.files.some((file) => file.path === "references/handoff.md"));
   assert.ok(skill.files.some((file) => file.path === "LICENSE"));
   assert.ok(skill.files.every((file) => /^[a-f0-9]{64}$/.test(file.sha256)));
 });

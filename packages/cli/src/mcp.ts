@@ -6,6 +6,7 @@ import type { StructureSnapshot, StructureChange, ArchitectureAnalysis, ChangeIm
 import { CanaryMcpServer, COMPATIBILITY_MATRIX, serveStdio, type CanaryMcpPorts } from "@canary/mcp-server";
 import { resolveProjectContext } from "./home.js";
 import { hostEvidenceOutput, recordHostProposal } from "./host.js";
+import { buildProjectRepairTask } from "./repair-task.js";
 
 export interface McpCliBindings {
   readRun(runId: string, context: ProjectContext): RunSnapshot | undefined;
@@ -64,6 +65,9 @@ export function bindPorts(context: ProjectContext, bindings: McpCliBindings): Ca
     diagnostics(input) {
       const run = sealedRun(input.runId), result = buildRunDiagnostics(run, context.projectRoot);
       return diagnosticsPage(result, input.checkOffset ?? 0, input.maxChecks ?? 16);
+    },
+    repairTask(input) {
+      return buildProjectRepairTask(context, input);
     },
     verification(input) {
       sealedRun(input.runId);

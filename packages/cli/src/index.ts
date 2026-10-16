@@ -48,6 +48,7 @@ import { ciExitCodeForRun } from "@canary/core";
 import { buildStructure, compareStructure, analyzeArchitecture, analyzeImpact, planAffectedChecks } from "@canary/structure";
 import { reproductionCommand } from "./reproduction.js";
 import { repairCommand } from "./repair.js";
+import { repairTaskCommand } from "./repair-task.js";
 import { changeVerificationCommand } from "./change-verification.js";
 
 export interface CliOptions {
@@ -98,6 +99,9 @@ const USAGE = `Usage: canary run [--ci] [--project <directory>] [--affected --ba
        canary upgrade [--rollback]
        canary change-verify <runId> --base <git-ref> [--project <directory>] [--config <path>]
        canary repair-verify <baseline> <candidate> --regression <checkId> --test <test.spec.mjs> [--execute] [--project <directory>] [--config <path>]
+       canary repair-task create <runId> [--check <id>] [--allow <path>] [--out <bundle.json>] [--project <directory>] [--config <path>]
+       canary repair-task verify <bundle.json>
+       canary repair-task check <bundle.json> <candidateRunId> [--out <receipt.json>] [--project <directory>] [--config <path>]
        canary reproduce <runId> --check <id> [--prepare | --execute] [--workspace <id>] [--env <NAME>] [--ack-service <name>] [--ack-data <name>] [--project <directory>] [--config <path>] [--json]
        canary verify <runId> [--json] [--config <path>]
        canary prune [--apply] [--json] [--config <path>]
@@ -1367,6 +1371,7 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
   }
   if (command === "reproduce") return reproductionCommand(rest);
   if (command === "repair-verify") return repairCommand(rest);
+  if (command === "repair-task") return repairTaskCommand(rest);
   if (command === "change-verify") return changeVerificationCommand(rest);
   if (command === "diagnostics") {
     try {
