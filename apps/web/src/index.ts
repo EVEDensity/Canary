@@ -9,6 +9,8 @@ import {
   parseReportFormat,
   parseRunSnapshot,
   parseSuggestionDecision,
+  changeVerificationSchema,
+  isChangeVerificationBound,
   SchemaValidationError,
   invalidInput,
   type ProjectChecksConfig,
@@ -419,8 +421,55 @@ async function handleRequest(
         return;
       }
       if (parts[3] === "repair-verification" || parts[3] === "change-verification") {
-        if (request.method !== "GET" || !artifacts || artifacts.verify(runId).status !== "verified") { writeJson(response, 409, { error: "Sealed verification evidence required" }); return; }
-        writeJson(response, 200, artifacts.readJson(runId, parts[3] + ".json") ?? { outcome: "evidence-insufficient", reasons: ["No verification was recorded"] }); return;
+        if (request.method !== "GET" || !artifacts || artifacts.verify(runId).status !== "verified") {
+          writeJson(response, 409, { error: "Sealed verification evidence required" });
+          return;
+        }
+        const receipt = artifacts.readJson(runId, parts[3] + ".json");
+        if (parts[3] === "change-verification" && receipt) {
+          if (
+            typeof receipt === "object" &&
+            !Array.isArray(receipt) &&
+            Object.keys(receipt).sort().join(",") === "kind,reason,runId,v"
+          ) {
+            const unavailable = receipt as { v: unknown; kind: unknown; runId: unknown; reason: unknown };
+            if (
+              unavailable.v === 1 &&
+              unavailable.kind === "canary.change-verification-unavailable" &&
+              unavailable.runId === runId &&
+              typeof unavailable.reason === "string" &&
+              unavailable.reason.length > 0 &&
+              unavailable.reason.length <= 1024
+            ) {
+              writeJson(response, 200, { outcome: "evidence-insufficient", reasons: [unavailable.reason] });
+              return;
+            }
+          }
+          const parsed = changeVerificationSchema.safeParse(receipt);
+          const source = run.evidence?.reproduction;
+          const proof = artifacts.readJson(runId, "execution-source.json");
+          if (
+            !parsed.success ||
+            parsed.data.runId !== runId ||
+            parsed.data.commit !== source?.gitCommit ||
+            (parsed.data.v === 2 &&
+              !isChangeVerificationBound(parsed.data, run, proof, proof ? stableHash(proof) : undefined))
+          ) {
+            writeJson(response, 200, {
+              outcome: "evidence-insufficient",
+              reasons: ["Change verification does not match the sealed run source"],
+            });
+            return;
+          }
+          writeJson(response, 200, parsed.data);
+          return;
+        }
+        writeJson(
+          response,
+          200,
+          receipt ?? { outcome: "evidence-insufficient", reasons: ["No verification was recorded"] },
+        );
+        return;
       }
       if (parts[3] === "retry") {
         if (request.method !== "POST") {

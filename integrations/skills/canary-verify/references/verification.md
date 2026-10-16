@@ -23,9 +23,13 @@ This prepares separate source checkouts and executes project code. Dependencies,
 For changes against a user-selected Git baseline:
 
 ```sh
+canary run --ci --base <commit-or-ref>
 canary change-verify <runId> --base <commit-or-ref>
+canary change-verify <runId> --base <commit-or-ref> --summary
 ```
 
-This requires sealed, clean, version-bound run evidence and readable historical Git objects. It writes a change-verification artifact associated with the retained run; it does not use the current worktree as a substitute for historical source. Keep changed-code execution coverage, observed failures and declared behavior assertions distinct. Missing or approximate coverage and undeclared behavior remain unknown. Only explicitly required project behavior contracts affect CI gates.
+`run --base` seals change analysis after the checks; `change-verify` analyzes an existing run against an ancestor baseline. `--summary` returns a bounded acknowledgement with up to 12 gaps, while the full report remains sealed in the run artifacts. Both paths read historical Git objects and retain source/configuration/execution identity; current worktree files cannot substitute for historical source. Legacy records without tracked-input commit proof and changed source remain unknown.
+
+Report execution numerators/denominators and unknown-file counts separately for lines, functions and branches. Explicit behavior counts refer to files with maintainer-declared assertions, not inferred correctness. Keep observed failures and uncovered paths distinct; incomplete measurements do not become zero coverage. Ordinary gaps do not alter check exit codes. Only explicitly required project behavior contracts affect CI gates; an analysis that cannot complete remains unavailable.
 
 Summarize the run IDs, chosen baseline, concrete observations and remaining limits. Committing, publishing and merging follow the user's existing instructions and are separate from gathering verification evidence.

@@ -97,7 +97,7 @@ const USAGE = `Usage: canary run [--ci] [--project <directory>] [--affected --ba
        canary diagnostics verify <bundle.json>
        canary installation [--json]
        canary upgrade [--rollback]
-       canary change-verify <runId> --base <git-ref> [--project <directory>] [--config <path>]
+       canary change-verify <runId> --base <git-ref> [--summary] [--project <directory>] [--config <path>]
        canary repair-verify <baseline> <candidate> --regression <checkId> --test <test.spec.mjs> [--execute] [--project <directory>] [--config <path>]
        canary repair-task create <runId> [--check <id>] [--allow <path>] [--out <bundle.json>] [--project <directory>] [--config <path>]
        canary repair-task verify <bundle.json>

@@ -28,6 +28,7 @@
 - **Traceable evidence** — Connect code versions, check results and execution history through manifests, content hashes and run lineage.
 - **Agent workflows** — Install the official project Skill and expose bounded diagnosis and verification tools through the CLI or MCP.
 - **Repair handoffs** — Share [scoped repair tasks](docs/guides/repair-tasks.md), assess candidate changes, then verify regression evidence.
+- **Change verification** — Add `--base main` to project runs and inspect [changed-code coverage, explicit behavior and verification gaps](docs/guides/change-verification.md) against sealed source.
 
 See the [support scope](docs/guides/support-matrix.md).
 
@@ -98,7 +99,7 @@ The name comes from the canary in the coal mine: an early warning signal. Canary
 
 Add a language with `pnpm i18n:add <locale>` and validate it with `pnpm i18n:check`. Complete, reviewed resources appear automatically in the language menu after merging.
 
-Issues, documentation improvements and code contributions are welcome. R22–R25 add trusted evidence/state handling, official Skill delivery, unified verification entry points and controlled repair handoffs. R26–R30 remain planned; see the [roadmap](docs/roadmap/README.md).
+Issues, documentation improvements and code contributions are welcome. R22–R26 add trusted evidence/state handling, official Skill delivery, unified verification entry points, controlled repair handoffs and version-bound change analysis. R27–R30 remain planned; see the [roadmap](docs/roadmap/README.md).
 
 ## License
 

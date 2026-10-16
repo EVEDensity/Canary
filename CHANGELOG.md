@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## 0.5.0
+
+- R26: seal version-bound change analysis with `run --base` or analyze a retained run with `change-verify`; use `--summary` for bounded operation output.
+- Combine compatible coverage evidence without duplicate denominators, retain independent unknown-file counts, and separate explicit behavior assertions from code execution.
+- Show classified verification gaps and sealed source navigation in the workspace; CLI, MCP and page validate the same run/source/configuration/execution identity.
+- Require tracked-input commit proof for quantitative change claims. Historical or unsupported evidence remains unknown; ordinary verification gaps preserve project check exit codes.
+- 变更验证覆盖 CLI、MCP 和页面，分别展示执行覆盖、未知文件、显式行为与验证缺口；缺失版本证明和不支持的范围保持未知。
+
 ## 0.4.0
 
 - R25: export bounded repair tasks through the CLI and MCP with sealed source/failure identity and explicit repair scope.

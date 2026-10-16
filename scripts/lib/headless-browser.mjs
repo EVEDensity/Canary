@@ -61,7 +61,8 @@ export async function withBrowser(url, profile, task) {
       return result.result?.value;
     };
     await send("Runtime.enable");
-    return await task({ evaluate, errors });
+    const screenshot = async () => Buffer.from((await send("Page.captureScreenshot", { format: "png" })).data, "base64");
+    return await task({ evaluate, errors, screenshot });
   } finally {
     for (const request of pending.values()) { clearTimeout(request.timer); request.fail(new Error("Browser closed")); }
     socket?.close(); browser.kill();

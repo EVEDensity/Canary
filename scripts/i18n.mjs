@@ -35,7 +35,14 @@ if (command === "add") {
     for (const key of Object.keys(messages))
       if (!(key in source)) errors.push(`${filename}: unexpected key ${JSON.stringify(key)}`);
   }
-  const names = ["workspace-ui", "dashboard-ui", "architecture-map", "architecture-r12", "architecture-analysis"];
+  const names = [
+    "workspace-ui",
+    "dashboard-ui",
+    "architecture-map",
+    "architecture-r12",
+    "architecture-analysis",
+    "change-verification-ui",
+  ];
   for (const name of names) {
     const content = readFileSync(resolve(`apps/web/src/${name}.ts`), "utf8"),
       file = ts.createSourceFile(name, content, ts.ScriptTarget.Latest, true);
