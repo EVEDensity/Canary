@@ -1,9 +1,19 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import {
+  chmodSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { delimiter, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { evidenceOutput, newLogDirectory } from "../lib/evidence-output.mjs";
 import { runLogged } from "../run-logged.mjs";
 import { logStatus, pruneLogs } from "../logs.mjs";
@@ -18,6 +28,46 @@ test("direct invocation resolves and launches the installed pnpm executable", ()
   assert.equal(result.status, 0, result.stderr);
   assert.match(result.stdout, /\d+\.\d+\.\d+/);
 });
+
+test(
+  "POSIX pnpm shell shim preserves literal argv without shell expansion",
+  { skip: process.platform === "win32" },
+  (t) => {
+    const root = mkdtempSync(join(tmpdir(), "canary pnpm shim-")),
+      bin = join(root, "bin with spaces"),
+      marker = join(root, "unexpected-shell-expansion");
+    t.after(() => rmSync(root, { recursive: true, force: true }));
+    mkdirSync(bin);
+    const shim = join(bin, "pnpm");
+    const shellQuote = (value) => "'" + value.replaceAll("'", "'\\''") + "'";
+    writeFileSync(
+      shim,
+      '#!/bin/sh\nbasedir=$(dirname "$0")\nexec ' + shellQuote(process.execPath) + ' "$basedir/argv.mjs" "$@"\n',
+    );
+    chmodSync(shim, 0o755);
+    writeFileSync(join(bin, "argv.mjs"), "console.log(JSON.stringify(process.argv.slice(2)));\n");
+    const args = [
+      "value with spaces",
+      "single'quote",
+      'double"quote',
+      "literal$HOME",
+      "*.mjs",
+      "$(touch " + shellQuote(marker) + ")",
+      "; touch " + shellQuote(marker),
+      "",
+    ];
+    const env = { ...process.env, PATH: bin + delimiter + process.env.PATH };
+    delete env.npm_execpath;
+    const result = spawnSync(
+      process.execPath,
+      [fileURLToPath(new URL("../run-logged.mjs", import.meta.url)), "quick", "--", "pnpm", ...args],
+      { cwd: root, env, encoding: "utf8" },
+    );
+    assert.equal(result.status, 0, result.stderr);
+    assert.deepEqual(JSON.parse(result.stdout), args);
+    assert.ok(!existsSync(marker), "arguments must not execute command substitution or shell statements");
+  },
+);
 
 test("unique scoped log directories and explicit report destinations", (t) => {
   const root = mkdtempSync(join(tmpdir(), "canary-logs-"));

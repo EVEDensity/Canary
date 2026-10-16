@@ -1,13 +1,15 @@
-import { spawn, spawnSync } from "node:child_process";
-import { existsSync, unlinkSync } from "node:fs";
+import { spawn } from "node:child_process";
+import { unlinkSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { newLogDirectory, repositoryRoot } from "./lib/evidence-output.mjs";
+import { commandInvocation } from "./lib/command-runner.mjs";
 import { DiagnosticOutput } from "../packages/cli/dist/diagnostic-output.js";
 import { writePrivateJson, writePrivateText } from "../packages/trace/dist/index.js";
 import { killProcessTree } from "../packages/isolation/dist/index.js";
 
 export async function runLogged(category, command, args, options = {}) {
+  const invocation = commandInvocation(command, args);
   const dir = newLogDirectory(category, options.root),
     startedAt = new Date().toISOString();
   const stdout = new DiagnosticOutput(process.env),
@@ -18,7 +20,7 @@ export async function runLogged(category, command, args, options = {}) {
   console.error(`Test logs: ${dir}`);
   return await new Promise((resolveResult) => {
     let completed = false;
-    const child = spawn(command, args, {
+    const child = spawn(invocation.command, invocation.args, {
       cwd: options.cwd ?? repositoryRoot,
       env: { ...process.env, CANARY_LOG_DIR: dir },
       windowsHide: true,
@@ -76,32 +78,9 @@ export async function runLogged(category, command, args, options = {}) {
   });
 }
 
-function resolvePnpmEntry() {
-  if (process.env.npm_execpath && existsSync(process.env.npm_execpath)) return process.env.npm_execpath;
-  const lookup = spawnSync(process.platform === "win32" ? "where.exe" : "which", ["pnpm"], {
-    encoding: "utf8",
-    windowsHide: true,
-  });
-  const candidates =
-    lookup.status === 0 ? lookup.stdout.split(/\r?\n/).filter((entry) => entry && existsSync(entry)) : [];
-  return process.platform === "win32"
-    ? (candidates.find((entry) => /\.exe$/i.test(entry)) ?? candidates[0])
-    : candidates[0];
-}
-
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
   const [category, separator, binary, ...args] = process.argv.slice(2);
   if (separator !== "--" || !binary) throw new Error("Usage: run-logged <category> -- node|pnpm <args>");
-  let command = binary;
-  if (binary === "node") command = process.execPath;
-  if (binary === "pnpm") {
-    const entry = resolvePnpmEntry();
-    if (!entry) throw new Error("Cannot resolve pnpm from the current environment");
-    if (/\.exe$/i.test(entry)) command = entry;
-    else {
-      command = process.execPath;
-      args.unshift(entry);
-    }
-  }
+  const command = binary === "node" ? process.execPath : binary;
   process.exitCode = (await runLogged(category, command, args)).exitCode;
 }
