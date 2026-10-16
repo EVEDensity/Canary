@@ -6,11 +6,6 @@ on:
     types: [completed]
     branches: [main]
   workflow_dispatch:
-    inputs:
-      publish_npm:
-        description: "Also publish workspace packages to npm (requires NPM_TOKEN)"
-        type: boolean
-        default: false
 
 permissions:
   contents: read
@@ -77,6 +72,7 @@ jobs:
           pnpm lint
           pnpm format:check
           pnpm test
+          pnpm test:quick
           pnpm site:build
       - name: Package release assets
         if: steps.version.outputs.publish == 'true'
@@ -91,6 +87,7 @@ jobs:
           find packages apps/web -type f -path '*/dist/*' -name '*.tsbuildinfo' -delete
           pnpm --recursive --filter "./packages/**" --filter @canary/web pack --pack-destination "$asset_dir"
           (cd apps/site/dist && zip -qr "$asset_dir/canary-website-$RELEASE_TAG.zip" .)
+          (cd integrations/skills && zip -qr "$asset_dir/canary-verify-skill-$RELEASE_TAG.zip" canary-verify)
           cd "$asset_dir"
           sha256sum ./*.tgz ./*.zip > SHA256SUMS
       - name: Publish GitHub Release
@@ -107,13 +104,14 @@ jobs:
           cat > "$notes_file" <<'NOTES'
           ## Canary
 
-          项目验证工作台：探索架构、定位失败、分析覆盖率，让每一次修复都有据可查。
-
           A project verification workspace: explore architecture, diagnose failures, analyze coverage, and verify fixes with traceable evidence.
 
-          **快速开始 / Quick start:** See README.md and README.cn.md.
-          **下载 / Downloads:** Workspace package archives and the static website are attached below. Package archives reference workspace dependencies; install through the documented setup instructions.
-          **完整性 / Integrity:** Verify downloads against SHA256SUMS.
+          项目验证工作台：探索架构、定位失败、分析覆盖率，让每一次修复都有据可查。
+
+          **Quick start / 快速开始:** See README.md and README.cn.md. Install Canary from the documented GitHub source workflow; no npm publication or account is required.
+          **Downloads / 下载:** Workspace package archives, the static website and the official canary-verify Skill ZIP are attached below. Package archives reference workspace dependencies. Use `canary skill install` for managed project installation; the ZIP is also available for manual client-specific discovery.
+          **Scope / 范围:** The Skill format and local delivery are tested. Discovery and invocation in every Agent Skills client are not claimed.
+          **Integrity / 完整性:** Verify every download, including the Skill ZIP, against SHA256SUMS.
           NOTES
           if gh release view "$RELEASE_TAG" --json isDraft > "$RUNNER_TEMP/release-state.json"; then
             if [[ "$(node -p "require(process.argv[1]).isDraft" "$RUNNER_TEMP/release-state.json")" != true ]]; then
@@ -131,29 +129,3 @@ jobs:
           else
             gh release edit "$RELEASE_TAG" --draft=false --latest
           fi
-
-  npm:
-    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.publish_npm
-    needs: release
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      id-token: write
-    steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 10.15.0
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 24
-          cache: pnpm
-          registry-url: https://registry.npmjs.org
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm build
-      - run: pnpm typecheck
-      - run: pnpm test
-      - name: Publish packages with provenance
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: pnpm --filter "./packages/**" --filter @canary/web publish --access public --no-git-checks --provenance

@@ -6,3 +6,4 @@ export { assertIsolationReady, writePreload, runIsolatedScript, isolationGuard, 
 export type { IsolationRequest, IsolatedRunResult } from "./executor.js";
 export { assertIsolatedNetwork, assertIsolatedTool, denyUncontrolledMcp, proxyPolicyHosts } from "./proxy.js";
 export { PROCESS_ADAPTER, killProcessTree, pidAlive, reclaimOrphans, waitForExit } from "./process.js";
+export { BoundedExecutionOutput, DEFAULT_OUTPUT_MAX_BYTES } from "./output.js";

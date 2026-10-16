@@ -14,8 +14,8 @@ export class DiagnosticOutput {
   private context = 0;
   truncated = false;
   private secrets: string[];
-  constructor(env: NodeJS.ProcessEnv) {
-    this.secrets = collectSecretValues({ ...process.env, ...env }).flatMap((value) => [value, ...value.split(/\r?\n/)]);
+  constructor(env: NodeJS.ProcessEnv, args: string[] = []) {
+    this.secrets = collectSecretValues({ environment: { ...process.env, ...env }, args }).flatMap((value) => [value, ...value.split(/\r?\n/)]);
   }
   append(chunk: string): void {
     for (const part of chunk.split(/(?<=\n)/)) {

@@ -30,6 +30,7 @@ import { recordEvidence, conclusionHash } from "./evidence.js";
 import { CliFailure } from "./ci.js";
 import { evaluateBehaviorContracts } from "./change-verification.js";
 import type { CliOptions, RunCommandResult } from "./index.js";
+import { executionSourceProof, trySourceFingerprint } from "./source-identity.js";
 
 export async function runProjectChecks(
   config: ProjectChecksConfig,
@@ -171,12 +172,14 @@ export async function runProjectChecks(
     }
   };
   let exitCode: number;
+  let executionSource: ReturnType<typeof trySourceFingerprint>;
   try {
     persist();
     checkpoint("running");
     writePrivateJson(join(artifactDir, "source-inventory.json"), sources, privacy);
     writePrivateJson(join(artifactDir, "discovery.json"), discovery, privacy);
     writePrivateJson(join(artifactDir, "check-plan.json"), config, privacy);
+    executionSource = trySourceFingerprint(context.projectRoot);
     for (const check of config.checks) {
       store.update(runId, { activeCheck: { id: check.id, startedAt: new Date().toISOString() } });
       const started = monotonicNow();
@@ -277,6 +280,8 @@ export async function runProjectChecks(
   } finally {
     await cleanup();
   }
+  const observedSource = trySourceFingerprint(context.projectRoot);
+  writePrivateJson(join(artifactDir, "execution-source.json"), executionSourceProof(store.get(runId)!, executionSource, observedSource), privacy);
   try {
     sealArtifacts(artifactDir, { privacy });
   } catch (error) {

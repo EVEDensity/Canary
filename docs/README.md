@@ -6,6 +6,8 @@ Run checks, explore project architecture, and verify fixes with traceable eviden
 
 - [Installation and setup](guides/getting-started.md)
 - [Automatic project checks](guides/automatic-checks.md)
+- [CLI verification](guides/cli.md)
+- [Official verification Skill](guides/skills.md)
 - [Configuration](guides/r4-project-checks.md)
 - [Support scope](guides/support-matrix.md)
 - [Troubleshooting](guides/troubleshooting.md)
@@ -27,6 +29,7 @@ Run checks, explore project architecture, and verify fixes with traceable eviden
 ## Extend and maintain
 
 - [Adapters](guides/adapters-and-environment.md)
+- [MCP host integration](guides/mcp.md)
 - [Project experience](guides/r8-project-experience.md)
 - [Experience schema](guides/r8-schema.md)
 - [CLI contract](guides/r0-cli-contract.md)

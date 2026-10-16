@@ -48,3 +48,4 @@ export {
 export * from "./cli-contracts.js";
 export * from "./evidence.js";
 export * from "./checks.js";
+export * from "./verification.js";

@@ -2,7 +2,7 @@ import { isAbsolute, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { RunSnapshot } from "@canary/core";
 import { sha256 } from "./artifacts.js";
-import { containsSensitiveValue, redactValue, SECRET_KEY } from "./privacy.js";
+import { containsSensitiveValue, redactValue } from "./privacy.js";
 
 export interface FailureDiagnostic {
   id: string;
@@ -75,15 +75,7 @@ function failure(id: string, category: string, stdout: string, stderr: string, r
 }
 /** Derive one shared view without changing the original report or evaluation result. */
 export function buildRunDiagnostics(input: RunSnapshot, projectRoot: string): RunDiagnostics {
-  const commandSecrets: string[] = [];
-  for (const check of input.checks ?? []) for (const [index, arg] of (check.args ?? []).entries()) {
-    if (!arg.startsWith("-")) continue;
-    const [name, ...value] = arg.split("=");
-    if (!SECRET_KEY.test(name!.replace(/^-+/, ""))) continue;
-    const secret = value.length ? value.join("=") : check.args?.[index + 1];
-    if (secret && !secret.startsWith("--")) commandSecrets.push(secret);
-  }
-  const run = redactValue(input, { maxStringLength: Infinity, secretValues: commandSecrets }) as RunSnapshot;
+  const run = redactValue(input, { maxStringLength: Infinity }) as RunSnapshot;
   const failures: FailureDiagnostic[] = [];
   for (const check of run.checks ?? []) {
     if (check.status !== "failed" && check.status !== "blocked") continue;

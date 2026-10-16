@@ -56,6 +56,20 @@ describe("isolation capability and process boundary", () => {
 });
 
 describe("userspace isolation rejects real attacks", () => {
+  it("fails a real flood across stdout and stderr with one shared byte budget", async () => {
+    const root = isolatedWorkspace();
+    const result = await runIsolatedScript({ purpose: "untrusted_candidate", workspace: root, policy: defaultPolicy(root) }, `
+      const fs = require('fs');
+      fs.writeSync(1, 'output\\n'.repeat(180));
+      fs.writeSync(2, 'Error: fixture overflow\\n' + 'diagnostic\\n'.repeat(1000));
+    `, 8000, 2048);
+    expect(result.exitCode).not.toBe(0);
+    expect(result.termination).toBe("budget_exceeded");
+    expect(result.outputCapture.truncated).toBe(true);
+    expect(result.outputCapture.observedBytes).toBeGreaterThan(2048);
+    expect(Buffer.byteLength(result.stdout + result.stderr)).toBeLessThanOrEqual(2048);
+    expect(result.stderr).toContain("Error: fixture overflow");
+  }, 20_000);
   it("blocks parent reads, protected files, env secrets, unauthorized network, and spawn", async () => {
     const root = isolatedWorkspace();
     const policy = defaultPolicy(root);

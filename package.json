@@ -1,6 +1,6 @@
 {
   "name": "canary",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "license": "Apache-2.0",
   "description": "Local project checks, architecture maps, and evidence-backed verification workspace.",
@@ -14,7 +14,7 @@
     "test": "node scripts/run-logged.mjs tests -- pnpm -r --if-present test",
     "i18n:check": "node scripts/i18n.mjs check",
     "i18n:add": "node scripts/i18n.mjs add",
-    "test:quick": "node scripts/run-logged.mjs quick -- node --test scripts/tests/local-logs.test.mjs",
+    "test:quick": "node scripts/run-logged.mjs quick -- node --test scripts/tests/local-logs.test.mjs scripts/tests/skill-delivery.test.mjs",
     "logs:status": "node scripts/logs.mjs",
     "logs:prune": "node scripts/logs.mjs",
     "typecheck": "pnpm -r --if-present typecheck",

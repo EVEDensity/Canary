@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { ProjectCheckResult, RunSnapshot } from "@canary/core";
 import { buildRunDiagnostics, createDiagnosticBundle, verifyDiagnosticBundle } from "../src/diagnostics.js";
+import { redactValue } from "../src/privacy.js";
 
 const check = (id: string, overrides: Partial<ProjectCheckResult> = {}): ProjectCheckResult => ({ id, type: "command", version: 1, required: true, status: "failed", evidence: "verified", exitCode: 1, category: "assertion", retryable: false, durationMs: 1, cwd: "/project", envAllowlist: ["API_KEY"], command: "node", args: ["test.js"], ...overrides });
 const fixture = (): RunSnapshot => ({ runId: "run_1", status: "failed", startedAt: "2026-10-01T00:00:00Z", totalCases: 3, completedCases: 3, passedCases: 0, results: [], events: [], checks: [check("test", { stderr: "FAIL adds numbers\nAssertionError: wrong result\n    at test (/project/src/test.ts:12:3)", outputTruncated: true }), check("similar", { stderr: "AssertionError: wrong result" }), check("dependent", { status: "blocked", category: "dependency", dependsOn: ["test"] })] });
@@ -30,6 +31,9 @@ describe("unified failure diagnostics", () => {
     const run = fixture();
     run.checks![0]!.args = ["--token=ghp_12345678901234567890", "--password", "opaque-value-123"];
     run.checks![0]!.stderr += "\npassword=superprivate\nhttps://user:pass@example.com";
+    run.checks![1]!.stderr = "Echoed opaque-value-123 in a different check";
+    const persisted = JSON.stringify(redactValue(run));
+    expect(persisted).not.toContain("opaque-value-123");
     const bundle = createDiagnosticBundle(run, "/project");
     const serialized = JSON.stringify(bundle);
     expect(serialized).not.toContain("superprivate");

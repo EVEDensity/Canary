@@ -7,20 +7,25 @@ const os = require("node:os");
 const path = require("node:path");
 const { fileURLToPath, pathToFileURL } = require("node:url");
 const proto = 1;
+const payload = JSON.parse(process.env.CANARY_WORKER_DATA || "{}");
+const workerAuth = payload.workerAuth;
+delete payload.workerAuth;
+delete process.env.CANARY_WORKER_DATA;
+delete process.env.CANARY_WORKER_AUTH;
+const privateSend = typeof process.send === "function" ? process.send.bind(process) : undefined;
 const send = (message) => new Promise((resolve) => {
-  if (typeof process.send !== "function" || !process.connected) return resolve();
-  const envelope = Object.assign({ v: proto }, message);
+  if (!privateSend || !process.connected) return resolve();
+  const envelope = Object.assign({ v: proto }, message, { auth: workerAuth });
   let encoded = "";
   try { encoded = JSON.stringify(envelope); } catch { return resolve(); }
-  const maxBytes = Number((JSON.parse(process.env.CANARY_WORKER_DATA || "{}")).ipcMaxBytes || 8388608);
+  const maxBytes = Number(payload.ipcMaxBytes || 8388608);
   if (Buffer.byteLength(encoded) > maxBytes) {
-    try { process.send({ v: proto, type: "error", error: "IPC payload exceeds maximum size" }, undefined, undefined, () => resolve()); } catch { resolve(); }
+    try { privateSend({ v: proto, auth: workerAuth, type: "error", error: "IPC payload exceeds maximum size" }, undefined, undefined, () => resolve()); } catch { resolve(); }
     return;
   }
-  try { process.send(envelope, undefined, undefined, () => resolve()); } catch { resolve(); }
+  try { privateSend(envelope, undefined, undefined, () => resolve()); } catch { resolve(); }
 });
 (async () => {
-  const payload = JSON.parse(process.env.CANARY_WORKER_DATA || "{}");
   const useIstanbul = payload.coverageProvider === "istanbul";
   const session = new Session(); let coverageStarted = false; let scripts = []; let partial = false; let sampleTimer; let lastSampleAt = 0; let lastSampleKey = ""; let tools; let seq = 0; let coverageMod; let istanbulTmp;
   const minInterval = Number(payload.sampleMinIntervalMs || 200);
@@ -85,7 +90,17 @@ const send = (message) => new Promise((resolve) => {
       return seed / 4294967296;
     };
     const now = () => payload.reproducibility && payload.reproducibility.clock || new Date().toISOString();
-    await send({ type: "ready" }); const value = await agent(payload.input, { executionId: payload.executionId, emit, tools, state, model, random, now, experiences: Array.isArray(payload.experiences) ? payload.experiences : [] }); await send({ type: "result", value });
+    const experiences = Array.isArray(payload.experiences) ? payload.experiences : [];
+    const references = experiences.map(({ id, key, version, contentHash }) => ({ id, key, version, contentHash }));
+    const context = { executionId: payload.executionId, emit, tools, state, model, random, now, experiences };
+    await send({ type: "ready" });
+    // Invoke before acknowledging: selecting or importing context is not delivery.
+    // Adopt both synchronous errors and promise rejection immediately while the ack is in flight.
+    const invocation = (async () => agent(payload.input, context))().then(value => ({ value }), error => ({ error }));
+    if (references.length) await send({ type: "experiences.delivered", references, deliveredAt: new Date().toISOString() });
+    const completed = await invocation;
+    if ("error" in completed) throw completed.error;
+    await send({ type: "result", value: completed.value });
   } catch (error) { partial = true; await send({ type: "error", error: error && (error.stack || error.message) || String(error) }); }
   finally {
     if (tools) try { await tools.close(); } catch {}

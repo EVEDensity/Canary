@@ -1,6 +1,6 @@
 {
   "name": "@canary/cli",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -50,8 +50,5 @@
   "files": [
     "dist",
     "README.md"
-  ],
-  "publishConfig": {
-    "access": "public"
-  }
+  ]
 }

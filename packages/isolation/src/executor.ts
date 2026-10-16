@@ -8,6 +8,8 @@ import { probeIsolation, requiredMode, type IsolationPurpose } from "./capabilit
 import { buildIsolatedEnv } from "./env.js";
 import { createIsolationPreload } from "./preload-source.js";
 import { killProcessTree } from "./process.js";
+import { BoundedExecutionOutput, DEFAULT_OUTPUT_MAX_BYTES } from "./output.js";
+import type { ExecutionOutputCapture, ExecutionTermination } from "@canary/core";
 
 export interface IsolationRequest {
   purpose: IsolationPurpose;
@@ -44,9 +46,12 @@ export interface IsolatedRunResult {
   stdout: string;
   stderr: string;
   denials: Array<{ code?: string; message?: string }>;
+  termination: ExecutionTermination;
+  outputCapture: ExecutionOutputCapture;
 }
 
-export async function runIsolatedScript(request: IsolationRequest, source: string, timeoutMs = 8_000): Promise<IsolatedRunResult> {
+export async function runIsolatedScript(request: IsolationRequest, source: string, timeoutMs = 8_000, maxOutputBytes = DEFAULT_OUTPUT_MAX_BYTES): Promise<IsolatedRunResult> {
+  const capture = new BoundedExecutionOutput(maxOutputBytes);
   const cap = assertIsolationReady(request);
   if (request.purpose === "trusted_eval") {
     throw new PolicyDenied("POL-03", "trusted_eval must not use the isolated candidate executor");
@@ -75,22 +80,27 @@ export async function runIsolatedScript(request: IsolationRequest, source: strin
     windowsHide: true,
     stdio: ["ignore", "pipe", "pipe"],
   });
-  let stdout = "";
-  let stderr = "";
-  child.stdout?.setEncoding("utf8");
-  child.stderr?.setEncoding("utf8");
-  child.stdout?.on("data", (chunk: string) => { stdout += chunk; });
-  child.stderr?.on("data", (chunk: string) => { stderr += chunk; });
+  let timedOut = false;
+  let stopped = false;
+  const stop = () => { if (stopped) return; stopped = true; if (child.pid) killProcessTree(child.pid); else child.kill("SIGKILL"); };
+  const append = (stream: "stdout" | "stderr", chunk: Buffer) => {
+    capture.append(stream, chunk);
+    if (capture.truncated) stop();
+  };
+  child.stdout?.on("data", (chunk: Buffer) => append("stdout", chunk));
+  child.stderr?.on("data", (chunk: Buffer) => append("stderr", chunk));
   const exitCode = await new Promise<number | null>((resolvePromise) => {
     const timer = setTimeout(() => {
-      if (child.pid) killProcessTree(child.pid);
-      else child.kill("SIGKILL");
-      resolvePromise(null);
+      timedOut = true;
+      stop();
     }, timeoutMs);
     child.once("close", (code) => { clearTimeout(timer); resolvePromise(code); });
+    child.once("error", () => { clearTimeout(timer); resolvePromise(null); });
   });
   const denials = readDenials(denialLog);
-  return { exitCode, stdout, stderr, denials };
+  const outputCapture = capture.finish();
+  const termination = outputCapture.truncated ? "budget_exceeded" : timedOut ? "timeout" : exitCode === 0 ? "completed" : "error";
+  return { exitCode: termination === "budget_exceeded" || timedOut ? null : exitCode, stdout: outputCapture.stdout, stderr: outputCapture.stderr, denials, termination, outputCapture };
 }
 
 function readDenials(file: string): Array<{ code?: string; message?: string }> {

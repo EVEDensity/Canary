@@ -10,6 +10,11 @@ import {
   REQUEST_CANCELLED,
   UNSUPPORTED_PROTOCOL_VERSION,
   serveStdio,
+  parseEvidenceArgs,
+  parseOperationArgs,
+  parseProposalArgs,
+  parseVerificationArgs,
+  toolList,
   type CanaryMcpPorts,
 } from "../src/index.js";
 
@@ -47,7 +52,7 @@ describe("S-02 compatibility matrix and dual-era protocol", () => {
     expect(COMPATIBILITY_MATRIX.sampling).toBe(false);
     expect(COMPATIBILITY_MATRIX.sourceWrite).toBe(false);
     expect(COMPATIBILITY_MATRIX.streamableHttpSession).toBe(false);
-    expect(COMPATIBILITY_MATRIX.tools).toEqual(["canary.run", "canary.evidence", "canary.structure", "canary.submit_proposal"]);
+    expect(COMPATIBILITY_MATRIX.tools).toEqual(["canary.run", "canary.evidence", "canary.structure", "canary.submit_proposal", "canary.diagnostics", "canary.verification", "canary.reproduce", "canary.repair_verify", "canary.change_verify"]);
   });
 
   it("serves a modern client with per-request _meta without initialize", async () => {
@@ -258,5 +263,97 @@ describe("S-02 compatibility matrix and dual-era protocol", () => {
     });
     expect(second?.error?.message).toMatch(/resource limit/);
     await first;
+  });
+});
+
+describe("MCP verification argument boundaries", () => {
+  const valid = {
+    "canary.reproduce": { runId: "run_original", checkId: "test" },
+    "canary.repair_verify": { runId: "run_original", candidateRunId: "run_candidate", regression: ["regression"], tests: ["tests/regression.test.mjs"] },
+    "canary.change_verify": { runId: "run_candidate", base: "HEAD~1" },
+  };
+
+  it("advertises exactly the fields consumed by each operation and enforces every required field", () => {
+    for (const [name, args] of Object.entries(valid)) {
+      const tool = toolList().tools.find(tool => tool.name === name)!;
+      const schema = tool.inputSchema as { required: string[]; properties: Record<string, unknown>; additionalProperties: boolean };
+      expect(schema.required.sort()).toEqual(Object.keys(args).sort());
+      expect(schema.additionalProperties).toBe(false);
+      expect(() => parseOperationArgs(name, args)).not.toThrow();
+      for (const field of schema.required) {
+        const incomplete = { ...args } as Record<string, unknown>;
+        delete incomplete[field];
+        expect(() => parseOperationArgs(name, incomplete), `${name} missing ${field}`).toThrow();
+      }
+      const expectedOptional = name === "canary.reproduce" ? ["action", "workspace"] : name === "canary.repair_verify" ? ["action", "workspace", "candidateWorkspace"] : [];
+      expect(Object.keys(schema.properties).sort()).toEqual([...Object.keys(args), ...expectedOptional].sort());
+    }
+  });
+
+  it("rejects fields belonging to another operation instead of silently ignoring them", () => {
+    const rejected = [
+      ["canary.reproduce", "candidateRunId", "run_other"], ["canary.reproduce", "tests", ["x.test.mjs"]],
+      ["canary.reproduce", "base", "HEAD"], ["canary.reproduce", "candidateWorkspace", `repro_${"a".repeat(36)}`],
+      ["canary.repair_verify", "checkId", "original"], ["canary.repair_verify", "base", "HEAD"],
+      ["canary.change_verify", "action", "execute"], ["canary.change_verify", "workspace", `repro_${"a".repeat(36)}`],
+      ["canary.change_verify", "regression", ["test"]], ["canary.change_verify", "candidateRunId", "run_other"],
+    ] as const;
+    for (const [name, field, value] of rejected) expect(() => parseOperationArgs(name, { ...valid[name], [field]: value })).toThrow(/unsupported/);
+    expect(() => parseOperationArgs("toString", {})).toThrow(/Unknown/);
+    expect(() => parseOperationArgs("canary.evidence", { runId: "run_original" })).toThrow(/Unknown/);
+  });
+
+  it("requires literal enum strings and rejects coercible arrays, objects and null", () => {
+    for (const action of [["execute"], ["inspect"], null, true, { toString: () => "execute" }]) expect(() => parseOperationArgs("canary.reproduce", { ...valid["canary.reproduce"], action })).toThrow();
+    for (const kind of [["repair"], null, 1, { toString: () => "repair" }]) expect(() => parseVerificationArgs({ runId: "run_original", kind })).toThrow();
+    expect(parseOperationArgs("canary.reproduce", valid["canary.reproduce"])).toMatchObject({ action: "inspect" });
+    expect(() => parseOperationArgs("canary.reproduce", null)).toThrow(/object/);
+    expect(() => parseProposalArgs({ proposal: [] })).toThrow(/object/);
+  });
+
+  it.each(["../outside.test.mjs", "/outside.test.mjs", "C:/outside.test.mjs", "C:\\outside.test.mjs", "tests/x\n.test.mjs", "tests/x\0.test.mjs", "--write.test.mjs", "source.mjs"])("rejects unsafe or unsupported test path %s", (path) => {
+    expect(() => parseOperationArgs("canary.repair_verify", { ...valid["canary.repair_verify"], tests: [path] })).toThrow();
+  });
+
+  it("bounds IDs and lists and prevents flag-shaped baselines or check identifiers", () => {
+    for (const runId of ["../other", "--project", "run\0other", "run\nother", "x".repeat(161), " run_original "]) expect(() => parseOperationArgs("canary.reproduce", { ...valid["canary.reproduce"], runId })).toThrow();
+    for (const base of ["--config=/other", "HEAD\0", "HEAD\nother", "HEAD\n", "\nHEAD", "HEAD\r", " HEAD ", "x".repeat(161)]) expect(() => parseOperationArgs("canary.change_verify", { ...valid["canary.change_verify"], base })).toThrow();
+    expect(parseOperationArgs("canary.change_verify", { ...valid["canary.change_verify"], base: "HEAD@{1 day ago}" })).toMatchObject({ base: "HEAD@{1 day ago}" });
+    expect(() => parseOperationArgs("canary.repair_verify", { ...valid["canary.repair_verify"], regression: ["--project"] })).toThrow();
+    expect(() => parseOperationArgs("canary.repair_verify", { ...valid["canary.repair_verify"], regression: ["regression", "regression"] })).toThrow();
+    expect(() => parseOperationArgs("canary.repair_verify", { ...valid["canary.repair_verify"], tests: [] })).toThrow();
+    expect(() => parseOperationArgs("canary.repair_verify", { ...valid["canary.repair_verify"], tests: Array.from({ length: 17 }, (_, index) => `${index}.test.mjs`) })).toThrow();
+    expect(() => parseOperationArgs("canary.reproduce", { ...valid["canary.reproduce"], workspace: "../checkout" })).toThrow();
+    expect(parseOperationArgs("canary.repair_verify", { ...valid["canary.repair_verify"], tests: Array.from({ length: 16 }, (_, index) => `${index}.test.mjs`) }).tests).toHaveLength(16);
+  });
+
+  it("only accepts the advertised diagnostics parameters and keeps evidence selectors available", () => {
+    expect(parseEvidenceArgs({ runId: "run_original", maxChecks: 32, checkOffset: 1_000_000 }, "canary.diagnostics")).toEqual({ runId: "run_original", maxChecks: 32, checkOffset: 1_000_000 });
+    for (const selector of [{ caseId: "case" }, { maxCases: 1 }, { maxEvents: 1 }]) {
+      expect(() => parseEvidenceArgs({ runId: "run_original", ...selector }, "canary.diagnostics")).toThrow(/unsupported/);
+      expect(() => parseEvidenceArgs({ runId: "run_original", ...selector })).not.toThrow();
+    }
+    expect(() => parseEvidenceArgs({ runId: "run_original", maxChecks: 33 }, "canary.diagnostics")).toThrow();
+    expect(() => parseEvidenceArgs({ runId: "run_original", checkOffset: -1 }, "canary.diagnostics")).toThrow();
+  });
+
+  it("rejects invalid new-tool requests before invoking their bound ports", async () => {
+    let operations = 0, diagnosticReads = 0;
+    const server = new CanaryMcpServer({ token: "fixture", ports: ports({
+      async executeVerification() { operations++; return {}; },
+      diagnostics() { diagnosticReads++; return {}; },
+    }) });
+    const calls = [
+      { name: "canary.reproduce", arguments: { runId: "run_original" } },
+      { name: "canary.repair_verify", arguments: { runId: "run_original", candidateRunId: "run_candidate", tests: ["x.test.mjs"] } },
+      { name: "canary.change_verify", arguments: { runId: "run_original", base: "HEAD", action: "execute" } },
+      { name: "canary.diagnostics", arguments: { runId: "run_original", maxCases: 1 } },
+    ];
+    for (const [index, params] of calls.entries()) {
+      const response = await server.handleRequestAsync({ jsonrpc: "2.0", id: index + 1, method: "tools/call", params: { ...params, _meta: modernMeta() } });
+      expect(response?.error?.code).toBe(-32602);
+    }
+    expect(operations).toBe(0);
+    expect(diagnosticReads).toBe(0);
   });
 });

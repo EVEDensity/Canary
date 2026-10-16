@@ -6,6 +6,7 @@ import type { RunSnapshot } from "@canary/core";
 import { ControlPlane, type Action, type Command, quality, observeAnchor, hash } from "../src/index.js";
 import { atomic, guarded } from "../src/storage.js";
 import { fixtureRun } from "./fixtures.js";
+import { ExperienceStore } from "@canary/experience";
 function project() {
   const root = mkdtempSync(join(tmpdir(), "canary-control-"));
   const p = new ControlPlane(root);
@@ -141,12 +142,35 @@ describe("L02 persistent evidence and safety", () => {
     expect(JSON.stringify(p.snapshot())).not.toContain("sensitive output");
     expect(JSON.stringify(p.snapshot())).not.toContain("synthetic-99");
   });
-  it("shows the actual case selection for a loaded experience without exposing its content", () => {
+  it("keeps old selection records unknown without counting them as delivered context", () => {
     const { p, save } = project();
     const run = fixtureRun();
     run.experiences = [{ id: "experience_one", key: "case-rule", version: 2, contentHash: "a".repeat(64), loadedAt: run.startedAt, selection: { caseIds: ["case-one"] } }];
     save(run);
-    expect(p.snapshot().runs[0]?.loadedExperiences).toEqual([{ id: "experience_one", version: 2, contentHash: "a".repeat(64), selection: { caseIds: ["case-one"] } }]);
+    expect(p.snapshot().runs[0]?.loadedExperiences).toEqual([]);
+    expect(p.snapshot().runs[0]?.experienceReferences).toEqual([{ id: "experience_one", version: 2, contentHash: "a".repeat(64), selection: { caseIds: ["case-one"] }, deliveryStatus: "unknown" }]);
+  });
+  it.each(["legacy", "selected", "unsupported", "forged", "partial", "delivered"])("exports experience delivery honestly: %s", (kind) => {
+    const { root, p, save } = project();
+    const store = new ExperienceStore(join(root, ".canary", "experiences"));
+    const experience = store.propose({ key: "delivery-rule", projectRoot: root, source: { kind: "human" }, summary: "Delivery fixture", content: "Private advisory content", scope: { caseIds: ["case0"] } });
+    store.transition(experience.id, "validated");
+    const run = fixtureRun();
+    const reference = { id: experience.id, key: experience.key, version: experience.version, contentHash: experience.contentHash };
+    const selected = { ...reference, loadedAt: run.startedAt, selection: { caseIds: kind === "partial" ? ["case0", "case1"] : ["case0"] } } as NonNullable<RunSnapshot["experiences"]>[number];
+    if (kind !== "legacy") selected.delivery = { status: kind === "selected" ? "selected" : kind === "unsupported" ? "unsupported" : "delivered", adapter: kind === "unsupported" ? "http" : "function", caseIds: ["case0"], executionIds: [run.results[0]!.executionId], deliveredAt: run.startedAt };
+    if (["delivered", "partial"].includes(kind)) run.results[0]!.experienceDelivery = { status: "delivered", adapter: "function", references: [reference], deliveredAt: run.startedAt };
+    run.experiences = [selected];
+    save(run);
+    atomic(join(root, ".canary/artifacts/soft-trials/trial/trial.json"), { id: "trial", status: "approved", projectRoot: root, baselineRunId: run.runId, experienceId: experience.id, experienceContentHash: experience.contentHash, regressionCaseIds: ["case0"], holdoutCaseIds: ["case99"], authorization: { status: "approved" }, validation: { valid: true, candidateRunId: run.runId } });
+    const snapshot = p.snapshot();
+    const expected = ["legacy", "forged"].includes(kind) ? "unknown" : kind;
+    expect(snapshot.runs[0]?.experienceReferences[0]?.deliveryStatus).toBe(expected);
+    expect(snapshot.runs[0]?.loadedExperiences).toHaveLength(kind === "delivered" ? 1 : 0);
+    expect(snapshot.experiences[0]).toMatchObject({ latestDeliveryStatus: expected, lastSelectedRunId: run.runId, lastDeliveredRunId: kind === "delivered" ? run.runId : null, lastLoadedRunId: kind === "delivered" ? run.runId : null });
+    expect(snapshot.trials[0]?.deliveryVerified).toBe(kind === "delivered");
+    if (kind === "partial") expect(snapshot.runs[0]?.experienceReferences[0]).toMatchObject({ delivery: { caseIds: ["case0"] }, verifiedDelivery: { caseIds: ["case0"], executionIds: [run.results[0]!.executionId] } });
+    expect(JSON.stringify(snapshot)).not.toContain(experience.content);
   });
 });
 

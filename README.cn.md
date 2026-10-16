@@ -15,7 +15,7 @@
   </p>
 </div>
 
-**Canary 是面向开发者 的项目验证工作台。** 将检查、架构、覆盖率和错误证据放在一起，从一次失败进入具体代码，再追踪修复后的验证结果。通过 CLI、稳定退出码与标准报告接入现有 CI。
+**Canary 是面向开发者的项目验证工作台。** 将检查、架构、覆盖率和错误证据放在一起，从一次失败进入具体代码，再追踪修复后的验证结果。通过 CLI、稳定退出码与标准报告接入现有 CI。
 
 ![Canary 验证工作台：检查结果、项目结构与运行趋势](docs/images/dashboard-zh-CN.jpg)
 
@@ -26,12 +26,15 @@
 - **失败诊断** — 查看问题分类、脱敏日志和源码位置，关联原始失败、修复后重跑与前后比较。
 - **覆盖率联动** — 将采集到的行、函数与分支覆盖映射到结构节点，定位未覆盖范围。
 - **可信证据** — 用 manifest、内容哈希和运行谱系关联代码版本、检查结果与历史记录。
+- **Agent 集成** — 安装官方项目 Skill，通过 CLI 或 MCP 使用限量的诊断与验证入口。
 
 了解[支持范围](docs/guides/support-matrix.md)。
 
 ## 快速开始
 
-准备 **Node.js 24和 Git**，按系统执行一条安装命令：
+准备 **Node.js 24 和 Git**，按系统执行一条安装命令：
+
+Canary 通过 GitHub 源码和 Releases 交付，安装器构建所选源码版本，无需 npm 发布或 npm 账号。
 
 **Windows / PowerShell**
 
@@ -62,6 +65,19 @@ canary run --port 4318 --no-open  # 展示交互式报告
 
 默认自动发现已有检查。自定义命令、超时和覆盖采集见[配置指南](docs/guides/r4-project-checks.md)。产物保存于项目的 `.canary/`，请加入 `.gitignore`。
 
+## Agent 集成
+
+在项目目录或其子目录安装官方验证 Skill：
+
+```bash
+canary skill install
+canary skill status --json
+```
+
+默认位置是 `.agents/skills/canary-verify`。安装、更新、冲突保护、回滚和撤回使用当前 Node 运行时。Skill 为当前任务收集检查与证据，不授予额外的源码修改、联网或合并许可。其他项目目录及 GitHub Release ZIP 见 [Skill 指南](docs/guides/skills.md)。尚未逐一实测所有 Agent Skills 客户端的发现与调用。
+
+通过 [CLI 指南](docs/guides/cli.md) 进行诊断、复现与验证，或按 [MCP 指南](docs/guides/mcp.md) 将宿主绑定到一个受信任项目。项目经验分别记录选择和 function 适配器上下文实际送达；送达不等于 Agent 采用或产生收益，HTTP/MCP 适配器不注入这些经验。详见[项目经验](docs/guides/r8-project-experience.md)。
+
 ## 为什么叫 Canary？
 
 名字源于矿井中的金丝雀：它是危险的早期预警信号。Canary 将这一理念带到软件开发——尽早运行检查，让问题清晰可见，并用可追溯证据验证修复。
@@ -74,12 +90,13 @@ canary run --port 4318 --no-open  # 展示交互式报告
 - [评估与覆盖率](docs/guides/evaluation-and-coverage.md) · [架构与 CI](docs/guides/architecture-ci.md)
 - [GitHub Actions](docs/guides/github-actions.md)：绑定提交版本的 PR 摘要、源码标注与证据下载
 - [失败复现](docs/guides/reproduction.md)：独立副本、显式执行与原运行证据关联
+- [官方 Skill](docs/guides/skills.md) · [CLI](docs/guides/cli.md) · [MCP](docs/guides/mcp.md)
 - [适配器](docs/guides/adapters-and-environment.md) · [目录结构](docs/guides/repository-layout.md)
 - [贡献指南](CONTRIBUTING.md) · [翻译贡献](docs/guides/localization.md) · [安全政策](SECURITY.md)
 
 新增语言：`pnpm i18n:add <locale>` 创建草稿，`pnpm i18n:check` 校验翻译契约。审核并合并完整资源后，语言自动出现在界面菜单中。
 
-欢迎提交 Issue、改进文档或贡献代码。下一阶段聚焦 PR 诊断、修复验证与变更验证缺口，详见[路线图](docs/roadmap/README.md)。
+欢迎提交 Issue、改进文档或贡献代码。本批 R22–R24 提供可信证据与状态收口、官方 Skill 交付及统一 CLI/MCP 验证入口；R25–R30 仍为规划，详见[路线图](docs/roadmap/README.md)。
 
 ## 许可证
 

@@ -45,4 +45,12 @@ describe("bounded diagnostic evidence", () => {
     capture.append("Bearer " + "x".repeat(80_000));
     expect(capture.finish().lines.join("\n")).toContain("[oversized line omitted]");
   });
+  it("redacts bare command-argument secrets before retaining split output", () => {
+    const capture = new DiagnosticOutput({}, ["--password", "opaque-command-123", "--api-key=inline-example-456"]);
+    capture.append("Error: opaque-com"); capture.append("mand-123 and inline-example-456\n");
+    const output = JSON.stringify(capture.finish());
+    expect(output).not.toContain("opaque-command-123");
+    expect(output).not.toContain("inline-example-456");
+    expect(output).toContain("[redacted]");
+  });
 });

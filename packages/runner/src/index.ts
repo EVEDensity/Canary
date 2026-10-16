@@ -4,14 +4,14 @@ import { createRequire } from "node:module";
 import { randomUUID } from "node:crypto";
 import { extname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import type { CanaryConfig, CanaryModelConfig, CanaryToolsConfig, CoverageScript, CoverageSummary, EvalResult, FeatureDefinition, LoadedExperience, RunnerEvent, TestCase, Trajectory, TrajectoryEvent } from "@canary/core";
+import type { CanaryConfig, CanaryModelConfig, CanaryToolsConfig, CoverageScript, CoverageSummary, EvalResult, ExecutionOutputCapture, ExperienceDeliveryEvidence, ExperienceReference, FeatureDefinition, LoadedExperience, RunnerEvent, TestCase, Trajectory, TrajectoryEvent } from "@canary/core";
 import { IPC_MAX_BYTES, IPC_PROTOCOL_VERSION, parseChildMessage, snapshotSourceCase } from "@canary/core";
 import { assignFeatureCoverage, emptyCoverage, mergeV8Scripts, summarizeCoverage } from "@canary/coverage";
 import type { FeatureEvent } from "@canary/coverage";
 import type { CoverageSourceConfig } from "@canary/coverage";
 import { evaluateAgent, attributeFailure, createJudgeProvider, type JudgePolicy, type JudgeProvider } from "@canary/evaluators";
 import { runHttpAgent, runMcpAgent } from "@canary/adapters";
-import { spawnIsolatedNode, assertIsolatedNetwork, denyUncontrolledMcp, killProcessTree, PROCESS_ADAPTER, waitForExit, type IsolationRequest } from "@canary/isolation";
+import { BoundedExecutionOutput, spawnIsolatedNode, assertIsolatedNetwork, denyUncontrolledMcp, killProcessTree, PROCESS_ADAPTER, waitForExit, type IsolationRequest } from "@canary/isolation";
 import { createChildScript } from "./child-script.js";
 import { budgetExceeded, budgetUsed, classifyRemoteFailure, classifyTermination, failureMessageFor } from "./lifecycle.js";
 import { defaultTmpRoot, isolatedEnv, type ExecutionWorkspace } from "./workspace.js";
@@ -34,6 +34,7 @@ export interface ExecutionOptions {
   maxSteps?: number;
   maxToolCalls?: number;
   maxBudget?: number;
+  maxOutputBytes?: number;
   nodeExecutable?: string;
   entry: string;
   requestField?: string;
@@ -65,6 +66,7 @@ type ChildMessage =
   | { v: 1; type: "event"; event: TrajectoryEvent }
   | { v: 1; type: "result"; value: unknown }
   | { v: 1; type: "error"; error: string }
+  | { v: 1; type: "experiences.delivered"; references: ExperienceReference[]; deliveredAt: string }
   | { v: 1; type: "coverage"; scripts: CoverageScript[]; partial?: boolean; provisional?: boolean; phase?: "init" | "task" | "final"; processId?: number; isolateId?: string; sequence?: number };
 
 function resolveWorkspaceModule(packageDir: string): string {
@@ -84,7 +86,7 @@ function resolveToolPayload(cwd: string, tools?: CanaryToolsConfig): CanaryTools
   return next;
 }
 
-function spawnExecution(options: ExecutionOptions, executionId: string): { child: ChildProcess; tmpDir: string; ephemeralTmp: boolean } {
+function spawnExecution(options: ExecutionOptions, executionId: string, workerAuth: string): { child: ChildProcess; tmpDir: string; ephemeralTmp: boolean } {
   const cwd = options.cwd ?? process.cwd();
   const require = createRequire(import.meta.url);
   const tsxLoader = pathToFileURL(require.resolve("tsx")).href;
@@ -93,6 +95,7 @@ function spawnExecution(options: ExecutionOptions, executionId: string): { child
   const tmpDir = options.workspace?.tmpDir ?? join(defaultTmpRoot(), `canary-exec-${options.runId}-${executionId}`);
   mkdirSync(tmpDir, { recursive: true });
   const workerData = JSON.stringify({
+    workerAuth,
     entry,
     exportName: options.exportName,
     input: options.input,
@@ -147,19 +150,27 @@ function makeCoverage(options: ExecutionOptions, scripts: CoverageScript[], part
   const enriched = assignFeatureCoverage(base, options.features ?? [], featureEvents, options.testCase?.expectedFeatures ?? [], options.caseId, options.coverage.rootDir ?? options.cwd ?? process.cwd());
   return { ...enriched, status: partial ? "partial" : enriched.status, lifecycle: { initCaptured, taskWindow: "reset-after-init" } };
 }
+function experienceDeliveryFor(options: ExecutionOptions, adapter: ExperienceDeliveryEvidence["adapter"]): ExperienceDeliveryEvidence {
+  return { status: adapter === "function" ? "selected" : "unsupported", adapter, references: (options.experiences ?? []).map(({ id, key, version, contentHash }) => ({ id, key, version, contentHash })) };
+}
+
 export async function runExecution(options: ExecutionOptions): Promise<EvalResult> {
   const executionId = `exec_${randomUUID()}`; const startedAt = Date.now(); const events: TrajectoryEvent[] = [];
+  const workerAuth = randomUUID();
+  let experienceDelivery = experienceDeliveryFor(options, "function");
   if (options.signal?.aborted) {
     options.onEvent?.({ type: "execution.started", runId: options.runId, executionId, caseId: options.caseId });
     const coverage = emptyCoverage(options.runId);
     options.onCoverage?.(coverage);
     options.onEvent?.({ type: "execution.failed", executionId, error: "Execution cancelled" });
-    return finishEvaluation(options, executionId, startedAt, events, undefined, "Execution cancelled", coverage, "cancelled");
+    return finishEvaluation(options, executionId, startedAt, events, undefined, "Execution cancelled", coverage, "cancelled", { experienceDelivery });
   }
-  const spawned = spawnExecution(options, executionId);
+  const capture = new BoundedExecutionOutput(options.maxOutputBytes);
+  const spawned = spawnExecution(options, executionId, workerAuth);
   const child = spawned.child; let settled = false; let failure: string | undefined; let output: unknown;
+  let authenticatedCompletion = false; let protocolFailure = false;
   let scripts: CoverageScript[] = []; let initScripts: CoverageScript[] = []; let coveragePartial = false;
-  let didTimeout = false; let didCancel = false; let didBudget = false; let stderr = "";
+  let didTimeout = false; let didCancel = false; let didBudget = false;
   let lastProvisionalKey = ""; let lastProvisionalAt = 0;
   if (child.pid) {
     options.workspace?.recordChildPid(child.pid);
@@ -178,7 +189,14 @@ export async function runExecution(options: ExecutionOptions): Promise<EvalResul
     killTimer = setTimeout(() => { killProcessTree(pid, PROCESS_ADAPTER.killSignal); }, killGraceMs);
   };
   options.onEvent?.({ type: "execution.started", runId: options.runId, executionId, caseId: options.caseId });
-  child.stderr?.setEncoding("utf8"); child.stderr?.on("data", (chunk: string) => { stderr += chunk; });
+  child.stderr?.on("data", (chunk: Buffer) => {
+    capture.append("stderr", chunk);
+    if (capture.truncated && !didBudget && !didCancel && !didTimeout) {
+      didBudget = true;
+      failure ??= `Execution output exceeded ${capture.maxBytes} bytes`;
+      stopChild();
+    }
+  });
   const cancel = (): void => { if (!settled && !didCancel) { didCancel = true; failure = "Execution cancelled"; stopChild(); } };
   options.signal?.addEventListener("abort", cancel, { once: true });
   const timeout = setTimeout(() => {
@@ -191,9 +209,16 @@ export async function runExecution(options: ExecutionOptions): Promise<EvalResul
   await new Promise<void>((resolvePromise) => {
     const done = (): void => { if (!settled) { settled = true; resolvePromise(); } };
     child.on("message", (raw: unknown) => {
+      if (!isRecord(raw) || raw.auth !== workerAuth) {
+        protocolFailure = true;
+        failure ??= "Unauthenticated execution IPC message";
+        return;
+      }
+      const envelope = { ...raw };
+      delete envelope.auth;
       let message: ChildMessage;
-      try { message = parseChildMessage(raw) as ChildMessage; }
-      catch (error) { failure ??= error instanceof Error ? error.message : String(error); return; }
+      try { message = parseChildMessage(envelope) as ChildMessage; }
+      catch (error) { protocolFailure = true; failure ??= error instanceof Error ? error.message : String(error); return; }
       if (message.type === "event") {
         events.push(message.event);
         options.onEvent?.({ type: "trace.event", executionId, event: message.event });
@@ -204,8 +229,16 @@ export async function runExecution(options: ExecutionOptions): Promise<EvalResul
           stopChild();
         }
       }
-      else if (message.type === "result") output = message.value;
-      else if (message.type === "error") failure ??= message.error;
+      else if (message.type === "experiences.delivered") {
+        if (!experienceDelivery.references.length || JSON.stringify(message.references) !== JSON.stringify(experienceDelivery.references)) {
+          protocolFailure = true;
+          failure ??= "Experience delivery acknowledgement does not match selected references";
+          return;
+        }
+        experienceDelivery = { ...experienceDelivery, status: "delivered", deliveredAt: message.deliveredAt };
+      }
+      else if (message.type === "result") { authenticatedCompletion = true; output = message.value; }
+      else if (message.type === "error") { authenticatedCompletion = true; failure ??= message.error; }
       else if (message.type === "coverage") {
         if (message.phase === "init") { initScripts = message.scripts; return; }
         // takePreciseCoverage resets after init; recombine so module-load hits stay in the reported set.
@@ -224,7 +257,8 @@ export async function runExecution(options: ExecutionOptions): Promise<EvalResul
     child.once("error", (error: Error) => { failure ??= error.stack ?? error.message; done(); });
     child.once("close", (code: number | null) => {
       if (code && !failure && !didTimeout && !didCancel && !didBudget) {
-        failure = stderr.trim() ? `Execution child exited with code ${code}: ${stderr.trim()}` : `Execution child exited with code ${code}`;
+        const stderr = capture.finish().stderr.trim();
+        failure = stderr ? `Execution child exited with code ${code}: ${stderr}` : `Execution child exited with code ${code}`;
       }
       done();
     });
@@ -237,12 +271,18 @@ export async function runExecution(options: ExecutionOptions): Promise<EvalResul
   if (spawned.ephemeralTmp) {
     try { rmSync(spawned.tmpDir, { recursive: true, force: true }); } catch { /* keep evidence if the OS still holds the dir */ }
   }
+  const outputCapture = capture.finish();
+  if (outputCapture.truncated) { didBudget = true; failure ??= `Execution output exceeded ${capture.maxBytes} bytes`; }
+  if (!authenticatedCompletion && !didTimeout && !didCancel && !didBudget) {
+    protocolFailure = true;
+    failure ??= "Execution child closed without an authenticated completion";
+  }
   const termination = classifyTermination({ cancelled: didCancel, timeout: didTimeout, budgetExceeded: didBudget, error: Boolean(failure) });
   failure = failureMessageFor(termination, failure);
   const coverage = makeCoverage(options, scripts, coveragePartial || termination !== "completed", events, initScripts.length > 0);
   options.onCoverage?.(coverage); options.onEvent?.({ type: "coverage.updated", executionId, coverage });
   if (failure) options.onEvent?.({ type: "execution.failed", executionId, error: failure });
-  return finishEvaluation(options, executionId, startedAt, events, output, failure, coverage, termination);
+  return finishEvaluation(options, executionId, startedAt, events, output, failure, coverage, termination, { experienceDelivery, outputCapture }, protocolFailure);
 }
 
 export interface RunOptions { config: CanaryConfig; cwd?: string; runId: string; onEvent?: (event: RunnerEvent) => void; onCoverage?: (summary: CoverageSummary) => void; manifest?: CoverageSourceConfig["manifest"]; signal?: AbortSignal; repetition?: number; repetitionTotal?: number; judge?: JudgeProvider; judgePolicy?: JudgePolicy; experiences?: LoadedExperience[]; isolation?: IsolationRequest; workspace?: ExecutionWorkspace; onChildPid?: (pid: number) => void }
@@ -263,13 +303,13 @@ function stateDiffFor(testCase: TestCase, events: TrajectoryEvent[], output: unk
   return { before, after, changed: changedKeys(before, after) };
 }
 
-async function finishEvaluation(options: ExecutionOptions, executionId: string, startedAt: number, events: TrajectoryEvent[], output: unknown, failure: string | undefined, coverage: CoverageSummary, termination: Trajectory["termination"]): Promise<EvalResult> {
+async function finishEvaluation(options: ExecutionOptions, executionId: string, startedAt: number, events: TrajectoryEvent[], output: unknown, failure: string | undefined, coverage: CoverageSummary, termination: Trajectory["termination"], evidence: { experienceDelivery: ExperienceDeliveryEvidence; outputCapture?: ExecutionOutputCapture }, protocolFailure = false): Promise<EvalResult> {
   const trajectory: Trajectory = { id: `trajectory_${executionId}`, runId: options.runId, caseId: options.caseId, events, stepCount: events.filter((event) => event.type === "tool_call" || event.type === "tool.call").length, termination };
   const testCase: TestCase = options.testCase ?? { id: options.caseId, input: options.input, assertions: [] };
   const stateDiff = stateDiffFor(testCase, events, output);
   const evaluation = await evaluateAgent({ assertions: testCase.assertions ?? [], context: { testCase, output, trajectory, executionStatus: trajectory.termination, latencyMs: Date.now() - startedAt, toolCalls: trajectory.stepCount, budgetUsed: budgetUsed(events), expectedFeatures: testCase.expectedFeatures, featureStatuses: Object.fromEntries(coverage.featureChains.map((feature) => [feature.featureId, feature.status])), coverage, state: stateDiff.after, judge: options.judge, judgePolicy: options.judgePolicy } });
   const expectedTermination = (testCase.assertions ?? []).some((assertion) => assertion.type === "execution.termination" && "expected" in assertion && assertion.expected === trajectory.termination);
-  const runtimePassed = !failure || expectedTermination;
+  const runtimePassed = !protocolFailure && (!failure || expectedTermination) && !evidence.outputCapture?.truncated;
   const passed = runtimePassed && evaluation.passed;
   const result: EvalResult = {
     runId: options.runId, executionId, caseId: options.caseId,
@@ -278,7 +318,9 @@ async function finishEvaluation(options: ExecutionOptions, executionId: string, 
     metrics: { latencyMs: Date.now() - startedAt, steps: trajectory.stepCount, toolCalls: trajectory.stepCount, budgetUsed: budgetUsed(events) },
     trajectoryId: trajectory.id, trajectory, stateDiff, createdAt: new Date().toISOString(),
     sourceCase: snapshotSourceCase(testCase),
+    ...evidence,
   };
+  if (evidence.outputCapture?.truncated) result.assertions.push({ id: "execution.output_budget", passed: false, message: `Execution output exceeded ${evidence.outputCapture.maxBytes} bytes; diagnostic output was truncated` });
   if (!passed) result.failureCategory = attributeFailure(result).kind;
   options.onEvent?.({ type: "execution.finished", executionId, result });
   return result;
@@ -311,7 +353,7 @@ export async function runHttpExecution(options: ExecutionOptions): Promise<EvalR
   const coverage = emptyCoverage(options.runId);
   options.onCoverage?.(coverage);
   options.onEvent?.({ type: "coverage.updated", executionId, coverage });
-  return finishEvaluation(options, executionId, startedAt, events, output, failure, coverage, termination);
+  return finishEvaluation(options, executionId, startedAt, events, output, failure, coverage, termination, { experienceDelivery: experienceDeliveryFor(options, "http") });
 }
 
 export async function runMcpExecution(options: ExecutionOptions): Promise<EvalResult> {
@@ -348,7 +390,7 @@ export async function runMcpExecution(options: ExecutionOptions): Promise<EvalRe
   const coverage = emptyCoverage(options.runId);
   options.onCoverage?.(coverage);
   options.onEvent?.({ type: "coverage.updated", executionId, coverage });
-  return finishEvaluation(options, executionId, startedAt, events, output, failure, coverage, termination);
+  return finishEvaluation(options, executionId, startedAt, events, output, failure, coverage, termination, { experienceDelivery: experienceDeliveryFor(options, "mcp") });
 }
 
 export async function mapLimit<T, R>(items: readonly T[], limit: number, mapper: (item: T, index: number) => Promise<R>): Promise<R[]> {

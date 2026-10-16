@@ -9,7 +9,7 @@ import { pathToFileURL, fileURLToPath } from "node:url";
 import { createRequire } from "node:module";
 import type { RunSnapshot } from "@canary/core";
 import { FileArtifactRepository, RunStore, applyRetention, planRetention, verifyArtifacts, redactValue, readArtifactManifest, safeArtifactPath, writePrivateJson, writePrivateText, sha256, buildRunDiagnostics, createDiagnosticBundle, verifyDiagnosticBundle } from "@canary/trace";
-import { projectChecksConfigSchema, ciResultSchema } from "@canary/core";
+import { projectChecksConfigSchema, ciResultSchema, hasExperienceDelivery } from "@canary/core";
 import { runProjectSession } from "./project-session.js";
 import { discoverProject } from "./discovery.js";
 import { automaticProjectConfig, hasProjectMarker } from "./auto-project.js";
@@ -37,7 +37,9 @@ import { ExperienceStore, candidateFromProjectCheck, candidateFromQualityGate, e
 import { PolicyStore } from "@canary/policy";
 import { PROCESS_BOUNDARY, probeIsolation } from "@canary/isolation";
 import { LoopController, createIdlePorts } from "@canary/loop";
-import { mcpCommand } from "./mcp.js";
+import { mcpCommand, boundConfig } from "./mcp.js";
+import { executeMcpVerification } from "./mcp-operations.js";
+import { skillCommand, buildSkillDraftMetadata } from "./skill.js";
 import { controlCommand } from "./control.js";
 import { writeExport } from "./export.js";
 import { diagnosticSnapshot, pathsSnapshot, versionSnapshot } from "./diagnostics.js";
@@ -107,6 +109,7 @@ const USAGE = `Usage: canary run [--ci] [--project <directory>] [--affected --ba
        canary experience propose-project <runId> [--check <id>] [--config <path>]
        canary experience compare-project <baselineRunId> <candidateRunId> --regression <checkId> --holdout <checkId> [--config <path>]
        canary experience export-skill <experienceId> [--config <path>]
+       canary skill install|update|status|rollback|remove [--project <directory>] [--dest <project-directory>]
        canary experience validate|activate|revoke|expire <experienceId> [--config <path>]
        canary experience load [--case <id>] [--tag <tag>] [--feature <id>] [--check <id>] [--check-type <type>] [--tool <name>] [--language <name>] [--max-items <n>] [--max-chars <n>] [--config <path>]
        canary experience clear [--config <path>]
@@ -625,11 +628,11 @@ async function experienceCommand(rest: string[], configPath?: string): Promise<n
       if (!trial) throw new Error("An independently validated and approved project trial is required");
       const { ControlPlane } = await import("@canary/control-plane");
       new ControlPlane(context.projectRoot, context.artifactRoot).assertSoftApproval(trial.id);
-      const name = `canary-${record.key.toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/^-|-$/g, "").slice(0, 34)}-${record.contentHash.slice(0, 8)}`;
+      const { name, frontmatter } = buildSkillDraftMetadata({ key: record.key, contentHash: record.contentHash, checkId: record.provenance.checkId });
       const folder = safeArtifactPath(resolve(context.projectRoot, ".canary", "skill-drafts"), name);
       const scope = record.scope;
       const markdown = [
-        "---", `name: ${name}`, "description: Review this project's validated Canary check guidance when the recorded check and case match.", "---", "",
+        frontmatter, "",
         `# ${record.summary}`, "",
         "This is a local draft. Treat it as advisory context; it grants no write, network or credential access.", "",
         "## Applicable context", "",
@@ -985,9 +988,8 @@ async function softTrialCommand(rest: string[], configPath?: string): Promise<nu
         candidateExitCode: executed.exitCode,
         comparisonArtifact: comparisonPath,
       });
-      if (experience.provenance) {
-        const loaded = candidate.experiences?.find((item) => item.id === experience.id && item.version === experience.version && item.contentHash === experience.contentHash);
-        if (!loaded || !record.regressionCaseIds.every((id) => loaded.selection?.caseIds?.includes(id)) || record.holdoutCaseIds.some((id) => loaded.selection?.caseIds?.includes(id))) {
+      {
+        if (!hasExperienceDelivery(candidate, experience, record.regressionCaseIds, record.holdoutCaseIds)) {
           validation.valid = false;
           validation.reasons.push("Project experience was not loaded only for the regression cases");
         }
@@ -1021,6 +1023,11 @@ async function softTrialCommand(rest: string[], configPath?: string): Promise<nu
         status: "rejected",
         errors: ["Only a valid independent trial can be manually approved"],
       });
+      return 1;
+    }
+    const candidate = readRunArtifact(record.validation.candidateRunId, context.projectRoot, configPath);
+    if (!candidate || !hasExperienceDelivery(candidate, experience, record.regressionCaseIds, record.holdoutCaseIds)) {
+      softTrialOutput({ valid: false, status: "rejected", errors: ["Independent function-context delivery evidence is required before approval"] });
       return 1;
     }
     const actor = flagValue(rest, "--actor");
@@ -1071,9 +1078,8 @@ async function softTrialCommand(rest: string[], configPath?: string): Promise<nu
         caseIds: [...new Set([...record.regressionCaseIds, ...record.holdoutCaseIds])],
         experienceContext: experience.provenance ? { checkId: experience.provenance.checkId, checkType: experience.scope.checkTypes?.[0] ?? "agent" } : undefined,
       });
-      if (experience.provenance) {
-        const loaded = executed.snapshot.experiences?.find((item) => item.id === experience.id && item.version === experience.version && item.contentHash === experience.contentHash);
-        if (executed.exitCode !== 0 || !loaded || !record.regressionCaseIds.every((id) => loaded.selection?.caseIds?.includes(id)) || record.holdoutCaseIds.some((id) => loaded.selection?.caseIds?.includes(id))) {
+      {
+        if (executed.exitCode !== 0 || !hasExperienceDelivery(executed.snapshot, experience, record.regressionCaseIds, record.holdoutCaseIds)) {
           if (store.get(experience.id)?.status === "active") store.transition(experience.id, "validated", "Project trial activation failed");
           store.restorePointer(prior);
           softTrialOutput({ valid: false, action, errors: ["Activated project experience did not produce the required loaded regression evidence"] });
@@ -1314,6 +1320,7 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
   if (command === "host") return hostCommand(rest, configPath);
   if (command === "soft-trial") return softTrialCommand(rest, configPath);
   if (command === "experience") return experienceCommand(rest, configPath);
+  if (command === "skill") return skillCommand(rest);
   if (command === "isolation") return isolationCommand(rest, configPath);
   if (command === "policy") return policyCommand(rest, configPath);
   if (command === "loop") return loopCommand(rest, configPath);
@@ -1420,7 +1427,7 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
       runHeadless: async ({ context, caseId, signal }) => {
         const result = await runCommandDetailed({
           cwd: context.projectRoot,
-          configPath: context.configFile,
+          configPath: boundConfig(context),
           headless: true,
           noOpen: true,
           suppressOutput: true,
@@ -1429,6 +1436,7 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
         });
         return hostRunOutput(context, result.snapshot, result.artifactPath, result.exitCode);
       },
+      verify: executeMcpVerification,
     });
   }
   if (command === "help") {

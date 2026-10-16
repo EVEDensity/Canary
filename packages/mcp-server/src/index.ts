@@ -15,6 +15,6 @@ export {
 } from "./protocol.js";
 export { CanaryMcpServer, requireServerToken } from "./server.js";
 export type { CanaryMcpServerOptions } from "./server.js";
-export { toolList, parseRunArgs, parseEvidenceArgs, parseStructureArgs, parseProposalArgs, assertToolArgs } from "./tools.js";
-export type { CanaryMcpPorts, CanaryMcpRunInput, CanaryMcpEvidenceInput, CanaryMcpStructureInput, CanaryMcpProposalInput } from "./tools.js";
+export { toolList, parseRunArgs, parseEvidenceArgs, parseStructureArgs, parseProposalArgs, parseVerificationArgs, parseOperationArgs, assertToolArgs } from "./tools.js";
+export type { CanaryMcpPorts, CanaryMcpRunInput, CanaryMcpEvidenceInput, CanaryMcpStructureInput, CanaryMcpProposalInput, CanaryMcpOperationInput, CanaryMcpVerificationInput } from "./tools.js";
 export { serveStdio } from "./stdio.js";
