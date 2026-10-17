@@ -52,3 +52,4 @@ export * from "./verification.js";
 export * from "./change-verification.js";
 export * from "./repair-task.js";
 export * from "./project-memory.js";
+export * from "./quality-assessment.js";

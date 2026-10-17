@@ -13,6 +13,7 @@ import {
   isChangeVerificationBound,
   projectMemoryProjectId,
   projectMemoryQuerySchema,
+  qualityDecisionInputSchema,
   SchemaValidationError,
   invalidInput,
   type ProjectChecksConfig,
@@ -30,6 +31,9 @@ import {
 } from "@canary/improvement";
 import {
   ArtifactIntegrityError,
+  QualityAssessmentError,
+  readQualityAssessment,
+  recordQualityDecision,
   buildRunDiagnostics,
   createDiagnosticBundle,
   FileArtifactRepository,
@@ -395,6 +399,7 @@ async function handleRequest(
     }
     if (parts[0] === "api" && parts[1] === "runs" && parts[2]) {
       const runId = parts[2];
+      if (parts[3] === "assessment") response.setHeader("cache-control", "no-store");
       if (parts[3] === "integrity" && artifacts) {
         writeJson(response, 200, artifacts.verify(runId));
         return;
@@ -405,6 +410,37 @@ async function handleRequest(
       if (!run) {
         response.writeHead(404);
         response.end("Not found");
+        return;
+      }
+      if (parts[3] === "assessment") {
+        if (parts.length !== 4 || !["GET", "POST"].includes(request.method ?? "")) {
+          response.setHeader("allow", "GET, POST");
+          writeJson(response, 405, { error: "GET or POST required" });
+          return;
+        }
+        if (request.method === "POST" && !allowWrite(request, url, hooks)) {
+          writeJson(response, 403, { error: "Write token required" });
+          return;
+        }
+        if ([...url.searchParams.keys()].some((key) => key !== "token")) {
+          writeJson(response, 400, { error: "Unexpected assessment query parameter" });
+          return;
+        }
+        if (!artifacts) {
+          writeJson(response, 409, { error: "Sealed verification evidence required" });
+          return;
+        }
+        try {
+          if (request.method === "GET") writeJson(response, 200, readQualityAssessment(artifacts, runId));
+          else {
+            const input = qualityDecisionInputSchema.parse(await readJsonBody(request));
+            writeJson(response, 200, recordQualityDecision(artifacts, runId, input));
+          }
+        } catch (error) {
+          if (error instanceof QualityAssessmentError) {
+            writeJson(response, error.code === "QUALITY_INPUT" ? 400 : 409, { error: error.message, code: error.code });
+          } else throw error;
+        }
         return;
       }
       if (parts[3] === "memory") {

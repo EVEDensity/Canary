@@ -8,10 +8,11 @@ Install or update the official project Skill with `canary skill install` or `can
 
 > Assess this Agent using its existing cases. Explain the main failures, recommend a next step and offer alternatives before changing source.
 
-The Skill first identifies the project, Agent configuration, case set and available evidence. A matching retained run can be analyzed without another Agent execution. For a new assessment:
+The Skill first identifies the project, Agent configuration, case set and available evidence. A matching retained run can be assessed without another Agent execution. For a new run and its quality brief:
 
 ```sh
 canary run --ci --config <agent-config>
+canary assess <runId> --config <agent-config> --json
 canary host evidence <runId> --max-cases 8 --max-events 20 --config <agent-config>
 ```
 
@@ -19,7 +20,7 @@ Select the Agent configuration explicitly when a project also contains project-c
 
 ## Understand the result and choose an action
 
-A useful quality brief contains:
+`assess` is read-only and generates a rule-based brief from sealed evidence. The CLI, MCP and workspace share the same report and recorded choices. It contains:
 
 - The tested Agent version, run/case identities, selected scope and actual result counts.
 - Observed task/output failures, tool selection/arguments/order, state or termination failures, environment blockers and verification gaps.
@@ -28,11 +29,23 @@ A useful quality brief contains:
 
 For example, a retained wrong-tool assertion may support correcting tool routing, reviewing an ambiguous behavior contract or inspecting the matching trace first. This is an interaction example, not a claimed project failure. The recommendation depends on the actual contract and evidence; it must not silently weaken the assertion.
 
-The host can offer choices in conversation using its available interaction UI. This release does not add a persisted decision-card schema or new workspace approval buttons. Existing approval controls retain their current meaning.
+Open **Issues & improvements** in the workspace to inspect recommendations, follow original evidence, or explicitly select/reject an option with an actor and reason. The Skill can explain the same options in conversation. Recommendations are guidance, not model-confirmed root causes; expected benefits remain hypotheses.
+
+When the task requires retaining a choice, use the current report's `contentHash`, view `revision` and option ID:
+
+```sh
+canary assess decide <runId> --report-hash <hash> --expected-revision <revision> --option <optionId> --action select --actor maintainer --reason "Review the failing behavior" --config <agent-config> --json
+```
+
+Use `--action reject` to record a rejection. A conversation does not have to create a decision record. A record preserves direction and attribution; it does not execute a repair, approve experience or authenticate the actor. Continue with an already chosen, authorized action without asking the same question again.
+
+Each issue has at most one current selection: a newer selection replaces the previous direction, and rejecting the current option clears it. `selections` preserves this current state independently of the bounded decision history.
+
+Choices are stored outside sealed runs in `<artifactRoot>/.quality`, preserving the run manifest. Each record retains up to 8 report versions and 32 choices; the shared view returns up to the latest 16 choices within 64 KiB and reports omitted counts. A changed manifest makes earlier choices stale. Stale revisions, corrupt records or unavailable evidence reject writes; refresh and inspect the reported state before retrying. Historical evidence is not filled in from current source.
 
 ## Execute and compare
 
-The user can request assessment only, select a proposed improvement, or authorize bounded automatic work with allowed scope, success criteria, iterations and call budgets. Existing authorization carries forward; a selected plan does not confer new credential, network or publication access.
+The user can request assessment only, select a proposed improvement, or authorize bounded host work with allowed scope, success criteria, iterations and call budgets. The shared decision entry records the choice; automatic execution and measured-benefit orchestration are tracked under R30. Existing execution and comparison commands remain available within the task's authorization.
 
 For an authorized function-adapter candidate, retain fixed cases, assertions and independent holdout:
 
@@ -53,8 +66,8 @@ Stop at success, the agreed budget, changed authorization requirements or an unc
 
 ## Cost and support
 
-The host supplies reasoning and consumes its own model context. Agent execution, live tools or an explicitly configured Judge may incur additional calls; use the chosen provider's conditions and the task's budget. Ordinary project checks do not require a model. Unknown token or monetary metrics stay unknown.
+The host supplies reasoning and consumes its own model context. Agent execution, live tools or an explicitly configured Judge may incur additional calls; use the chosen provider's conditions and the task's budget. Ordinary project checks and `assess` do not require a model. Unknown token or monetary metrics stay unknown.
 
 Skill packaging, local installation and deterministic Agent fixture execution are testable separately from discovery or behavior in each external host. Supported clients must load the Skill; its instructions alone are not an independently deployed autonomous Agent service.
 
-中文：Canary 面向 Agent 评测与持续改进，串联真实运行、工具校验、轨迹、覆盖率、回放和版本比较。官方 Skill 让宿主按证据说明问题、给出推荐和可选方案，随后在授权范围内执行并验证。当前交互通过宿主对话完成；统一决策数据与页面入口列入后续路线，不宣称已实现无人值守优化或普遍的质量收益。
+中文：`canary assess <runId> --json` 只读生成封存证据的质量简报，CLI、MCP 与页面共享问题、推荐和选择记录。页面或显式 `assess decide` 可记录选择/拒绝，但不等于执行或审批；对话无需每次写入状态。规则建议与宿主解释分开，自动执行与收益编排列入 R30。

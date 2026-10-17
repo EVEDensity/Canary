@@ -1,5 +1,12 @@
 import type { ProjectContext, RunSnapshot } from "@canary/core";
-import { FileArtifactRepository, buildRunDiagnostics, stableHash, type RunDiagnostics } from "@canary/trace";
+import {
+  FileArtifactRepository,
+  buildRunDiagnostics,
+  stableHash,
+  readQualityAssessment,
+  recordQualityDecision,
+  type RunDiagnostics,
+} from "@canary/trace";
 import { isChangeVerificationBound, verificationReceiptSchema } from "@canary/core";
 import { existsSync } from "node:fs";
 import type {
@@ -16,6 +23,8 @@ import { buildProjectRepairTask } from "./repair-task.js";
 import { queryProjectMemory } from "./project-memory.js";
 
 export interface McpCliBindings {
+  /** Startup-only opt-in. Records choices; never grants execution or source access. */
+  allowAssessmentDecisions?: boolean;
   readRun(runId: string, context: ProjectContext): RunSnapshot | undefined;
   runHeadless(input: { context: ProjectContext; caseId?: string; signal?: AbortSignal }): Promise<unknown>;
   verify?(
@@ -36,7 +45,9 @@ export async function mcpCommand(
     return 0;
   }
   if (action !== "serve") {
-    console.error("Usage: canary mcp matrix | canary mcp serve --token <token> [--config <path>]");
+    console.error(
+      "Usage: canary mcp matrix | canary mcp serve --token <token> [--config <path>] [--allow-assessment-decisions]",
+    );
     return 1;
   }
   const token = flag(rest, "--token") ?? process.env.CANARY_MCP_TOKEN;
@@ -48,7 +59,7 @@ export async function mcpCommand(
   const server = new CanaryMcpServer({
     token,
     maxConcurrent: 1,
-    ports: bindPorts(context, bindings),
+    ports: bindPorts(context, { ...bindings, allowAssessmentDecisions: rest.includes("--allow-assessment-decisions") }),
   });
   await serveStdio(server);
   return 0;
@@ -92,6 +103,23 @@ export function bindPorts(context: ProjectContext, bindings: McpCliBindings): Ca
         throw new Error("Project memory query exceeded its bounded response size");
       return report;
     },
+    assessment(input) {
+      const result = readQualityAssessment(repository, input.runId);
+      if (Buffer.byteLength(JSON.stringify(result), "utf8") > 65_536)
+        throw new Error("Quality assessment exceeded its bounded response size");
+      return result;
+    },
+    ...(bindings.allowAssessmentDecisions === true
+      ? {
+          assessmentDecide(input: import("@canary/mcp-server").CanaryMcpAssessmentDecisionInput) {
+            const { runId, ...decision } = input;
+            const result = recordQualityDecision(repository, runId, decision);
+            if (Buffer.byteLength(JSON.stringify(result), "utf8") > 65_536)
+              throw new Error("Quality assessment exceeded its bounded response size");
+            return result;
+          },
+        }
+      : {}),
     verification(input) {
       const run = sealedRun(input.runId);
       const file =

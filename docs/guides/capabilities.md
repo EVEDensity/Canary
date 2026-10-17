@@ -1,6 +1,6 @@
 # Capabilities
 
-Canary connects existing project checks to architecture, diagnostics and verifiable repair evidence. Use the CLI in a project or subdirectory, the interactive workspace for investigation, and GitHub Actions or MCP for integration.
+Canary connects Agent evaluation, guided decisions, project checks, architecture and verifiable improvement evidence. Use the CLI in a project or subdirectory, the interactive workspace for investigation, and GitHub Actions or MCP for integration.
 
 ## Run existing checks
 
@@ -37,8 +37,9 @@ See [diagnosis](failure-diagnostics.md), [reproduction](reproduction.md), [repai
 ## Work with agents
 
 - **Official Skill:** project installation, ownership hashes, updates, conflict preservation, rollback, removal and a downloadable Release ZIP.
-- **Guided assessment:** the Skill directs its host to explain recorded issues, recommend evidence-backed actions and alternatives, carry forward the user's choice and verify the result. Structured decision records and new workspace decision buttons remain planned.
-- **Project-bound MCP:** bounded evidence queries and explicit check, reproduction, repair and change-verification operations.
+- **Shared quality brief:** read-only `assess` combines sealed Agent assertions, project failures, coverage gaps and linked history. CLI, MCP and workspace share rule-derived recommendations, evidence, uncertainty, scope and available counts; unknown costs stay unknown.
+- **Guided decisions:** the Skill explains recommendations and carries forward existing choices. Explicit CLI/workspace selection or rejection records actor, reason, report hash and revision separately from execution or approval. Changed evidence marks earlier choices stale; controlled improvement orchestration remains planned under R30.
+- **Project-bound MCP:** bounded evidence and assessment queries, startup opt-in decision recording, and explicit check, reproduction, repair and change-verification operations.
 - **Application evaluation:** function, HTTP and MCP adapters; deterministic output, tool, state, event, termination, latency and budget assertions; fixed cases, repetitions and comparisons.
 - **Reviewed experience:** traceable candidates, scoped context selection, baseline/regression/holdout trials, human decisions, activation, exact rollback and Skill drafts. Selection, delivery, use and measured benefit remain distinct.
 - **Control:** explicit actions with actor/reason, revision checks, idempotency and audit records for the supported workflows.

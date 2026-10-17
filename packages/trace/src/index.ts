@@ -22,3 +22,4 @@ export { redactText, containsSensitiveText, containsSensitiveValue, collectSecre
 
 export * from "./diagnostics.js";
 export * from "./repair-task.js";
+export * from "./quality-assessment.js";
