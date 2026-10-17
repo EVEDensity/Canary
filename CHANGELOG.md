@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## 0.9.0
+
+- R30: connect selected Agent improvement options to hashed verification plans and explicit candidate execution with cumulative run, trial, time and observed tool budgets.
+- Freeze original inputs, assertions, repetitions and regression/holdout scopes; retain sealed candidate lineage, charged attempts, paired gains, regressions and evidence insufficiency.
+- Bound executable configuration loading and reject stale source/choices, incomplete records, unsupported managed live calls and interrupted or concurrent execution.
+- Add read-only MCP and bilingual workspace execution history; preserve unknown token/cost metrics and existing reviewed experience controls.
+- 新增受控候选验证与收益记录，固定原始契约、候选身份和累计预算；观察改善、回归与证据不足分别展示。
+
 ## 0.8.0
 
 - R29: share sealed, version-bound quality briefs and rule-derived recommendations across CLI, MCP and the workspace.

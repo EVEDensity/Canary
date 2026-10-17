@@ -30,6 +30,7 @@ import {
   parseRepairTaskArgs,
   parseMemoryArgs,
   parseAssessmentArgs,
+  parseImprovementsArgs,
   parseAssessmentDecisionArgs,
   parseOperationArgs,
   toolList,
@@ -152,6 +153,8 @@ export class CanaryMcpServer {
           message: error instanceof Error ? error.message : String(error),
           ...(typeof qualityCode === "string" && /^QUALITY_(?:STALE|BUSY|STORAGE|EVIDENCE|INPUT)$/.test(qualityCode)
             ? { data: { qualityCode } }
+            : typeof qualityCode === "string" && /^IMPROVEMENT_(?:INPUT|STALE|STORAGE|BUSY|BUDGET|EXECUTION|EVIDENCE)$/.test(qualityCode)
+            ? { data: { improvementCode: qualityCode } }
             : {}),
         },
       };
@@ -288,7 +291,13 @@ export class CanaryMcpServer {
       return {
         jsonrpc: "2.0",
         id,
-        result: withMeta(toolList({ assessmentDecisions: Boolean(this.ports.assessmentDecide) }), era),
+        result: withMeta(
+          toolList({
+            assessmentDecisions: Boolean(this.ports.assessmentDecide),
+            improvements: Boolean(this.ports.improvements),
+          }),
+          era,
+        ),
       };
     if (method === "tools/call")
       return { jsonrpc: "2.0", id, result: pending((signal) => this.callTool(params, signal)) };
@@ -334,6 +343,13 @@ export class CanaryMcpServer {
       const input = parseAssessmentArgs(args);
       if (!this.ports.assessment) throw new Error("Quality assessment is unavailable in this binding");
       return toolContent(this.ports.assessment(input));
+    }
+    if (params.name === "canary.improvements") {
+      if (!this.ports.improvements)
+        throw Object.assign(new Error("Controlled improvement history is unavailable in this binding"), {
+          code: JSONRPC_METHOD_NOT_FOUND,
+        });
+      return toolContent(this.ports.improvements(parseImprovementsArgs(args)));
     }
     if (params.name === "canary.assessment_decide") {
       if (!this.ports.assessmentDecide)

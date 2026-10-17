@@ -23,6 +23,7 @@
 
 - **Agent evaluation** — Check task output, tool arguments and order, state, termination and execution budgets against declared cases.
 - **Quality briefs and decisions** — Read version-bound issues, evidence and recommended alternatives with `canary assess`; record a selected direction through the CLI, MCP or workspace.
+- **Controlled improvement** — Verify reviewed Agent candidates against frozen cases and holdout, with explicit budgets, paired gains and regression evidence.
 - **Unified checks** — Run builds, type checks, lint and tests. Export JSON, JUnit and Markdown reports.
 - **Architecture maps** — Explore modules, files and symbols in 2D and layered 3D views. Search nodes, filter dependencies and inspect source.
 - **Failure diagnosis** — Inspect categorized issues, redacted logs and source locations. Link original failures to reruns and before/after comparisons.

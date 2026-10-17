@@ -1,5 +1,7 @@
 # improvement：建议、草稿与人工候选
 
+已选择的 Agent 方案可通过 `canary improvement prepare/execute/show` 完成固定契约的受控候选验证：原始用例、回归与 holdout、候选哈希及累计预算共同保留。详见[评测与改进流程](agent-workflow.md)。下列草稿与建议命令仍保留兼容，写入状态不等于执行验证。
+
 ```text
 run → 失败归因 → suggestion(proposed)
     → accept / reject → verify（写入回归草稿）

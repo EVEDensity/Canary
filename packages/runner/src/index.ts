@@ -33,6 +33,8 @@ export interface ExecutionOptions {
   timeoutMs?: number;
   maxSteps?: number;
   maxToolCalls?: number;
+  /** Optional controlled-improvement budget; enforced before invoking managed tools. */
+  controlledToolBudget?: number;
   maxBudget?: number;
   maxOutputBytes?: number;
   nodeExecutable?: string;
@@ -109,6 +111,7 @@ function spawnExecution(options: ExecutionOptions, executionId: string, workerAu
     adaptersUrl: resolveWorkspaceModule("adapters"),
     environmentUrl: resolveWorkspaceModule("environment"),
     tools: resolveToolPayload(cwd, options.tools),
+    controlledToolBudget: options.controlledToolBudget,
     model: options.model,
     initialState: options.initialState ?? options.testCase?.environment?.state ?? {},
     experiences: options.experiences ?? [],
@@ -285,7 +288,7 @@ export async function runExecution(options: ExecutionOptions): Promise<EvalResul
   return finishEvaluation(options, executionId, startedAt, events, output, failure, coverage, termination, { experienceDelivery, outputCapture }, protocolFailure);
 }
 
-export interface RunOptions { config: CanaryConfig; cwd?: string; runId: string; onEvent?: (event: RunnerEvent) => void; onCoverage?: (summary: CoverageSummary) => void; manifest?: CoverageSourceConfig["manifest"]; signal?: AbortSignal; repetition?: number; repetitionTotal?: number; judge?: JudgeProvider; judgePolicy?: JudgePolicy; experiences?: LoadedExperience[]; isolation?: IsolationRequest; workspace?: ExecutionWorkspace; onChildPid?: (pid: number) => void }
+export interface RunOptions { config: CanaryConfig; cwd?: string; runId: string; onEvent?: (event: RunnerEvent) => void; onCoverage?: (summary: CoverageSummary) => void; manifest?: CoverageSourceConfig["manifest"]; signal?: AbortSignal; repetition?: number; repetitionTotal?: number; judge?: JudgeProvider; judgePolicy?: JudgePolicy; experiences?: LoadedExperience[]; isolation?: IsolationRequest; workspace?: ExecutionWorkspace; onChildPid?: (pid: number) => void; controlledToolBudget?: number }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
@@ -304,7 +307,7 @@ function stateDiffFor(testCase: TestCase, events: TrajectoryEvent[], output: unk
 }
 
 async function finishEvaluation(options: ExecutionOptions, executionId: string, startedAt: number, events: TrajectoryEvent[], output: unknown, failure: string | undefined, coverage: CoverageSummary, termination: Trajectory["termination"], evidence: { experienceDelivery: ExperienceDeliveryEvidence; outputCapture?: ExecutionOutputCapture }, protocolFailure = false): Promise<EvalResult> {
-  const trajectory: Trajectory = { id: `trajectory_${executionId}`, runId: options.runId, caseId: options.caseId, events, stepCount: events.filter((event) => event.type === "tool_call" || event.type === "tool.call").length, termination };
+  const trajectory: Trajectory = { id: `trajectory_${executionId}`, runId: options.runId, caseId: options.caseId, events, stepCount: events.filter((event) => options.controlledToolBudget !== undefined ? event.type === "canary.controlled.tool_call" : event.type === "tool_call" || event.type === "tool.call").length, termination };
   const testCase: TestCase = options.testCase ?? { id: options.caseId, input: options.input, assertions: [] };
   const stateDiff = stateDiffFor(testCase, events, output);
   const evaluation = await evaluateAgent({ assertions: testCase.assertions ?? [], context: { testCase, output, trajectory, executionStatus: trajectory.termination, latencyMs: Date.now() - startedAt, toolCalls: trajectory.stepCount, budgetUsed: budgetUsed(events), expectedFeatures: testCase.expectedFeatures, featureStatuses: Object.fromEntries(coverage.featureChains.map((feature) => [feature.featureId, feature.status])), coverage, state: stateDiff.after, judge: options.judge, judgePolicy: options.judgePolicy } });
@@ -424,6 +427,7 @@ export async function runConfiguredCase(options: RunOptions, testCase: TestCase)
     timeoutMs: testCase.options?.timeoutMs ?? options.config.runtime?.timeoutMs ?? 60_000,
     maxSteps: testCase.options?.maxSteps ?? options.config.runtime?.maxSteps,
     maxToolCalls: testCase.options?.maxToolCalls ?? options.config.runtime?.maxToolCalls,
+    controlledToolBudget: options.controlledToolBudget,
     maxBudget: testCase.options?.maxBudget ?? options.config.runtime?.maxBudget,
     tools: options.config.tools,
     model: options.config.model,

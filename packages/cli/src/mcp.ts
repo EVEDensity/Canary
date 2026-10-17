@@ -5,6 +5,7 @@ import {
   stableHash,
   readQualityAssessment,
   recordQualityDecision,
+  readImprovementHistory,
   type RunDiagnostics,
 } from "@canary/trace";
 import { isChangeVerificationBound, verificationReceiptSchema } from "@canary/core";
@@ -108,6 +109,9 @@ export function bindPorts(context: ProjectContext, bindings: McpCliBindings): Ca
       if (Buffer.byteLength(JSON.stringify(result), "utf8") > 65_536)
         throw new Error("Quality assessment exceeded its bounded response size");
       return result;
+    },
+    improvements(input) {
+      return readImprovementHistory(repository, input.runId);
     },
     ...(bindings.allowAssessmentDecisions === true
       ? {

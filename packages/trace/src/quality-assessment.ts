@@ -49,7 +49,7 @@ export class QualityAssessmentError extends Error {
 function fail(code: QualityAssessmentError["code"], message: string): never {
   throw new QualityAssessmentError(code, message);
 }
-function ordinaryParents(path: string): void {
+export function qualityOrdinaryParents(path: string): void {
   let current = resolve(path);
   while (true) {
     const stat = lstatSync(current, { throwIfNoEntry: false });
@@ -60,7 +60,7 @@ function ordinaryParents(path: string): void {
     current = parent;
   }
 }
-function bytes(file: string, maximum: number): Buffer {
+export function readQualityBytes(file: string, maximum: number): Buffer {
   const before = lstatSync(file);
   if (!before.isFile() || before.isSymbolicLink() || before.nlink !== 1 || before.size > maximum)
     fail("QUALITY_STORAGE", "Quality evidence must be a bounded, ordinary unshared file");
@@ -83,11 +83,11 @@ function bytes(file: string, maximum: number): Buffer {
     closeSync(fd);
   }
 }
-function sealed(repository: FileArtifactRepository, runId: string) {
+export function readSealedQualityRun(repository: FileArtifactRepository, runId: string) {
   const rootStat = lstatSync(repository.rootDir, { throwIfNoEntry: false });
   if (!rootStat || !rootStat.isDirectory() || rootStat.isSymbolicLink())
     fail("QUALITY_EVIDENCE", "Artifact storage must be an existing ordinary directory");
-  ordinaryParents(realpathSync.native(resolve(repository.rootDir)));
+  qualityOrdinaryParents(realpathSync.native(resolve(repository.rootDir)));
   const integrity = repository.verify(runId);
   if (integrity.status !== "verified" || !integrity.manifestHash)
     fail("QUALITY_EVIDENCE", "A sealed, verified run is required for a quality assessment");
@@ -96,7 +96,7 @@ function sealed(repository: FileArtifactRepository, runId: string) {
     entry = manifest?.files.find((file) => file.path === "run.json");
   if (!entry || entry.bytes > 16_777_216)
     fail("QUALITY_EVIDENCE", "Run evidence is missing or exceeds the assessment read budget");
-  const raw = bytes(safeArtifactPath(dir, "run.json"), 16_777_216);
+  const raw = readQualityBytes(safeArtifactPath(dir, "run.json"), 16_777_216);
   if (raw.length !== entry.bytes || sha256(raw) !== entry.sha256)
     fail("QUALITY_EVIDENCE", "Run evidence changed during assessment");
   let run: RunSnapshot;
@@ -209,7 +209,7 @@ function optionsFor(issue: QualityAssessment["issues"][number]): QualityAssessme
 
 /** Rule-derived guidance over sealed bytes. Never reads current source or calls a model. */
 function generateQualityAssessment(repository: FileArtifactRepository, runId: string): QualityAssessment {
-  const { run, runHash, manifestHash } = sealed(repository, runId),
+  const { run, runHash, manifestHash } = readSealedQualityRun(repository, runId),
     recorded = run.evidence?.reproduction;
   const projectId = projectMemoryProjectId(realpathSync.native(resolve(repository.rootDir)));
   const issues: QualityAssessment["issues"] = [],
@@ -355,7 +355,7 @@ function generateQualityAssessment(repository: FileArtifactRepository, runId: st
       refs.push({ relation: "childRun", runId: check.childRun.runId, manifestHash: check.childRun.manifestHash });
   for (const ref of refs.slice(0, 6)) {
     try {
-      const child = sealed(repository, ref.runId);
+      const child = readSealedQualityRun(repository, ref.runId);
       if (!ref.manifestHash || child.manifestHash !== ref.manifestHash) throw new Error("Unbound history");
       history.push({
         relation: ref.relation,
@@ -474,7 +474,7 @@ function storage(repository: FileArtifactRepository, report: QualityAssessment) 
       root,
       `quality_${qualityContentHash({ projectId: report.projectId, runId: report.binding.runId }).slice(0, 24)}.json`,
     );
-  ordinaryParents(root);
+  qualityOrdinaryParents(root);
   let size = 0;
   if (existsSync(root)) {
     const names = readdirSync(root);
@@ -499,7 +499,7 @@ function storage(repository: FileArtifactRepository, report: QualityAssessment) 
 function readRecord(file: string, report: QualityAssessment): QualityRecord | undefined {
   if (!existsSync(file)) return undefined;
   try {
-    const raw = new TextDecoder("utf-8", { fatal: true }).decode(bytes(file, QUALITY_MAX_RECORD_BYTES)),
+    const raw = new TextDecoder("utf-8", { fatal: true }).decode(readQualityBytes(file, QUALITY_MAX_RECORD_BYTES)),
       record = parseQualityRecord(JSON.parse(raw));
     if (
       record.projectId !== report.projectId ||
@@ -577,7 +577,7 @@ export function recordQualityDecision(
     fail("QUALITY_INPUT", "The option does not belong to this quality report");
   const { root, file } = storage(repository, initial.report);
   mkdirSync(root, { recursive: true });
-  ordinaryParents(root);
+  qualityOrdinaryParents(root);
   let fd: number;
   try {
     fd = openSync(`${file}.lock`, "wx", 0o600);

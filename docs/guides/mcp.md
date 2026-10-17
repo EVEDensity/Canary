@@ -12,6 +12,7 @@ Set `CANARY_MCP_TOKEN` in the host's process environment before `serve`, or supp
 ## Read retained evidence
 
 - `canary.assessment`: read the shared quality brief and existing choices for a sealed `runId`. CLI, MCP and workspace return the same view: scope, counts, issue/evidence references, rule-derived recommendations, alternatives, uncertainty and decision revision. No model call or decision write occurs. Unknown token/cost telemetry stays unknown; source gaps are not filled in from current files.
+- `canary.improvements`: read bounded controlled-improvement sessions for a sealed `runId`, including fixed plans, charged attempts, paired benefit and candidate-evidence availability. The tool does not prepare or execute candidates. Execution remains an explicit CLI/host operation within the task's authorization.
 - `canary.evidence`: bounded run/check summaries, redacted diagnostics and available experience delivery metadata.
 - `canary.diagnostics`: a bounded page of retained failures and source positions; pass `maxChecks` and `checkOffset` as needed.
 - `canary.structure`: a bounded page of sealed historical structure; missing snapshots are not reconstructed from current source.

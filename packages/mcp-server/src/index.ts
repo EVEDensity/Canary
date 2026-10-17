@@ -25,6 +25,7 @@ export {
   parseRepairTaskArgs,
   parseMemoryArgs,
   parseAssessmentArgs,
+  parseImprovementsArgs,
   parseAssessmentDecisionArgs,
   parseOperationArgs,
   assertToolArgs,
@@ -40,6 +41,7 @@ export type {
   CanaryMcpRepairTaskInput,
   CanaryMcpMemoryInput,
   CanaryMcpAssessmentInput,
+  CanaryMcpImprovementsInput,
   CanaryMcpAssessmentDecisionInput,
 } from "./tools.js";
 export { serveStdio } from "./stdio.js";

@@ -27,7 +27,7 @@ export function planRetention(
 ): RetentionPlan {
   const rows = existsSync(root)
     ? readdirSync(root, { withFileTypes: true })
-        .filter((entry) => entry.isDirectory() && !entry.isSymbolicLink() && entry.name !== ".quality")
+        .filter((entry) => entry.isDirectory() && !entry.isSymbolicLink() && ![".quality", ".improvements"].includes(entry.name))
         .map((entry) => {
           const dir = safeArtifactPath(root, entry.name);
           const status = verifyArtifacts(dir).status;

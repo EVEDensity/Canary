@@ -44,6 +44,7 @@ if (command === "add") {
     "change-verification-ui",
     "project-memory-ui",
     "quality-assessment-ui",
+    "improvement-history-ui",
   ];
   for (const name of names) {
     const content = readFileSync(resolve(`apps/web/src/${name}.ts`), "utf8"),
