@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## 1.0.0
+
+- R32: freeze supported CI exits, MCP authority and operating schemas, retaining legacy prepared and interrupted record hashes.
+- Add reviewed full-collection evidence copy, rotation and restore with file hashes, dependency closure, attribution, quotas and no-overwrite protection.
+- Coordinate managed run, artifact, decision, improvement and retention writers with collection maintenance; recover only unchanged dead-owner locks.
+- Add a reproducible assessment → choice → candidate → interruption → archive → restore acceptance gate to CI and Releases. GitHub source remains the installation channel.
+- 新增完整证据归档与恢复、稳定接口及真实闭环验收；历史记录逐字节保留，未知指标与已消耗预算不重置。
+
 ## 0.10.0
 
 - R31: add read-only, bounded `profile` measurements for five analysis stages with actual timings, input scope, available identities and actionable unavailable states.

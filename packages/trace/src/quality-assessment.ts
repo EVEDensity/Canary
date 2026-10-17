@@ -36,6 +36,7 @@ import {
 import { atomicWrite, readArtifactManifest, safeArtifactPath, sha256 } from "./artifacts.js";
 import { FileArtifactRepository } from "./store.js";
 import { containsSensitiveValue, redactText, redactValue } from "./privacy.js";
+import { withCollectionMutation } from "./collection-guard.js";
 
 export class QualityAssessmentError extends Error {
   constructor(
@@ -576,11 +577,9 @@ export function recordQualityDecision(
   if (!initial.report.options.some((option) => option.id === input.optionId))
     fail("QUALITY_INPUT", "The option does not belong to this quality report");
   const { root, file } = storage(repository, initial.report);
-  mkdirSync(root, { recursive: true });
-  qualityOrdinaryParents(root);
   let fd: number;
   try {
-    fd = openSync(`${file}.lock`, "wx", 0o600);
+    fd = withCollectionMutation(repository.rootDir,()=>{mkdirSync(root,{recursive:true});qualityOrdinaryParents(root);return openSync(`${file}.lock`, "wx", 0o600);});
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === "EEXIST")
       return fail(

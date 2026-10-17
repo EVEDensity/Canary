@@ -53,6 +53,7 @@ import { projectMemoryCommand, queryProjectMemory } from "./project-memory.js";
 import { assessmentCommand } from "./assessment.js";
 import { controlledImprovementCommand } from "./controlled-improvement.js";
 import { profileCommand } from "./profile.js";
+import { archiveCommand } from "./archive.js";
 import { changeVerificationCommand } from "./change-verification.js";
 
 export interface CliOptions {
@@ -106,6 +107,10 @@ const USAGE = `Usage: canary run [--ci] [--project <directory>] [--affected --ba
        canary improvement show <sessionId> [--project <directory>] [--config <path>] [--json]
        canary improvement recover <sessionId> [--apply --session-hash <hash> --lock-hash <hash|absent> --actor <name> --reason <text>] [--project <directory>] [--config <path>] [--json]
        canary profile <runId> [--project <directory>] [--config <path>] [--samples <1..5>] [--json]
+       canary archive create <directory> [--rotate] [--apply --plan-hash <hash> --actor <name> --reason <text>] [--project <directory>] [--json]
+       canary archive restore <directory> [--apply --plan-hash <hash> --actor <name> --reason <text>] [--project <directory>] [--json]
+       canary archive show <directory> [--project <directory>] [--json]
+       canary archive recover [--apply --plan-hash <hash> --actor <name> --reason <text>] [--project <directory>] [--json]
        canary installation [--verify] [--json]
        canary upgrade [--check [--json] | --rollback]
        canary change-verify <runId> --base <git-ref> [--summary] [--project <directory>] [--config <path>]
@@ -1392,6 +1397,7 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
   if (command === "assess") return assessmentCommand(rest);
   if (command === "improvement") return controlledImprovementCommand(rest);
   if (command === "profile") return profileCommand(rest);
+  if (command === "archive") return archiveCommand(rest);
   if (command === "memory") return projectMemoryCommand(rest);
   if (command === "change-verify") return changeVerificationCommand(rest);
   if (command === "diagnostics") {

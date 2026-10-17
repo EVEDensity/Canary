@@ -15,3 +15,5 @@ Canary/
 Source belongs in the relevant application or package. Examples keep their cases with their configuration. Documentation belongs in `docs/guides/`; the architecture and roadmap have separate entry points.
 
 Toolchain configuration and lockfiles remain at the repository root. Generated artifacts, logs and internal working records belong in ignored `.canary/` directories and are not distributed as documentation.
+
+Evidence archives belong in `.canary/archives/`; verification receipts use `.canary/verification/`, and command logs use `.canary/logs/`. These generated directories remain ignored.

@@ -1,0 +1,22 @@
+{
+  "tools": {
+    "entry": "./tools.mjs",
+    "adapter": "mock"
+  },
+  "reporters": ["json", "junit", "markdown"],
+  "cases": "./cases.mjs",
+  "coverage": {
+    "include": ["*.mjs"]
+  },
+  "web": {
+    "enabled": false
+  },
+  "agent": {
+    "entry": "./baseline.mjs",
+    "adapter": "function"
+  },
+  "runtime": {
+    "concurrency": 1,
+    "timeoutMs": 5000
+  }
+}

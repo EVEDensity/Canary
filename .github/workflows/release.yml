@@ -73,6 +73,7 @@ jobs:
           pnpm format:check
           pnpm test
           pnpm test:quick
+          pnpm verify:release
           pnpm site:build
       - name: Package release assets
         if: steps.version.outputs.publish == 'true'

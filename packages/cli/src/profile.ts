@@ -1,7 +1,7 @@
 import { lstatSync, readdirSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { performance } from "node:perf_hooks";
-import type { ProjectContext } from "@canary/core";
+import { PROFILE_LIMITS, projectProfileSchema, type ProjectContext, type ProjectProfile, type ProfileStage } from "@canary/core";
 import { buildStructure } from "@canary/structure";
 import {
   FileArtifactRepository,
@@ -14,43 +14,10 @@ import { discoverProject, projectSourceInventory } from "./discovery.js";
 import { resolveProjectContext } from "./home.js";
 import { queryProjectMemory } from "./project-memory.js";
 
-export const PROFILE_LIMITS = {
-  samples: 5,
-  entries: 20_000,
-  depth: 48,
-  sourceFiles: 5_000,
-  sourceBytes: 67_108_864,
-  artifactBytes: 134_217_728,
-  fileBytes: 16_777_216,
-  elapsedMs: 60_000,
-} as const;
-type StageId = "discovery" | "structure-build" | "evidence-verify" | "quality-brief" | "project-memory";
-type Status = "measured" | "unavailable" | "blocked";
-interface Observation {
-  status: Status;
-  code: string;
-  nextAction: string;
-  counts?: Record<string, number>;
-  bytes?: number;
-  inputHash?: string;
-}
-export interface ProfileStage extends Observation {
-  id: StageId;
-  timingMs: { samples: number[]; min: number | null; median: number | null; max: number | null };
-  consistent: boolean;
-}
-export interface ProjectProfile {
-  v: 1;
-  kind: "canary.profile";
-  runId: string;
-  requestedSamples: number;
-  readOnly: true;
-  executionGranted: false;
-  environment: { node: string; platform: string; arch: string };
-  limits: typeof PROFILE_LIMITS;
-  stages: ProfileStage[];
-  limitations: string[];
-}
+export { PROFILE_LIMITS } from "@canary/core";
+export type { ProjectProfile, ProfileStage } from "@canary/core";
+type StageId = ProfileStage["id"];
+type Observation = Omit<ProfileStage, "id" | "timingMs" | "consistent">;
 export class ProfileInputError extends Error {
   readonly code = "PROFILE_INPUT";
 }
@@ -325,7 +292,7 @@ export function profileProject(context: ProjectContext, runId: string, samples =
       Buffer.byteLength(JSON.stringify(result)),
     );
   });
-  return {
+  return projectProfileSchema.parse({
     v: 1,
     kind: "canary.profile",
     runId,
@@ -342,7 +309,7 @@ export function profileProject(context: ProjectContext, runId: string, samples =
       "The elapsed budget is checked between operations; synchronous analysis already in progress cannot be interrupted by this command.",
       "Counts and bytes describe each stage's returned scope, not total process I/O. Missing or blocked stages are not successful validations.",
     ],
-  };
+  });
 }
 
 export function profileCommand(args: string[]): number {

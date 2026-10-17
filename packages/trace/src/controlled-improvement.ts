@@ -10,7 +10,7 @@ import {
   unlinkSync,
   writeFileSync,
 } from "node:fs";
-import { join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { randomUUID } from "node:crypto";
 import {
   IMPROVEMENT_MAX_RECORD_BYTES,
@@ -18,6 +18,7 @@ import {
   improvementAttemptResultSchema,
   improvementAuthorizationSchema,
   improvementRecoveryInputSchema,
+  improvementRecoveryViewSchema,
   parseImprovementPlan,
   parseImprovementSession,
   projectMemoryProjectId,
@@ -31,6 +32,7 @@ import {
 import { atomicWrite, sha256 } from "./artifacts.js";
 import { containsSensitiveValue } from "./privacy.js";
 import { FileArtifactRepository } from "./store.js";
+import { withCollectionMutation } from "./collection-guard.js";
 import {
   qualityOrdinaryParents,
   readQualityAssessment,
@@ -138,7 +140,7 @@ function assertSelection(repository: FileArtifactRepository, plan: ImprovementPl
 function lock(file: string): (() => void) & { owner: { pid: number; nonce: string } } {
   let fd: number;
   try {
-    fd = openSync(`${file}.lock`, "wx", 0o600);
+    fd = withCollectionMutation(dirname(dirname(file)),()=>{mkdirSync(dirname(file),{recursive:true});qualityOrdinaryParents(dirname(file));return openSync(`${file}.lock`, "wx", 0o600);});
   } catch {
     return fail("IMPROVEMENT_BUSY", "An improvement writer is active or interrupted; inspect its lock before retrying");
   }
@@ -180,8 +182,6 @@ export function createImprovementSession(repository: FileArtifactRepository, val
       "IMPROVEMENT_STORAGE",
       "Improvement session limit (64) reached; preserve existing evidence and use a new artifact collection for additional runs",
     );
-  mkdirSync(state.root, { recursive: true });
-  qualityOrdinaryParents(state.root);
   const release = lock(join(state.root, "catalog"));
   try {
     if (storage(repository).files.length >= IMPROVEMENT_MAX_SESSIONS)
@@ -262,7 +262,7 @@ export function inspectImprovementRecovery(repository: FileArtifactRepository, i
   const value = recoveryState(repository, id);
   if (existsSync(`${value.file}.recover.lock`))
     fail("IMPROVEMENT_BUSY", "Another recovery is active or interrupted; inspect its guard");
-  return {
+  return improvementRecoveryViewSchema.parse({
     v: 1 as const,
     kind: "canary.improvement-recovery" as const,
     sessionId: id,
@@ -279,7 +279,7 @@ export function inspectImprovementRecovery(repository: FileArtifactRepository, i
           ? "No recovery is necessary."
           : "Wait for the owner to exit or inspect the preserved ownership evidence; no process will be terminated.",
     executionGranted: false as const,
-  };
+  });
 }
 /** Close a dead-owner ledger only after exact-state approval. Persisted PIDs never authorize signals. */
 export function recoverImprovementSession(

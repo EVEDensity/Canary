@@ -29,6 +29,7 @@ Start with [Agent assessment and guided improvement](guides/agent-workflow.md) f
 - [Project repair memory](guides/project-memory.md)
 - [Change verification](guides/change-verification.md)
 - [Evidence integrity](guides/r3-artifact-evidence.md)
+- [Evidence archives and stable contracts](guides/evidence-archive.md)
 - [Issue resolution](guides/improvement.md)
 
 ## Extend and maintain

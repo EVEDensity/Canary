@@ -24,3 +24,5 @@ export * from "./diagnostics.js";
 export * from "./repair-task.js";
 export * from "./quality-assessment.js";
 export * from "./controlled-improvement.js";
+export * from "./collection-guard.js";
+export * from "./evidence-archive.js";
