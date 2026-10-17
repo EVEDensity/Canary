@@ -2,6 +2,7 @@ node_modules/
 dist/
 /coverage/
 .canary/
+.canary-runtime.json
 /r6-evidence/
 /docs/evidence/logs/**/artifacts/
 *.log

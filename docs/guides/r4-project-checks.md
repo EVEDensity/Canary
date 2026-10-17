@@ -11,7 +11,7 @@ canary run --ci --config canary.project.json
 canary verify <runId> --json
 ```
 
-根目录规则保持：显式 `--config` 优先，否则逐层向上查找最近配置目录；同一目录 `canary.project.json` 优先于 `canary.config.ts`。其他 JSON 文件名需显式传入。配置无效会报错，不回退到另一份配置。安装目录不代替被测项目；没有配置时 CI 返回 2。
+根目录规则保持：显式 `--config` 优先，否则逐层向上查找最近配置目录；同一目录 `canary.project.json` 优先于 `canary.config.ts`。其他 JSON 文件名需显式传入。配置无效会报错，不回退到另一份配置。安装目录不代替被测项目；没有配置时使用[自动项目检查](automatic-checks.md)，没有可执行检查时返回发现或阻塞结果。
 
 `discover` 只读 marker，不导入配置或执行发现的脚本。Node 使用 `package.json` 中 test/lint/typecheck/build 脚本名作为候选；Python 使用 pyproject.toml/setup.py/requirements.txt；Go/Rust 只声明 marker。已识别返回 `declared`，未知返回 `blocked` 和退出码 2。**发现成功不是测试通过**。跨语言项目可以显式声明通用命令；发现器不会将全部脚本变成必需门禁。
 

@@ -48,7 +48,7 @@ clone_or_update() {
 install_canary() {
   [[ -f "$REPO_DIR/scripts/install-global.mjs" ]] || { printf 'Missing installer script at %s/scripts/install-global.mjs\n' "$REPO_DIR" >&2; exit 1; }
   command -v node >/dev/null 2>&1 || { printf 'node is required but was not found on PATH.\n' >&2; exit 1; }
-  node "$REPO_DIR/scripts/install-global.mjs"
+  node --use-system-ca "$REPO_DIR/scripts/install-global.mjs"
 }
 case "${1:-}" in
   -h|--help) usage ;;

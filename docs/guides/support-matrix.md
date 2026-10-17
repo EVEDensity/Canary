@@ -16,7 +16,7 @@ Line, function and branch coverage require a supported collector. Remote and bla
 
 ## Platform validation
 
-Windows and Ubuntu containers have recorded verification. Platform jobs and release configuration are separate from executed validation results; check the selected runtime and required project tools. This batch exercised official Skill installation, updates, conflicts, rollback and removal on Windows. Skill discovery and invocation in every client have not been tested.
+Node.js 24 platform fixtures have passed on Windows, Ubuntu and macOS in [platform checks](https://github.com/EVEDensity/Canary/actions/workflows/r6.yml). These results cover the recorded fixtures, not every project runtime or external service. Official Skill installation, updates, conflicts, rollback and removal also have recorded Windows verification; client-specific discovery and invocation remain separate from package delivery tests.
 
 ## Reports and evidence
 

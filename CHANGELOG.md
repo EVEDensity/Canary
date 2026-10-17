@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## 0.7.0
+
+- R28: verify published stable Releases against their tag commit and built version; add read-only `upgrade --check` with explicit channel and version states.
+- Preserve pinned installations, skip identical stable upgrades and reject accidental downgrades or same-version commit conflicts.
+- Inventory installed runtime files, dependencies and internal links; add `installation --verify` and verify the previous runtime before rollback. Legacy CLI-file registrations remain compatible.
+- Exercise real local Git upgrades, rollback, failed preparation and changed runtime rejection; clarify current capabilities, delivery scope and R29/R30 plans.
+- 稳定版发布核验、只读更新检查、完整运行目录清单和执行前回滚核验；同步中英文入口、现有功能及后续路线。
+
 ## 0.6.0
 
 - R27: record structured facts from verified repair receipts with an operator, reason, expiry and explicit revocation.

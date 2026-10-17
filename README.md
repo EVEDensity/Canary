@@ -53,7 +53,7 @@ curl -fsSL https://raw.githubusercontent.com/EVEDensity/Canary/main/scripts/inst
 
 Open a new terminal and run from your project or any subdirectory. No Canary configuration is required:
 
-Stable releases are selected by default. Set `CANARY_CHANNEL=main` for development builds. Upgrade with `canary upgrade`, restore with `canary upgrade --rollback`, and inspect the installed commit with `canary installation --json`.
+Published stable releases are selected by default. Check for updates with `canary upgrade --check`, upgrade with `canary upgrade`, and restore with `canary upgrade --rollback`. Inspect the installed commit with `canary installation --json`; verify its runtime inventory with `canary installation --verify`. Set `CANARY_CHANNEL=main` for development builds.
 
 ```bash
 canary run --ci                  # Discover and execute project checks
@@ -100,7 +100,7 @@ The name comes from the canary in the coal mine: an early warning signal. Canary
 
 Add a language with `pnpm i18n:add <locale>` and validate it with `pnpm i18n:check`. Complete, reviewed resources appear automatically in the language menu after merging.
 
-Issues, documentation improvements and code contributions are welcome. R22–R26 add trusted evidence/state handling, official Skill delivery, unified verification entry points, controlled repair handoffs and version-bound change analysis. R27–R30 remain planned; see the [roadmap](docs/roadmap/README.md).
+Issues, documentation improvements and code contributions are welcome. See the [capability guide](docs/guides/capabilities.md) for available workflows and the [roadmap](docs/roadmap/README.md) for upcoming work.
 
 ## License
 

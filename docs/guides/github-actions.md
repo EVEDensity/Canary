@@ -29,7 +29,7 @@ jobs:
           project: .
 ```
 
-Use your project's dependency command instead of `npm ci` when appropriate. Pin the action to a reviewed commit for production workflows. This action becomes available on `main` after the R17 branch is merged.
+Use your project's dependency command instead of `npm ci` when appropriate. Pin the action to a reviewed commit for production workflows.
 
 Inputs: `project` selects a directory inside the checkout; optional `config` selects a configuration file relative to that directory. `artifact-name` gives each invocation a unique download name when using the action multiple times in one job.
 

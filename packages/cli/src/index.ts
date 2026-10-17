@@ -96,8 +96,8 @@ const USAGE = `Usage: canary run [--ci] [--project <directory>] [--affected --ba
        canary replay <runId> [--headless] [--no-open]
        canary diagnostics <runId> [--out <bundle.json>] [--config <path>]
        canary diagnostics verify <bundle.json>
-       canary installation [--json]
-       canary upgrade [--rollback]
+       canary installation [--verify] [--json]
+       canary upgrade [--check [--json] | --rollback]
        canary change-verify <runId> --base <git-ref> [--summary] [--project <directory>] [--config <path>]
        canary repair-verify <baseline> <candidate> --regression <checkId> --test <test.spec.mjs> [--execute] [--project <directory>] [--config <path>]
        canary repair-task create <runId> [--check <id>] [--allow <path>] [--out <bundle.json>] [--project <directory>] [--config <path>]
@@ -1359,13 +1359,15 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
     return 0;
   }
   if (command === "installation") {
-    if (rest.some((arg) => arg !== "--json")) return 2;
+    if (rest.some((arg) => !["--json", "--verify"].includes(arg)) || new Set(rest).size !== rest.length) return 2;
+    if (rest.includes("--verify")) return spawnSync(process.execPath, [resolve(RUNTIME_INSTALL_ROOT, "scripts/verify-installation.mjs")], { stdio: "inherit", windowsHide: true }).status ?? 4;
     const metadata = installationMetadata();
-    console.log(JSON.stringify(redactValue({ kind: "canary.installation", status: metadata.status, version: metadata.value?.version, commit: metadata.value?.commit ?? metadata.value?.ref, channel: metadata.value?.channel ?? "legacy", root: metadata.value?.root, previousAvailable: Boolean(metadata.value?.previous) }), null, 2)); return metadata.status === "valid" ? 0 : 4;
+    console.log(JSON.stringify(redactValue({ kind: "canary.installation", status: metadata.status, version: metadata.value?.version, commit: metadata.value?.commit ?? metadata.value?.ref, channel: metadata.value?.channel ?? "legacy", root: metadata.value?.root, previousAvailable: Boolean(metadata.value?.previous), integrityScope: metadata.value?.runtimeManifestHash ? "runtime-tree-recorded" : "legacy-cli-only", runtimeManifestHash: metadata.value?.runtimeManifestHash, runtimeFileCount: metadata.value?.runtimeFileCount, runtimeBytes: metadata.value?.runtimeBytes, runtimeMissingLinkCount: metadata.value?.runtimeMissingLinkCount, releaseTag: metadata.value?.releaseTag }), null, 2)); return metadata.status === "valid" ? 0 : 4;
   }
   if (command === "upgrade") {
-    if (rest.some((arg) => arg !== "--rollback")) return 2;
-    return spawnSync(process.execPath, [resolve(RUNTIME_INSTALL_ROOT, "scripts/upgrade-global.mjs"), ...rest], { stdio: "inherit", windowsHide: true }).status ?? 4;
+    if (rest.some((arg) => !["--rollback", "--check", "--json"].includes(arg)) || new Set(rest).size !== rest.length ||
+      (rest.includes("--rollback") && rest.length !== 1) || (rest.includes("--json") && !rest.includes("--check"))) return 2;
+    return spawnSync(process.execPath, ["--use-system-ca", resolve(RUNTIME_INSTALL_ROOT, "scripts/upgrade-global.mjs"), ...rest], { stdio: "inherit", windowsHide: true }).status ?? 4;
   }
   if (command === "repair") {
     try {
