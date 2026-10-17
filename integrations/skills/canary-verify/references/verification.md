@@ -1,5 +1,20 @@
 # Verify a requested repair or change
 
+## Agent behavior improvements
+
+Keep the original Agent run, case IDs, inputs, assertions, tool setup and independent holdout fixed. For a function adapter, prepare the selected candidate entry within authorized source scope, then use the original Agent configuration:
+
+```sh
+canary candidate <baselineRunId> --entry <candidate-entry> --config <agent-config> --headless --no-open
+canary compare <baselineRunId> <candidateRunId> --config <agent-config>
+```
+
+`--entry` replaces a function adapter entry; it does not select a different HTTP endpoint or MCP server. Those adapters require a reviewed candidate configuration and comparable rerun evidence. Candidate execution invokes the configured Agent; establish live-call/repetition budgets before running it. Report observed improvements, regressions, paired sample counts and missing trials. An incomplete/incomparable run or uncertain admission remains so. A single passing candidate or model score is not evidence of general benefit, and ordinary project tests cannot replace behavior assertions.
+
+Retaining an improvement as experience requires its existing proposed/validation/regression/holdout/review flow. Preparing or validating a soft trial may execute additional Agent calls; do not activate experience or export/install a draft from a verbal choice alone. Follow the project's reviewed experience guide and current control revision for those actions. Function-context delivery, Agent use and measured benefit remain separate facts; HTTP/MCP adapters do not inject that experience context.
+
+## Project repair and change evidence
+
 Use the requested task's authorization for any source or test edits. This Skill does not authorize editing code merely because a check failed. Preserve retained baseline evidence and the original check definitions.
 
 When the repair came through a task bundle, follow [repair handoff](references/handoff.md) to check the sealed candidate against its original identity and declared scope first. `ready-for-regression` is candidate admission with `repairVerified: false`; it does not replace the regression execution below.

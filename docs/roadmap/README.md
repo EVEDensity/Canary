@@ -1,6 +1,6 @@
 # Product roadmap
 
-Canary connects project checks, architecture, coverage and failure evidence. Distribution uses GitHub source and Releases.
+Canary connects Agent evaluation, guided improvement, project checks, architecture, coverage and failure evidence. Distribution uses GitHub source and Releases.
 
 R16–R28 have implemented workflows within the documented support boundaries.
 
@@ -22,8 +22,14 @@ R16–R28 have implemented workflows within the documented support boundaries.
 
 ## Next stages
 
-- **R29 — Measured reliability and observability:** establish repeatable discovery, structure, evidence and memory performance measurements; document budgets and cancellation; exercise interrupted writes, concurrent operations and recovery; provide bounded diagnostic summaries with actionable failure categories. Set targets from measured workloads rather than a global speed claim.
-- **R30 — v1.0 acceptance:** freeze supported CLI/MCP/schema contracts; align clean-install, cross-directory, upgrade/rollback and core verification acceptance with the support matrix; document data compatibility and migration; publish a verified release with reproducible evidence and concise operating guidance.
+The official Skill provides conversational assessment, recommendations and user-selected follow-through through a compatible host. Persisted quality briefs, option/decision records and new workspace decision controls remain planned; see [the current workflow](../guides/agent-workflow.md).
+
+- **R29 — Agent quality briefs and guided decisions:** combine retained Agent assertions, tool/trajectory failures, project checks, coverage gaps and history into one version-bound assessment. Expose structured issues, evidence and uncertainty, recommended actions and alternatives with scope, prerequisites and available cost information. Record user selections separately from execution and verification; connect CLI/MCP and the workspace to the same report.
+- **R30 — Controlled improvement and measured benefit:** execute selected, authorized improvements with fixed baseline, regression and holdout cases, bounded iterations and explicit live-call budgets. Present paired improvements, regressions, uncertainty, latency and available cost metrics. Keep deterministic result assertions primary, calibrate model scoring when used, and retain useful experience through existing review/activation/rollback controls.
+- **R31 — Measured reliability and observability:** measure discovery, structure, evidence and memory overhead; document budgets and cancellation; exercise interrupted writes, concurrent operations and recovery; provide actionable stage diagnostics and controlled storage/version retention. Prefer short, repeatable fixtures and set targets from measured workloads.
+- **R32 — v1.0 acceptance:** freeze supported CLI/MCP/schema contracts; align clean-install, cross-directory, upgrade/rollback and the Agent assessment-to-verified-improvement workflow with the support matrix; document compatibility and migration; publish reproducible evidence and concise operating guidance.
+
+Reliability and stable-release acceptance remain required engineering work, now tracked under R31 and R32 while the next product milestones focus on Agent assessment and improvement.
 
 ## Expansion after the core release
 

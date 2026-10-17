@@ -1,8 +1,8 @@
 # Canary verification Skill / Canary 验证 Skill
 
-Canary includes the official `canary-verify` Agent Skill at `integrations/skills/canary-verify/`. Its short `SKILL.md` entry points to bundled references for checks and diagnosis, reproduction, and repair/change verification. It uses the existing `canary run --ci`, `diagnostics`, `reproduce`, `repair-verify` and `change-verify` commands within the user's current task and authorization.
+Canary includes the official `canary-verify` Agent Skill at `integrations/skills/canary-verify/`. It guides a compatible host through assessment, explanation, evidence-backed recommendations, user choice and verification. Its references route Agent case comparisons and project checks to the matching CLI workflow; existing authorization carries forward. See [Agent assessment and guided improvement](agent-workflow.md).
 
-Canary 在 `integrations/skills/canary-verify/` 提供官方 `canary-verify` Agent Skill。入口按当前任务加载检查与诊断、复现、修复或变更验证参考，不隐含编辑源码、依赖安装、联网、凭据、提交或合并许可。
+Canary 在 `integrations/skills/canary-verify/` 提供官方 Skill，由宿主承接“评测 → 问题解释 → 推荐与备选 → 用户选择 → 执行验证”的对话流程。Agent 比较与项目修复使用各自证据；不新增源码、依赖、联网、凭据或发布许可。
 
 ## Install in a project / 项目内安装
 

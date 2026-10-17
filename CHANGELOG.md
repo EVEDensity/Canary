@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## 0.7.1
+
+- Guide Skill hosts through Agent assessment, evidence-backed explanations, recommended alternatives, user-selected actions and candidate verification.
+- Route Agent configurations and cases explicitly; distinguish project diagnostics, Agent comparisons and executed repair evidence.
+- Keep suggestion writes separate from conversational analysis, preserve existing authorization and bound autonomous follow-through.
+- Clarify the Agent evaluation and continuous improvement focus, with structured decisions and measured improvement next, followed by reliability and v1.0 acceptance.
+- 官方 Skill 增强评测、诊断、推荐选择和执行验证流程；后端统一决策记录与页面入口保留在后续计划。
+
 ## 0.7.0
 
 - R28: verify published stable Releases against their tag commit and built version; add read-only `upgrade --check` with explicit channel and version states.
