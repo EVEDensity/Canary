@@ -61,7 +61,7 @@ function Install-Canary {
   $installer = Join-Path $RepoDir 'scripts\install-global.mjs'
   if (-not (Test-Path $installer)) { throw "Missing installer script at $installer" }
   Assert-Tool 'node'
-  Invoke-Checked 'node' @($installer)
+  Invoke-Checked 'node' @('--use-system-ca', $installer)
 }
 if ($Help) { Show-Usage; exit 0 }
 Clone-Or-Update

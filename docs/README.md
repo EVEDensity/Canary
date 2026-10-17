@@ -5,6 +5,7 @@ Run checks, explore project architecture, and verify fixes with traceable eviden
 ## Get started
 
 - [Installation and setup](guides/getting-started.md)
+- [Capabilities](guides/capabilities.md) · [Delivery and integrity](guides/delivery.md)
 - [Automatic project checks](guides/automatic-checks.md)
 - [CLI verification](guides/cli.md)
 - [Official verification Skill](guides/skills.md)

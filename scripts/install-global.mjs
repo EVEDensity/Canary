@@ -6,6 +6,7 @@ import { dirname, join, resolve, relative } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { runCommand } from "./lib/command-runner.mjs";
 import { publishInstallation, validateInstallation } from "./lib/install-state.mjs";
+import { resolveStableRelease } from "./lib/release-source.mjs";
 
 const source = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const metaDir = resolve(process.env.CANARY_INSTALL_HOME ?? join(homedir(), ".canary"));
@@ -40,18 +41,25 @@ try {
   const dirty = invoke("git", ["status", "--porcelain"], source, true) !== "";
   if (dirty && !working)
     throw new Error("Refusing to install an uncommitted checkout; use --working-tree deliberately");
-  const tags = invoke(
-    "git",
-    ["for-each-ref", "--sort=-version:refname", "--format=%(refname:short)", "refs/tags"],
-    source,
-    true,
-  ).split(/\r?\n/);
-  const selected = working
-    ? "HEAD"
-    : (ref ?? (channel === "main" ? "origin/main" : tags.find((tag) => /^v\d+\.\d+\.\d+$/.test(tag))));
+  let release;
+  if (!working && !ref && channel === "stable") {
+    const origin = invoke("git", ["remote", "get-url", "origin"], source, true);
+    if (
+      !/^(?:https:\/\/github\.com\/EVEDensity\/Canary(?:\.git)?|git@github\.com:EVEDensity\/Canary(?:\.git)?)$/i.test(
+        origin,
+      )
+    )
+      throw new Error(
+        "Stable installs require the official GitHub source; choose CANARY_REF or CANARY_CHANNEL=main for an explicit source",
+      );
+    release = await resolveStableRelease();
+  }
+  const selected = working ? "HEAD" : (ref ?? (channel === "main" ? "origin/main" : `refs/tags/${release.tag}`));
   if (!selected || selected.startsWith("-"))
     throw new Error("No stable release tag is available; choose CANARY_CHANNEL=main explicitly");
   const commit = invoke("git", ["rev-parse", "--verify", `${selected}^{commit}`], source, true);
+  if (release && commit !== release.commit)
+    throw new Error("Release tag differs from GitHub's published source; previous installation was retained");
   mkdirSync(join(metaDir, "versions"), { recursive: true });
   const root = join(metaDir, "versions", commit.slice(0, 12) + "-" + randomUUID());
   if (working) {
@@ -93,7 +101,15 @@ try {
       : invoke("npm", ["exec", "--yes", "--package", "pnpm@10.15.0", "--", "pnpm", ...args], root);
   pnpm(["install", "--frozen-lockfile"]);
   pnpm(["build"]);
+  if (
+    !working &&
+    (invoke("git", ["rev-parse", "HEAD"], root, true) !== commit ||
+      invoke("git", ["status", "--porcelain", "--untracked-files=no"], root, true))
+  )
+    throw new Error("Installation source changed during the build; previous installation was retained");
   const runtime = validateInstallation(root);
+  if (release && runtime.version !== release.version)
+    throw new Error("Release version differs from the built CLI; previous installation was retained");
   const metadata = publishInstallation({
     root: realpathSync.native(root),
     binDir,
@@ -107,24 +123,29 @@ try {
       sourceDirty: dirty,
       migrationVersion: 4,
       sourceInstall: true,
+      ...(release ? { releaseTag: release.tag, releaseUrl: release.url, releasePublishedAt: release.publishedAt } : {}),
       installedAt: new Date().toISOString(),
       node: process.versions.node,
       pnpm: "10.15.0",
     },
   });
-  if (!process.env.CANARY_BIN_DIR) {
-    if (process.platform === "win32") {
-      const escaped = binDir.replaceAll("'", "''");
-      const ps = `$bin='${escaped}'; $path=[Environment]::GetEnvironmentVariable('Path','User'); if ($null -eq $path) {$path=''}; if (($path -split ';') -notcontains $bin) {[Environment]::SetEnvironmentVariable('Path',(($path.TrimEnd(';')+';'+$bin).Trim(';')),'User')}`;
-      if (runCommand("powershell", ["-NoProfile", "-Command", ps], { stdio: "inherit" }).status !== 0)
-        console.warn("Add the reported launcher directory to PATH");
-    } else {
-      const profile = join(homedir(), ".profile"),
-        shellBin = "'" + binDir.replaceAll("'", "'\\''") + "'",
-        line = "export PATH=" + shellBin + ":$PATH";
-      const text = existsSync(profile) ? readFileSync(profile, "utf8") : "";
-      if (!text.includes(line)) appendFileSync(profile, "\n" + line + "\n");
+  try {
+    if (!process.env.CANARY_BIN_DIR) {
+      if (process.platform === "win32") {
+        const escaped = binDir.replaceAll("'", "''");
+        const ps = `$bin='${escaped}'; $path=[Environment]::GetEnvironmentVariable('Path','User'); if ($null -eq $path) {$path=''}; if (($path -split ';') -notcontains $bin) {[Environment]::SetEnvironmentVariable('Path',(($path.TrimEnd(';')+';'+$bin).Trim(';')),'User')}`;
+        if (runCommand("powershell", ["-NoProfile", "-Command", ps], { stdio: "inherit" }).status !== 0)
+          console.warn("Add the reported launcher directory to PATH");
+      } else {
+        const profile = join(homedir(), ".profile"),
+          shellBin = "'" + binDir.replaceAll("'", "'\\''") + "'",
+          line = "export PATH=" + shellBin + ":$PATH";
+        const text = existsSync(profile) ? readFileSync(profile, "utf8") : "";
+        if (!text.includes(line)) appendFileSync(profile, "\n" + line + "\n");
+      }
     }
+  } catch {
+    console.warn("Canary is installed; add the reported launcher directory to PATH manually");
   }
   console.log(`Canary ${metadata.version} installed (${metadata.commit.slice(0, 12)}, ${metadata.channel})`);
   console.log(`Launcher: ${join(binDir, process.platform === "win32" ? "canary.cmd" : "canary")}`);

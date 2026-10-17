@@ -42,6 +42,12 @@ it("publishes a real global entry, checks an independent project and page, and p
       metadata: { ...runtime, commit: "fixture", channel: "working-tree" },
     });
     const saved = readFileSync(join(metaDir, "home.json"));
+    const verification = spawnSync(process.execPath, [join(repo, "packages/cli/dist/index.js"), "installation", "--verify", "--json"], {
+      encoding: "utf8", timeout: 30000, env: { ...process.env, CANARY_INSTALL_HOME: metaDir },
+    });
+    expect(verification.status, verification.stderr).toBe(0);
+    expect(JSON.parse(verification.stdout)).toMatchObject({ kind: "canary.installation-verification", v: 1, status: "valid", scope: "runtime-tree", runtimeMissingLinkCount: 0 });
+    expect(readFileSync(join(metaDir, "home.json"))).toEqual(saved);
     expect(() => publishInstallation({ root: join(root, "missing-runtime"), binDir, metaDir, metadata: {} })).toThrow();
     expect(readFileSync(join(metaDir, "home.json"))).toEqual(saved);
     const fake = join(root, "state-switch-unit");

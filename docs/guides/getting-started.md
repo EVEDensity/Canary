@@ -38,6 +38,7 @@ canary version --json
 canary paths --json
 canary doctor --json
 canary installation --json
+canary installation --verify --json
 ```
 
 See [automatic checks](automatic-checks.md), [support scope](support-matrix.md) and [troubleshooting](troubleshooting.md).
@@ -46,16 +47,21 @@ Install the project verification Skill with `canary skill install`, and inspect 
 
 ## Releases and upgrades
 
-The installer selects the latest available stable version tag. Set `CANARY_CHANNEL=main` for development builds, or `CANARY_REF` for an explicit tag/commit. The installation record includes the actual CLI version, commit, channel and runtime hash.
+The installer verifies GitHub's latest published stable Release and its tag commit before building. Drafts, prereleases and unpublished tags are excluded. A network or verification failure stops installation without falling back to development code. Set `CANARY_CHANNEL=main` for development builds, or `CANARY_REF` for an explicit tag/commit.
 
 ```bash
+canary upgrade --check --json
 canary upgrade
 canary upgrade --rollback
 ```
 
-Each installation is built in an independent version directory. Launchers and registration change only after runtime validation; a failed upgrade retains the active version. Rollback validates and restores the previous version. Existing source checkouts, project files and evidence are preserved.
+The update check reads published release metadata without cloning, building or changing registration. Stable upgrades skip identical versions/commits and reject accidental downgrades or same-version commit conflicts. Pinned and working-tree installations require an explicit `CANARY_REF` or `CANARY_CHANNEL` to change channels.
 
-中文：默认安装稳定版；设置 `CANARY_CHANNEL=main` 使用开发版，或通过 `CANARY_REF` 固定版本。升级先构建并验证独立副本，失败时保留原安装；`canary upgrade --rollback` 可恢复已验证的上一版本。通过 `canary installation --json` 查看实际版本与提交。
+Each installation is built in an independent version directory. Launchers and registration change only after validation; a failed upgrade retains the active version. One previous registration is retained for rollback. New installations record a complete inventory of the selected runtime trees; rollback checks it before starting the previous runtime. `canary installation --verify` checks the recorded files, dependencies and internal links without modifying them. Legacy installations without an inventory retain the older CLI-file check until reinstalled.
+
+See [delivery and integrity](delivery.md) for inventory scope, limits and update statuses. These checks establish consistency with retained metadata, not a publisher signature. Existing source checkouts, project files and evidence are preserved.
+
+中文：默认核对正式稳定 Release；`canary upgrade --check --json` 只读检查更新。升级失败保留原版本，重复版本不重建，固定版本不隐式切换通道。`canary installation --verify` 检查安装清单，回滚在执行旧版本前核验其内容。
 
 ## Build from source
 

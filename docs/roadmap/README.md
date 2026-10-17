@@ -2,7 +2,7 @@
 
 Canary connects project checks, architecture, coverage and failure evidence. Distribution uses GitHub source and Releases.
 
-R16–R27 have implemented workflows within the documented support boundaries.
+R16–R28 have implemented workflows within the documented support boundaries.
 
 - **[R16 — Unified failure evidence](https://github.com/EVEDensity/Canary/issues/1):** structured diagnostics, conservative failure grouping and exportable evidence bundles.
 - **[R17 — Pull request integration](https://github.com/EVEDensity/Canary/issues/2):** CI summaries, version-bound results and optional source annotations.
@@ -18,6 +18,15 @@ R16–R27 have implemented workflows within the documented support boundaries.
 
 - **R27 — Verified project repair memory:** explicitly retain verified repair facts with an operator, reason and expiry. Project/check/source-bound retrieval rechecks sealed history, budgets context and distinguishes related history from conditions requiring revalidation. CLI recording/revocation and read-only MCP/workspace lookup remain separate from Agent experience activation. See [project memory](../guides/project-memory.md).
 
-**R28–R30 remain planned.** Priorities include delivery upgrades, performance/reliability and observability, and v1.0 acceptance. Scope will follow usage feedback and measured gaps.
+- **R28 — Verified delivery and upgrades:** resolve published stable Releases to their tag commit; read-only update checks; preserve pinned channels; skip unchanged versions; reject accidental downgrade/version conflicts. Bind installed runtime files and dependencies to an inventory and verify rollback before execution. Source builds remain the install channel; see [delivery](../guides/delivery.md).
+
+## Next stages
+
+- **R29 — Measured reliability and observability:** establish repeatable discovery, structure, evidence and memory performance measurements; document budgets and cancellation; exercise interrupted writes, concurrent operations and recovery; provide bounded diagnostic summaries with actionable failure categories. Set targets from measured workloads rather than a global speed claim.
+- **R30 — v1.0 acceptance:** freeze supported CLI/MCP/schema contracts; align clean-install, cross-directory, upgrade/rollback and core verification acceptance with the support matrix; document data compatibility and migration; publish a verified release with reproducible evidence and concise operating guidance.
+
+## Expansion after the core release
+
+Independent runtime bundles, build attestations/SBOM, richer language adapters, client-specific Skill discovery, behavior contracts and test associations are candidates for subsequent delivery. Team ownership rules, shared evidence, remote workers and queues depend on a concrete multi-user need. They are not implemented capabilities or prerequisites for the existing workflows.
 
 Contributions should preserve existing CLI contracts and evidence integrity. Discuss substantial changes in a repository Issue before implementation.

@@ -53,7 +53,7 @@ curl -fsSL https://raw.githubusercontent.com/EVEDensity/Canary/main/scripts/inst
 
 安装后新开终端，在项目目录或其子目录执行，无需 Canary 配置：
 
-默认使用稳定版，设置 `CANARY_CHANNEL=main` 可使用开发版。通过 `canary upgrade` 升级，`canary upgrade --rollback` 恢复上一版本，`canary installation --json` 查看实际安装提交。
+默认核对正式稳定版。通过 `canary upgrade --check` 检查更新，`canary upgrade` 升级，`canary upgrade --rollback` 恢复上一版本。`canary installation --json` 查看安装提交，`canary installation --verify` 核对运行内容。设置 `CANARY_CHANNEL=main` 可使用开发版。
 
 ```bash
 canary run --ci                  # 自动识别并执行项目检查
@@ -99,7 +99,7 @@ canary skill status --json
 
 新增语言：`pnpm i18n:add <locale>` 创建草稿，`pnpm i18n:check` 校验翻译契约。审核并合并完整资源后，语言自动出现在界面菜单中。
 
-欢迎提交 Issue、改进文档或贡献代码。R22–R26 提供可信证据与状态收口、官方 Skill、统一验证入口、受控修复交接及绑定版本的变更分析；R27–R30 仍为规划，详见[路线图](docs/roadmap/README.md)。
+欢迎提交 Issue、改进文档或贡献代码。完整工作流程见[功能指南](docs/guides/capabilities.md)，后续安排见[路线图](docs/roadmap/README.md)。
 
 ## 许可证
 
