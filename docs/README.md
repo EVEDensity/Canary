@@ -2,6 +2,8 @@
 
 Run checks, explore project architecture, and verify fixes with traceable evidence.
 
+Start with [Agent assessment and guided improvement](guides/agent-workflow.md) for Agent evaluation, diagnosis, recommendations and candidate comparison.
+
 ## Get started
 
 - [Installation and setup](guides/getting-started.md)

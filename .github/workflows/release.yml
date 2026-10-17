@@ -104,9 +104,9 @@ jobs:
           cat > "$notes_file" <<'NOTES'
           ## Canary
 
-          A project verification workspace: explore architecture, diagnose failures, analyze coverage, and verify fixes with traceable evidence.
+          An AI Agent evaluation and continuous improvement workspace: evaluate behavior, diagnose regressions and verify selected improvements with traceable evidence.
 
-          项目验证工作台：探索架构、定位失败、分析覆盖率，让每一次修复都有据可查。
+          AI Agent 评测与持续改进工作台：评测行为、定位回归、验证选定改进，让每一次提升都有据可查。
 
           **Quick start / 快速开始:** See README.md and README.cn.md. Install Canary from the documented GitHub source workflow; no npm publication or account is required.
           **Downloads / 下载:** Workspace package archives, the static website and the official canary-verify Skill ZIP are attached below. Package archives reference workspace dependencies. Use `canary skill install` for managed project installation; the ZIP is also available for manual client-specific discovery.

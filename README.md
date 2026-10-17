@@ -1,7 +1,7 @@
 <div align="center">
   <img src="docs/images/logo-hero.png" height="150" alt="Canary" />
-  <h3>Explore your architecture. Diagnose failures. Verify every fix.</h3>
-  <p>Project checks · Interactive architecture maps · Coverage analysis · Traceable evidence</p>
+  <h3>Evaluate agent behavior. Understand regressions. Verify improvements.</h3>
+  <p>Agent evaluation · Guided improvement · Interactive architecture · Traceable evidence</p>
   <p><strong>English</strong> · <a href="README.cn.md">简体中文</a></p>
   <p>
     <a href="#quick-start"><img src="https://img.shields.io/badge/Quick_Start-d97456?style=flat-square" alt="Quick start" /></a>
@@ -15,18 +15,19 @@
   </p>
 </div>
 
-**Canary is a project verification workspace for developers.** Bring checks, architecture, coverage and error evidence together. Follow a failure into the code, then track verification after a fix. Integrate with existing CI through the CLI, stable exit codes and standard reports.
+**Canary is an AI Agent evaluation and continuous improvement workspace.** Run agents, validate tool behavior, inspect traces and coverage, replay failures and compare versions. Use the official Skill to understand recorded problems, review recommended actions and verify the chosen improvement. Project checks, architecture maps and CI gates share the same evidence foundation.
 
 ![Canary verification workspace: check results, project structure and run trends](docs/images/dashboard-en.jpg)
 
 ## Features
 
+- **Agent evaluation** — Check task output, tool arguments and order, state, termination and execution budgets against declared cases.
 - **Unified checks** — Run builds, type checks, lint and tests. Export JSON, JUnit and Markdown reports.
 - **Architecture maps** — Explore modules, files and symbols in 2D and layered 3D views. Search nodes, filter dependencies and inspect source.
 - **Failure diagnosis** — Inspect categorized issues, redacted logs and source locations. Link original failures to reruns and before/after comparisons.
 - **Coverage navigation** — Map collected line, function and branch coverage to structure nodes and locate verification gaps.
 - **Traceable evidence** — Connect code versions, check results and execution history through manifests, content hashes and run lineage.
-- **Agent workflows** — Install the official project Skill and expose bounded diagnosis and verification tools through the CLI or MCP.
+- **Guided improvement** — Use the [official Skill workflow](docs/guides/agent-workflow.md) to explain failures, offer a recommended action and alternatives, then compare an authorized candidate through CLI or MCP evidence.
 - **Repair handoffs** — Share [scoped repair tasks](docs/guides/repair-tasks.md), assess candidate changes, then verify regression evidence.
 - **Change verification** — Add `--base main` to project runs and inspect [changed-code coverage, explicit behavior and verification gaps](docs/guides/change-verification.md) against sealed source.
 - **Repair memory** — Retain [verified repair facts](docs/guides/project-memory.md) and retrieve related project history with explicit source scope and revalidation conditions.
@@ -80,6 +81,8 @@ canary skill status --json
 ```
 
 The default destination is `.agents/skills/canary-verify`. Managed updates, conflict protection, rollback and removal use the current Node runtime. The Skill guides the current task's checks and evidence; it grants no extra source, network or merge permission. See the [Skill guide](docs/guides/skills.md) for alternate project directories and the GitHub Release ZIP. Client discovery and invocation have not been tested across every Agent Skills client.
+
+Ask a compatible host: **“Assess this Agent, explain its main failures, recommend a next step and offer alternatives before changing source.”** Select an existing Agent configuration explicitly; see [assessment and guided improvement](docs/guides/agent-workflow.md). Host reasoning uses the host's model context; Agent or Judge model costs depend on actual calls.
 
 Use the [CLI guide](docs/guides/cli.md) for diagnosis, reproduction and verification, or the [MCP guide](docs/guides/mcp.md) to connect a host to one trusted project. Reviewed project experiences track selection separately from delivery to function adapter context. Delivery does not establish that the agent used the guidance or improved; HTTP and MCP adapters do not inject that context. See [project experience](docs/guides/r8-project-experience.md).
 

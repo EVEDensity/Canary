@@ -37,6 +37,7 @@ See [diagnosis](failure-diagnostics.md), [reproduction](reproduction.md), [repai
 ## Work with agents
 
 - **Official Skill:** project installation, ownership hashes, updates, conflict preservation, rollback, removal and a downloadable Release ZIP.
+- **Guided assessment:** the Skill directs its host to explain recorded issues, recommend evidence-backed actions and alternatives, carry forward the user's choice and verify the result. Structured decision records and new workspace decision buttons remain planned.
 - **Project-bound MCP:** bounded evidence queries and explicit check, reproduction, repair and change-verification operations.
 - **Application evaluation:** function, HTTP and MCP adapters; deterministic output, tool, state, event, termination, latency and budget assertions; fixed cases, repetitions and comparisons.
 - **Reviewed experience:** traceable candidates, scoped context selection, baseline/regression/holdout trials, human decisions, activation, exact rollback and Skill drafts. Selection, delivery, use and measured benefit remain distinct.
