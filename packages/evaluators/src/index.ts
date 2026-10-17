@@ -57,7 +57,8 @@ function containsRecord(actual: unknown, expected: Record<string, unknown>): boo
   return Object.entries(expected).every(([key, value]) => JSON.stringify(actual[key]) === JSON.stringify(value));
 }
 function toolCallEvents(trajectory?: Trajectory): Array<TrajectoryEvent & { name?: unknown; args?: unknown }> {
-  return events(trajectory).filter((event) => event.type === "tool.call");
+  const recorded = events(trajectory), controlled = recorded.some((event) => event.type === "canary.controlled.started");
+  return recorded.filter((event) => event.type === (controlled ? "canary.controlled.tool_call" : "tool.call"));
 }
 
 export async function evaluateAgent(input: { assertions?: AssertionSpec[]; context?: EvaluationContext; trajectory?: Trajectory; output?: unknown }): Promise<Pick<EvalResult, "passed" | "assertions"> & { diagnostics?: string[] }> {
@@ -96,7 +97,7 @@ export async function evaluateAgent(input: { assertions?: AssertionSpec[]; conte
         passed = actual <= max; details = { actual, max }; message = passed ? undefined : `Agent exceeded maximum steps (${actual} > ${max})`; break;
       }
       case "trajectory.max_tool_calls": {
-        const actual = context.toolCalls ?? eventCount(trajectory, ["tool.call", "tool.called", "tool.start"]); const max = numberValue(assertion.max) ?? 0;
+        const actual = events(trajectory).some(event => event.type === "canary.controlled.started") ? toolCallEvents(trajectory).length : context.toolCalls ?? eventCount(trajectory, ["tool.call", "tool.called", "tool.start"]); const max = numberValue(assertion.max) ?? 0;
         passed = actual <= max; details = { actual, max }; message = passed ? undefined : `Agent exceeded maximum tool calls (${actual} > ${max})`; break;
       }
       case "execution.termination": {

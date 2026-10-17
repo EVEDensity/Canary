@@ -2,14 +2,21 @@
 
 ## Agent behavior improvements
 
-Keep the original Agent run, case IDs, inputs, assertions, tool setup and independent holdout fixed. For a function adapter, prepare the selected candidate entry within authorized source scope, then use the original Agent configuration:
+Keep the original Agent run, case IDs, inputs, assertions, tool setup and independent holdout fixed. For an actionable option selected in the shared quality brief, prepare the candidate entry within the user's authorized source scope, then use the bounded workflow:
 
 ```sh
-canary candidate <baselineRunId> --entry <candidate-entry> --config <agent-config> --headless --no-open
-canary compare <baselineRunId> <candidateRunId> --config <agent-config>
+canary improvement prepare <baselineRunId> --option <optionId> --report-hash <hash> --expected-revision <revision> --entry candidate.mjs --allow candidate.mjs --allow tools.mjs --regression <failedCase> --holdout <passingCase> --max-runs 1 --max-cases 8 --max-ms 60000 --max-tool-calls 32 --config <agent-config> --json
+canary improvement execute <sessionId> --plan-hash <planHash> --actor <actor> --reason "<reason>" --execute --config <agent-config> --json
+canary improvement show <sessionId> --config <agent-config> --json
 ```
 
-`--entry` replaces a function adapter entry; it does not select a different HTTP endpoint or MCP server. Those adapters require a reviewed candidate configuration and comparable rerun evidence. Candidate execution invokes the configured Agent; establish live-call/repetition budgets before running it. Report observed improvements, regressions, paired sample counts and missing trials. An incomplete/incomparable run or uncertain admission remains so. A single passing candidate or model score is not evidence of general benefit, and ordinary project tests cannot replace behavior assertions.
+Use the actual selected option/hash/revision and task budgets, not the example numbers. The flow requires a retained selection; record one with `assess decide` only as part of the user's requested execution workflow, using caller-declared attribution rather than invented human approval. Inspection or contract-review choices do not authorize candidate execution.
+
+Preparation is inert and freezes all original cases/repetitions, candidate entry/configuration, allowed files and recognized source inventory. Include every failed case in regression and independent, previously passing holdout cases; repeat flags for multiple files/cases. Include the configured mock-tool entry in `--allow`. Execution needs the exact plan hash and explicit request, consumes a durable attempt before configuration loading, and retains a sealed candidate plus paired benefit. Budgets are cumulative across explicit attempts of that frozen candidate. Stop on source/selection drift, exhausted budget, interruption or a stopped attempt; inspect before preparing a new plan. Never silently retry, widen scope or relax a contract to clear the result.
+
+This executor supports function Agents, mock tools and serializable deterministic contracts without loaded experience; managed live calls are disabled. Tool calls are counted before invocation and tool assertions use actual managed calls, with bounded JSON arguments up to 64 KiB. It is trusted project execution, not an OS sandbox or a meter for arbitrary SDK/network calls. Unknown tokens/cost remain unknown. Fewer than five pairs, missing evidence, uncalibrated Judge scores or regressions cannot establish successful observed benefit. Explain changes as fixed-contract observations, not causal or general improvement.
+
+For HTTP/MCP or another unsupported contract, use the existing reviewed `candidate`/`compare` workflow within the task's explicit call budget. Preserve its weaker evidence boundaries; do not convert it into an R30 success. Project regression receipts remain separate from Agent comparisons.
 
 Retaining an improvement as experience requires its existing proposed/validation/regression/holdout/review flow. Preparing or validating a soft trial may execute additional Agent calls; do not activate experience or export/install a draft from a verbal choice alone. Follow the project's reviewed experience guide and current control revision for those actions. Function-context delivery, Agent use and measured benefit remain separate facts; HTTP/MCP adapters do not inject that experience context.
 

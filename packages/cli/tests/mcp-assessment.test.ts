@@ -20,6 +20,7 @@ import {
   sealArtifacts,
   writePrivateJson,
   readQualityAssessment,
+  readImprovementHistory,
 } from "@canary/trace";
 import { resolveProjectContext } from "../src/home.js";
 import { bindPorts, mcpCommand } from "../src/mcp.js";
@@ -151,6 +152,13 @@ it("reads sealed Agent quality without writing state, and binds all reads to the
     before = hashes(root),
     foreignBefore = hashes(foreignRoot);
   const response = await bound.call("canary.assessment", { runId: fixture.runId });
+  const history = await bound.call("canary.improvements", { runId: fixture.runId });
+  expect(history?.error).toBeUndefined();
+  expect((history?.result as { structuredContent: unknown }).structuredContent).toEqual(
+    readImprovementHistory(fixture.repository, fixture.runId),
+  );
+  expect((await foreign.call("canary.improvements", { runId: fixture.runId }))?.error).toBeDefined();
+  expect((await bound.call("canary.improvements", { runId: fixture.runId, execute: true }))?.error?.code).toBe(-32602);
   expect(response?.error, JSON.stringify(response)).toBeUndefined();
   const report = view(response);
   expect(report).toEqual(readQualityAssessment(fixture.repository, fixture.runId));

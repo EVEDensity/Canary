@@ -34,6 +34,8 @@ import {
   QualityAssessmentError,
   readQualityAssessment,
   recordQualityDecision,
+  readImprovementHistory,
+  ControlledImprovementError,
   buildRunDiagnostics,
   createDiagnosticBundle,
   FileArtifactRepository,
@@ -399,7 +401,7 @@ async function handleRequest(
     }
     if (parts[0] === "api" && parts[1] === "runs" && parts[2]) {
       const runId = parts[2];
-      if (parts[3] === "assessment") response.setHeader("cache-control", "no-store");
+      if (parts[3] === "assessment" || parts[3] === "controlled-improvements") response.setHeader("cache-control", "no-store");
       if (parts[3] === "integrity" && artifacts) {
         writeJson(response, 200, artifacts.verify(runId));
         return;
@@ -410,6 +412,32 @@ async function handleRequest(
       if (!run) {
         response.writeHead(404);
         response.end("Not found");
+        return;
+      }
+      if (parts[3] === "controlled-improvements") {
+        if (parts.length !== 4 || request.method !== "GET") {
+          response.setHeader("allow", "GET");
+          writeJson(response, 405, { error: "GET required" });
+          return;
+        }
+        if ([...url.searchParams.keys()].some((key) => key !== "token")) {
+          writeJson(response, 400, { error: "Unexpected improvement history query parameter" });
+          return;
+        }
+        if (!artifacts) {
+          writeJson(response, 409, { error: "Sealed verification evidence required" });
+          return;
+        }
+        try {
+          writeJson(response, 200, readImprovementHistory(artifacts, runId));
+        } catch (error) {
+          if (error instanceof ControlledImprovementError)
+            writeJson(response, error.code === "IMPROVEMENT_INPUT" ? 400 : 409, {
+              error: error.message,
+              code: error.code,
+            });
+          else throw error;
+        }
         return;
       }
       if (parts[3] === "assessment") {

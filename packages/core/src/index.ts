@@ -53,3 +53,5 @@ export * from "./change-verification.js";
 export * from "./repair-task.js";
 export * from "./project-memory.js";
 export * from "./quality-assessment.js";
+export * from "./controlled-improvement.js";
+export * from "./controlled-benefit.js";

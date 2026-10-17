@@ -52,8 +52,13 @@ const send = (message) => new Promise((resolve) => {
       coverageMod = await import(payload.coverageUrl);
     }
     const emit = (event) => send({ type: "event", event: { ...event, timestamp: new Date().toISOString() } });
+    const publicEmit = payload.controlledToolBudget === undefined ? emit : (event) => {
+      if (event && typeof event.type === "string" && event.type.startsWith("canary.controlled.")) throw new Error("Controlled execution events are reserved");
+      return emit(event);
+    };
+    if (payload.controlledToolBudget !== undefined) await emit({ type: "canary.controlled.started" });
     if (payload.sampleIntervalMs > 0) sampleTimer = setInterval(sample, payload.sampleIntervalMs);
-    globalThis[Symbol.for("canary.feature.emit")] = (event) => emit(event);
+    globalThis[Symbol.for("canary.feature.emit")] = (event) => publicEmit(event);
     const adapters = payload.adaptersUrl ? await import(payload.adaptersUrl) : undefined;
     const environment = payload.environmentUrl ? await import(payload.environmentUrl) : undefined;
     const state = environment ? new environment.MemoryStateStore(payload.initialState || {}) : undefined;
@@ -65,6 +70,33 @@ const send = (message) => new Promise((resolve) => {
       toolConfig = Object.assign({}, toolConfig, { tools: exported && typeof exported === "object" ? exported : {} });
     }
     tools = toolConfig && adapters ? await adapters.createToolAdapter(toolConfig) : undefined;
+    if (tools && payload.controlledToolBudget !== undefined) {
+      if (!Number.isSafeInteger(payload.controlledToolBudget) || payload.controlledToolBudget < 0) throw new Error("Invalid controlled tool budget");
+      const managedTools = tools;
+      let managedCalls = 0;
+      tools = Object.freeze({
+        call: async (name, args) => {
+          if (managedCalls >= payload.controlledToolBudget) {
+            await emit({ type: "canary.controlled.tool_budget_exceeded" });
+            throw new Error("Controlled tool invocation budget exhausted");
+          }
+          let captured;
+          try {
+            if (typeof name !== "string" || !name || name.length > 1024) throw new Error("tool name");
+            const encoded = JSON.stringify({ name, args });
+            if (Buffer.byteLength(encoded) > 65536) throw new Error("tool argument budget");
+            captured = JSON.parse(encoded);
+          } catch {
+            await emit({ type: "canary.controlled.tool_evidence_invalid" });
+            throw new Error("Controlled tools require bounded JSON arguments");
+          }
+          managedCalls++;
+          await emit({ type: "canary.controlled.tool_call", name: captured.name, args: captured.args });
+          return managedTools.call(captured.name, captured.args);
+        },
+        close: () => managedTools.close(),
+      });
+    }
     let entryUrl = payload.entry;
     if (useIstanbul && coverageMod) {
       const entryPath = fileURLToPath(payload.entry);
@@ -92,7 +124,7 @@ const send = (message) => new Promise((resolve) => {
     const now = () => payload.reproducibility && payload.reproducibility.clock || new Date().toISOString();
     const experiences = Array.isArray(payload.experiences) ? payload.experiences : [];
     const references = experiences.map(({ id, key, version, contentHash }) => ({ id, key, version, contentHash }));
-    const context = { executionId: payload.executionId, emit, tools, state, model, random, now, experiences };
+    const context = { executionId: payload.executionId, emit: publicEmit, tools, state, model, random, now, experiences };
     await send({ type: "ready" });
     // Invoke before acknowledging: selecting or importing context is not delivery.
     // Adopt both synchronous errors and promise rejection immediately while the ack is in flight.

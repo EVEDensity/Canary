@@ -29,6 +29,18 @@ canary assess decide <runId> --report-hash <hash> --expected-revision <revision>
 
 Only `assess decide` writes a selection. Actor/reason are audit metadata; a choice is not execution, authenticated approval or verified improvement. Recommendations follow evidence rules, not a model-confirmed root cause. Reuse already selected directions; ordinary conversation need not write a record.
 
+## Controlled Agent improvement
+
+```sh
+canary improvement prepare <runId> --option <optionId> --report-hash <hash> --expected-revision <revision> --entry candidate.mjs --allow candidate.mjs --allow tools.mjs --regression <failedCase> --holdout <passingCase> --max-runs 1 --max-cases 8 --max-ms 60000 --max-tool-calls 32 --config <agent-config> --json
+canary improvement execute <sessionId> --plan-hash <planHash> --actor maintainer --reason "Verify the reviewed candidate" --execute --config <agent-config> --json
+canary improvement show <sessionId> --config <agent-config> --json
+```
+
+`prepare` freezes a current selected Agent option, sealed baseline, all original case contracts/repetitions, candidate identity, regression/holdout scopes and cumulative budgets without importing project modules. Repeat `--allow`, `--regression` and `--holdout` as needed. Include the mock-tool entry in allowed files. `execute` charges a durable attempt before configuration loading and requires the reviewed plan hash plus explicit execution request. Source/selection drift, stopped attempts and exhausted limits block further execution; there is no automatic retry.
+
+The supported executor uses trusted function Agents, mock tools and serializable deterministic contracts without loaded experience. It disables managed live calls; observed tool limits do not meter arbitrary outbound code or provider billing. An execution exit of 0 requires observed fixed-contract improvement, at least five paired trials, no regressions, passing holdout and successful run gates. Small samples, missing contracts or unknown costs remain explicit. `show` is read-only; records are stored under `<artifactRoot>/.improvements`, outside sealed runs. See [the complete workflow](agent-workflow.md).
+
 Records live outside sealed runs in `<artifactRoot>/.quality`, with up to 8 report versions and 32 choices per run. The shared 64 KiB view includes up to the latest 16 choices and omission counts. A manifest change marks old choices stale. Stale report/revision, corrupt state and unavailable evidence reject writes; refresh and inspect before retrying. Historical gaps remain unknown rather than being reconstructed from current source. See [Agent workflow](agent-workflow.md).
 
 ## Hand off a repair

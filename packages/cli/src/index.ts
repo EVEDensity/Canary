@@ -51,6 +51,7 @@ import { repairCommand } from "./repair.js";
 import { repairTaskCommand } from "./repair-task.js";
 import { projectMemoryCommand, queryProjectMemory } from "./project-memory.js";
 import { assessmentCommand } from "./assessment.js";
+import { controlledImprovementCommand } from "./controlled-improvement.js";
 import { changeVerificationCommand } from "./change-verification.js";
 
 export interface CliOptions {
@@ -99,6 +100,9 @@ const USAGE = `Usage: canary run [--ci] [--project <directory>] [--affected --ba
        canary diagnostics verify <bundle.json>
        canary assess <runId> [--project <directory>] [--config <path>] [--json]
        canary assess decide <runId> --report-hash <hash> --expected-revision <n> --option <id> --action select|reject --actor <name> --reason <text> [--json]
+       canary improvement prepare <runId> --option <id> --report-hash <hash> --expected-revision <n> --entry <file> --allow <file> --regression <caseId> --holdout <caseId> --max-runs <1..3> --max-ms <1000..600000> --max-tool-calls <n> --max-cases <n> [--json]
+       canary improvement execute <sessionId> --plan-hash <hash> --actor <name> --reason <text> --execute [--json]
+       canary improvement show <sessionId> [--project <directory>] [--config <path>] [--json]
        canary installation [--verify] [--json]
        canary upgrade [--check [--json] | --rollback]
        canary change-verify <runId> --base <git-ref> [--summary] [--project <directory>] [--config <path>]
@@ -1383,6 +1387,7 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
   if (command === "repair-verify") return repairCommand(rest);
   if (command === "repair-task") return repairTaskCommand(rest);
   if (command === "assess") return assessmentCommand(rest);
+  if (command === "improvement") return controlledImprovementCommand(rest);
   if (command === "memory") return projectMemoryCommand(rest);
   if (command === "change-verify") return changeVerificationCommand(rest);
   if (command === "diagnostics") {

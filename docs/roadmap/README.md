@@ -2,7 +2,7 @@
 
 Canary connects Agent evaluation, guided improvement, project checks, architecture, coverage and failure evidence. Distribution uses GitHub source and Releases.
 
-R16–R29 have implemented workflows within the documented support boundaries.
+R16–R30 have implemented workflows within the documented support boundaries.
 
 - **[R16 — Unified failure evidence](https://github.com/EVEDensity/Canary/issues/1):** structured diagnostics, conservative failure grouping and exportable evidence bundles.
 - **[R17 — Pull request integration](https://github.com/EVEDensity/Canary/issues/2):** CI summaries, version-bound results and optional source annotations.
@@ -22,11 +22,12 @@ R16–R29 have implemented workflows within the documented support boundaries.
 
 - **R29 — Agent quality briefs and guided decisions:** CLI, MCP and workspace share bounded, version-bound briefs from sealed Agent assertions, project failures, coverage gaps and linked history. Rule-derived recommendations retain evidence, uncertainty, scope, prerequisites and validation plans. Explicit selection/rejection binds actor, reason, report hash and revision without granting execution or approval; stale and corrupt records are rejected. See [the workflow](../guides/agent-workflow.md).
 
+- **[R30 — Controlled improvement and measured benefit](https://github.com/EVEDensity/Canary/issues/25):** implemented `improvement prepare/execute/show` for reviewed function-Agent candidates with sealed baseline/selection identities, all original deterministic contracts, independent regression/holdout, durable attempt claims and cumulative budgets. CLI, MCP and workspace expose bounded paired changes, uncertainty and available telemetry. Managed live calls are disabled; arbitrary project network activity is not metered. Source edits remain host work and experience activation uses the existing reviewed controls. See [the workflow](../guides/agent-workflow.md).
+
 ## Next stages
 
-The official Skill explains the shared quality brief through a compatible host. R29 records recommended options and explicit choices; execution and measured improvement continue through the existing commands until the R30 orchestration is implemented.
+The official Skill explains the shared quality brief through a compatible host. R29 records recommended options and explicit choices; R30 connects eligible selected Agent options to frozen, explicitly authorized candidate verification and paired benefit.
 
-- **R30 — Controlled improvement and measured benefit:** execute selected, authorized improvements with fixed baseline, regression and holdout cases, bounded iterations and explicit live-call budgets. Present paired improvements, regressions, uncertainty, latency and available cost metrics. Keep deterministic result assertions primary, calibrate model scoring when used, and retain useful experience through existing review/activation/rollback controls.
 - **R31 — Measured reliability and observability:** measure discovery, structure, evidence and memory overhead; document budgets and cancellation; exercise interrupted writes, concurrent operations and recovery; provide actionable stage diagnostics and controlled storage/version retention. Prefer short, repeatable fixtures and set targets from measured workloads.
 - **R32 — v1.0 acceptance:** freeze supported CLI/MCP/schema contracts; align clean-install, cross-directory, upgrade/rollback and the Agent assessment-to-verified-improvement workflow with the support matrix; document compatibility and migration; publish reproducible evidence and concise operating guidance.
 

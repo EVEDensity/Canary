@@ -8,6 +8,7 @@ import {
   CLIENT_CAPABILITIES_KEY,
   serveStdio,
   parseAssessmentArgs,
+  parseImprovementsArgs,
   parseAssessmentDecisionArgs,
   toolList,
   type CanaryMcpPorts,
@@ -52,6 +53,50 @@ async function legacyServer(binding: CanaryMcpPorts) {
 }
 
 describe("quality assessment MCP contract", () => {
+  it("exposes improvement history only with a read port and never accepts execution authority", async () => {
+    expect(toolList().tools.some((tool) => tool.name === "canary.improvements")).toBe(false);
+    const tool = toolList({ improvements: true }).tools.find((tool) => tool.name === "canary.improvements")!;
+    expect(tool.annotations).toEqual({ readOnlyHint: true, destructiveHint: false, openWorldHint: false });
+    expect(tool.inputSchema).toMatchObject({ additionalProperties: false, required: ["runId"] });
+    expect(parseImprovementsArgs({ runId: "run_agent" })).toEqual({ runId: "run_agent" });
+    for (const value of [
+      null,
+      [],
+      {},
+      { runId: "../escape" },
+      ...["execute", "projectRoot", "config", "retry", "token", "approved"].map((key) => ({
+        runId: "run_agent",
+        [key]: true,
+      })),
+    ])
+      expect(() => parseImprovementsArgs(value)).toThrow();
+    const history = {
+      v: 1,
+      kind: "canary.improvement-history",
+      runId: "run_agent",
+      sessions: [],
+      evidence: [],
+      omittedSessions: 0,
+      untrustedEvidence: true,
+      executionGranted: false,
+    };
+    const improvements = vi.fn(() => history),
+      binding = ports({ improvements }),
+      bound = await legacyServer(binding);
+    expect((await bound.call("canary.improvements", { runId: "run_agent" }))?.result).toMatchObject({
+      structuredContent: history,
+    });
+    expect(improvements).toHaveBeenCalledExactlyOnceWith({ runId: "run_agent" });
+    expect((await bound.call("canary.improvements", { runId: "run_agent", execute: true }))?.error?.code).toBe(-32602);
+    expect(improvements).toHaveBeenCalledTimes(1);
+    expect(binding.run).not.toHaveBeenCalled();
+    expect(binding.submitProposal).not.toHaveBeenCalled();
+    const disabled = await legacyServer(ports());
+    expect((await disabled.call("canary.improvements", { runId: "run_agent" }))?.error?.code).toBe(-32601);
+    const listed = await disabled.server.handleRequestAsync({ jsonrpc: "2.0", id: 20, method: "tools/list" });
+    expect(JSON.stringify(listed)).not.toContain('"name":"canary.improvements"');
+  });
+
   it("declares read-only assessment and hides decision recording unless explicitly enabled", () => {
     const read = toolList().tools.find((tool) => tool.name === "canary.assessment")!;
     expect(read.annotations).toEqual({ readOnlyHint: true, destructiveHint: false, openWorldHint: false });

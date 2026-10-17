@@ -72,6 +72,39 @@ function client() {
 function enter(f: ReturnType<typeof client>, id: string, value: string) { const field = nodes(f.root).find(node => node.id === id)!; field.value = value; field.oninput!(); }
 
 describe("quality assessment HTTP contract", () => {
+  it("serves controlled history read-only without replacing legacy suggestions or creating state", async () => {
+    const f = fixture(),
+      before = inventory(f.root),
+      web = createWebServer(new RunStore(), "127.0.0.1", 0, f.root, { writeToken: "test-token" }),
+      { url } = await web.listen();
+    const path = url + "/api/runs/" + f.id + "/controlled-improvements";
+    try {
+      const response = await fetch(path);
+      expect(response.status).toBe(200);
+      expect(response.headers.get("cache-control")).toBe("no-store");
+      expect(await response.json()).toEqual({
+        v: 1,
+        kind: "canary.improvement-history",
+        runId: f.id,
+        sessions: [],
+        evidence: [],
+        omittedSessions: 0,
+        untrustedEvidence: true,
+        executionGranted: false,
+      });
+      for (const method of ["POST", "PUT", "DELETE"])
+        expect((await fetch(path, { method, headers: { "x-canary-write-token": "test-token" } })).status).toBe(405);
+      expect((await fetch(path + "?execute=true")).status).toBe(400);
+      expect((await fetch(path + "/execute")).status).toBe(405);
+      const legacy = await fetch(url + "/api/runs/" + f.id + "/improvements");
+      expect(await legacy.json()).toEqual([]);
+      expect(inventory(f.root)).toEqual(before);
+    } finally {
+      await new Promise<void>((resolve) => web.server.close(() => resolve()));
+    }
+  });
+
+
   it("reads without creating files; requires same-origin write authority and a complete strict decision", async () => {
     const f = fixture(), before = inventory(f.root), web = createWebServer(new RunStore(), "127.0.0.1", 0, f.root, { writeToken: "test-token" }), { url } = await web.listen();
     const path = url + "/api/runs/" + f.id + "/assessment";
@@ -111,6 +144,169 @@ describe("quality assessment HTTP contract", () => {
 });
 
 describe("guided quality workspace", () => {
+  it("opens bounded improvement history on demand, preserves polling and locale state, and navigates to pinned candidate evidence", async () => {
+    const view = readQualityAssessment(fixture().repository, "run_quality"),
+      f = client(),
+      loading = f.control.load("run_quality");
+    f.pending.shift()!.resolve(view);
+    await loading;
+    expect(f.calls).toHaveLength(1);
+    enter(f, "quality-actor", "maintainer");
+    enter(f, "quality-reason", "Keep the existing contract");
+    const details = nodes(f.root).find((node) => node.id === "quality-improvements")!;
+    expect(details.open).toBe(false);
+    details.open = true;
+    details.ontoggle!();
+    expect(f.calls[1]).toEqual({ path: "/api/runs/run_quality/controlled-improvements", body: undefined });
+    const counts = { paired: 6, improved: 1, regressed: 0, unchanged: 5, missing: 0 };
+    const plan = {
+      id: "improvement_fixture",
+      createdAt: "2026-10-18T00:00:00Z",
+      baseline: { runId: "run_quality" },
+      selection: { reportHash: view.report.contentHash, optionId: view.report.options[0]!.id },
+      candidate: { entry: "agent.mjs" },
+      scope: { allowedPaths: ["agent.mjs"] },
+      budget: { maxRuns: 2, maxCases: 12, maxDurationMs: 5000 },
+      contentHash: "a".repeat(64),
+    };
+    const result = {
+      status: "completed",
+      code: "IMPROVEMENT_OBSERVED",
+      candidateRunId: "run_candidate",
+      candidateManifestHash: "b".repeat(64),
+      observed: { cases: 6, toolCalls: 6, durationMs: 1000, managedLiveModelCalls: 0, monetaryCost: null },
+      benefit: {
+        status: "observed-improvement",
+        sample: { paired: 6, deterministicPaired: 6, minimum: 5 },
+        changes: counts,
+        rates: { baselinePassedPct: 83.3, candidatePassedPct: 100, deltaPercentagePoints: 16.7 },
+        scopes: { regression: counts, holdout: { ...counts, improved: 0, unchanged: 6 } },
+        telemetry: { latencyMs: { baseline: 10, candidate: 12 } },
+        uncertainty: { reasons: ["too-few-pairs"] },
+      },
+    };
+    const session = {
+      plan,
+      attempts: [
+        {
+          state: "finished",
+          index: 1,
+          startedAt: "2026-10-18T00:00:01Z",
+          finishedAt: "2026-10-18T00:00:02Z",
+          executionRequest: { actor: "fixture-operator", reason: "Verify original assertions" },
+          result,
+        },
+      ],
+    };
+    f.pending.shift()!.resolve({
+      sessions: [
+        session,
+        { ...session, plan: { ...plan, id: "improvement_prepared" }, attempts: [] },
+        { ...session, plan: { ...plan, id: "improvement_blocked" }, attempts: [{ ...session.attempts[0], result: { ...result, status: "blocked" } }] },
+        { ...session, plan: { ...plan, id: "improvement_cancelled" }, attempts: [{ ...session.attempts[0], result: { ...result, status: "cancelled" } }] },
+        { ...session, plan: { ...plan, id: "improvement_running" }, attempts: [{ ...session.attempts[0], state: "running", result: undefined }] },
+      ],
+      evidence: [
+        { sessionId: plan.id, status: "verified" },
+        { sessionId: "improvement_prepared", status: "verified" },
+        { sessionId: "improvement_blocked", status: "verified" },
+        { sessionId: "improvement_cancelled", status: "verified" },
+        { sessionId: "improvement_running", status: "verified" },
+      ],
+      omittedSessions: 2,
+    });
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    expect(f.root.textContent).toContain("Observed improvement");
+    expect(f.root.textContent).toContain("Paired samples");
+    expect(f.root.textContent).toContain("Prepared");
+    expect(f.root.textContent).toContain("Running");
+    expect(f.root.textContent).toContain("Cancelled");
+    expect(f.root.textContent).toContain("Paired total latency 10.0 → 12.0 ms");
+    expect(f.root.textContent).toContain("This attempt: 6 cases");
+    const blocked = nodes(f.root).find(node => node.dataset.improvementId === "improvement_blocked")!;
+    expect(blocked.textContent).toContain("Blocked");
+    expect(blocked.textContent).toContain("Execution is incomplete");
+    expect(blocked.textContent).not.toContain("Observed improvement");
+    expect(f.root.textContent).toContain("Model tokens and monetary cost are unknown");
+    expect(f.root.textContent).toContain("2 additional improvement records");
+    expect(f.root.textContent).toContain("not causal or population evidence");
+    expect(f.root.textContent).toContain("Verify original assertions");
+    f.control.sync({ runId: "run_quality", status: "failed" });
+    expect(f.calls).toHaveLength(2);
+    f.context.canaryLocale = "zh-CN";
+    f.control.draw();
+    expect(f.root.textContent).toContain("观察到改善");
+    expect(f.root.textContent).not.toContain("Observed improvement");
+    expect(nodes(f.root).find((node) => node.id === "quality-actor")!.value).toBe("maintainer");
+    const candidate = nodes(f.root).find((node) => node.tag === "button" && node.textContent.includes("查看候选运行"))!;
+    await candidate.onclick!();
+    expect(f.navigations).toEqual(["run_candidate", "improve"]);
+    expect(f.calls.every((call) => call.body === undefined)).toBe(true);
+  });
+
+  it("withholds benefit conclusions for unavailable evidence and ignores a late history response after changing runs", async () => {
+    const view = readQualityAssessment(fixture().repository, "run_quality"),
+      f = client(),
+      loading = f.control.load("run_quality");
+    f.pending.shift()!.resolve(view);
+    await loading;
+    const open = () => {
+      const details = nodes(f.root).find((node) => node.id === "quality-improvements")!;
+      details.open = true;
+      details.ontoggle!();
+    };
+    open();
+    f.pending
+      .shift()!
+      .resolve({
+        sessions: [
+          {
+            plan: {
+              id: "unavailable",
+              createdAt: "2026-10-18T00:00:00Z",
+              baseline: { runId: "run_quality" },
+              selection: { reportHash: view.report.contentHash, optionId: view.report.options[0]!.id },
+              candidate: { entry: "agent.mjs" },
+              scope: { allowedPaths: ["agent.mjs"] },
+              budget: { maxRuns: 1, maxCases: 6, maxDurationMs: 1000 },
+              contentHash: "a".repeat(64),
+            },
+            attempts: [
+              {
+                state: "finished",
+                index: 1,
+                startedAt: "2026-10-18T00:00:00Z",
+                executionRequest: { actor: "operator", reason: "Recorded attempt" },
+                result: {
+                  status: "completed",
+                  code: "COMPLETED",
+                  candidateRunId: "run_pruned",
+                  benefit: { status: "observed-improvement" },
+                },
+              },
+            ],
+          },
+        ],
+        evidence: [{ sessionId: "unavailable", status: "unavailable" }],
+        omittedSessions: 0,
+      });
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    expect(f.root.textContent).toContain("benefit conclusions are withheld");
+    expect(f.root.textContent).not.toContain("Observed improvement");
+    expect(f.root.textContent).not.toContain("View candidate run");
+    const refresh = nodes(f.root).find(
+      (node) => node.tag === "button" && node.textContent === "Refresh improvement records",
+    )!;
+    const pending = refresh.onclick!();
+    expect(f.calls).toHaveLength(3);
+    f.context.selected = "run_other";
+    f.control.reset();
+    f.pending.shift()!.resolve({ sessions: [] });
+    await pending;
+    expect(f.root.textContent).toBe("");
+  });
+
+
   it("loads only when opened, caches polling and localizes recommendations without translating evidence", async () => {
     const view = readQualityAssessment(fixture().repository, "run_quality"), f = client(), run = { runId: "run_quality", status: "failed" };
     view.report.issues[0]!.observation = "原始断言错误 at src/value.ts:3";
@@ -139,7 +335,7 @@ describe("guided quality workspace", () => {
     expect(f.calls[1]!.body).toEqual({ reportHash: view.report.contentHash, expectedRevision: 0, optionId: option.id, action: "select", actor: "maintainer", reason: "Fix the original failure" });
     const saved = { ...view, revision: 1, selections: [{ issueId: option.issueId, optionId: option.id, revision: 1 }], decisions: [{ reportHash: view.report.contentHash, optionId: option.id, action: "select", actor: "maintainer", reason: "Fix the original failure", revision: 1, at: "2026-10-17T00:00:01Z", stale: false, executionGranted: false, verificationStatus: "not-executed" }] };
     f.pending.shift()!.resolve(saved); await saving;
-    expect(f.root.textContent).toContain("Choice history"); expect(f.root.textContent).toContain("Recorded · Not executed"); expect(f.root.textContent).toContain("Choice recorded; not executed"); expect(f.root.textContent).toContain("Fix the original failure");
+    expect(f.root.textContent).toContain("Choice history"); expect(f.root.textContent).toContain("Recorded · No execution authority"); expect(f.root.textContent).toContain("Choice recorded"); expect(f.root.textContent).toContain("Fix the original failure");
     const failing = f.control.decide(option.id, "reject"); f.pending.shift()!.reject(new Error("QUALITY_STALE")); await failing;
     expect(f.root.textContent).toContain("refresh the brief"); expect(f.root.textContent).toContain("Choice history");
     const refreshed = f.control.load("run_quality", true); f.pending.shift()!.resolve({ ...saved, selections: [], omittedDecisions: 3, decisions: [{ ...saved.decisions[0], stale: true }] }); await refreshed;
@@ -151,8 +347,8 @@ describe("guided quality workspace", () => {
     const loading = f.control.load("run_quality"); f.pending.shift()!.resolve(selected); await loading;
     const cards = nodes(f.root).filter(node => node.className === "quality-option");
     expect(cards.filter(card => card.dataset.selected === "true").map(card => card.dataset.optionId)).toEqual([second.id]);
-    expect(cards.find(card => card.dataset.optionId === first.id)!.textContent).not.toContain("Choice recorded; not executed");
-    expect(cards.find(card => card.dataset.optionId === second.id)!.textContent).toContain("Choice recorded; not executed");
+    expect(cards.find(card => card.dataset.optionId === first.id)!.textContent).not.toContain("Choice recorded");
+    expect(cards.find(card => card.dataset.optionId === second.id)!.textContent).toContain("Choice recorded");
     expect(f.root.textContent).toContain("Earlier direction"); expect(f.root.textContent).toContain("4 earlier choices are not shown");
   });
   it("ignores late responses after switching runs and disables writes in read-only sessions", async () => {

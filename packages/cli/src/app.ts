@@ -97,7 +97,7 @@ export interface EvaluationInput {
   silent?: boolean;
   runId?: string;
   ports?: RunnerPorts;
-  experiences?: ExperienceStore;
+  experiences?: Pick<ExperienceStore, "load">;
   experienceContext?: { checkId: string; checkType: string };
   baseRef?: string;
 }

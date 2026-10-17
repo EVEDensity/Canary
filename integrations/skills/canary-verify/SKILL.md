@@ -29,7 +29,7 @@ Continue automatically through evidence collection and interpretation within the
 
 - To hand off a retained failure or assess a task's repair candidate, read [repair handoff](references/handoff.md). Preserve its declared scope; bundle integrity and candidate admission are separate from repair verification.
 - To restore a retained failure, read [reproduction](references/reproduction.md). Preview with `canary reproduce <runId> --check <checkId>` before choosing preparation or execution.
-- For Agent improvements, project repairs and changes, read [verification](references/verification.md). Compare fixed Agent cases and holdout results, or use the project regression/change workflow that matches the evidence type. Do not treat an Agent comparison as a project repair receipt.
+- For Agent improvements, project repairs and changes, read [verification](references/verification.md). Eligible selected Agent options use `improvement prepare/execute/show` with a fixed baseline, candidate, original contracts, regression/holdout and cumulative budgets. Read retained execution history before repeating work. Project regressions/changes use their matching workflow; an Agent comparison is not a project repair receipt.
 
 Close with the selected action, actual changes, baseline/candidate identities, observed improvements and regressions, uncertainty and remaining options. Retaining a suggestion or experience is separate from applying it; approval and activation follow their existing explicit workflow.
 

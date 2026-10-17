@@ -45,16 +45,23 @@ Choices are stored outside sealed runs in `<artifactRoot>/.quality`, preserving 
 
 ## Execute and compare
 
-The user can request assessment only, select a proposed improvement, or authorize bounded host work with allowed scope, success criteria, iterations and call budgets. The shared decision entry records the choice; automatic execution and measured-benefit orchestration are tracked under R30. Existing execution and comparison commands remain available within the task's authorization.
+The user can request assessment only, select a proposed improvement, or authorize bounded host work. For a selected Agent behavior option, prepare the reviewed candidate within the agreed source scope, then create an immutable verification plan:
 
 For an authorized function-adapter candidate, retain fixed cases, assertions and independent holdout:
 
 ```sh
-canary candidate <baselineRunId> --entry <candidate-entry> --config <agent-config> --headless --no-open
-canary compare <baselineRunId> <candidateRunId> --config <agent-config>
+canary improvement prepare <baselineRunId> --option <optionId> --report-hash <hash> --expected-revision <revision> --entry candidate.mjs --allow candidate.mjs --allow tools.mjs --regression <failedCase> --holdout <passingCase> --max-runs 1 --max-cases 8 --max-ms 60000 --max-tool-calls 32 --config <agent-config> --json
+canary improvement execute <sessionId> --plan-hash <planHash> --actor maintainer --reason "Verify the reviewed candidate" --execute --config <agent-config> --json
+canary improvement show <sessionId> --config <agent-config> --json
 ```
 
-`--entry` replaces a function entry; HTTP/MCP candidates require a reviewed configuration for the selected endpoint/server and comparable rerun evidence. Report paired samples, actual improvements, regressions and uncertainty. Missing trials, incompatible evidence and insufficient samples remain visible. Judge scores require appropriate calibration and cannot override hard gates. Use [project repair verification](repair-verification.md) when proving a project regression; that receipt is distinct from an Agent case comparison.
+Preparation reads sealed evidence and source hashes without importing project configuration or case modules. It binds the current selection, baseline manifest, candidate entry/configuration, declared files and recognized source inventory. Repeat `--allow` for the configured mock-tool entry and other reviewed files. All original cases, inputs, assertions and repetitions remain fixed; every original failure belongs to the regression scope, and the disjoint holdout must already pass. At least five paired trials are required for an observed-benefit result. `--max-cases` counts trials across explicit attempts, not distinct case names.
+
+Execution requires the exact plan hash, actor/reason and `--execute`. It charges an attempt before loading configuration, runs sequentially through the existing runner, seals a `candidateOf` run and retains paired changes and available telemetry. Run, case, elapsed-time and observed tool-call budgets are cumulative; no retry starts automatically. Stale choices/source, interrupted state and stopped attempts require inspection and a new reviewed plan. Records live outside sealed runs under `<artifactRoot>/.improvements`.
+
+This workflow supports function Agents, mock tools and serializable deterministic contracts without loaded experience. Managed tool calls are admitted before invocation, retain their actual name/arguments and use JSON argument snapshots within 64 KiB. Controlled tool assertions use those calls, including the absence of calls; self-reported tool events cannot replace them. Managed live model/Judge calls are disabled. Project code remains trusted: declared scope and managed tool limits are not an operating system sandbox, a transitive dependency inventory or a billing cap on arbitrary outbound code. Tokens and monetary cost remain unknown. Uncalibrated Judge scores, missing trials, changed contracts, regressions and small samples cannot yield a successful benefit exit. Observations apply to the fixed contract, not overall correctness or population performance.
+
+The workspace and read-only MCP `canary.improvements` expose retained sessions and recheck candidate evidence. Candidate execution, source editing and experience activation remain separate actions. HTTP/MCP candidates continue to use a reviewed configuration with `candidate`/`compare`; use [project repair verification](repair-verification.md) for project regressions.
 
 Stop at success, the agreed budget, changed authorization requirements or an unchanged blocker. Continuous improvement is invoked within the task; recurring monitoring needs a separate user request.
 
@@ -70,4 +77,4 @@ The host supplies reasoning and consumes its own model context. Agent execution,
 
 Skill packaging, local installation and deterministic Agent fixture execution are testable separately from discovery or behavior in each external host. Supported clients must load the Skill; its instructions alone are not an independently deployed autonomous Agent service.
 
-中文：`canary assess <runId> --json` 只读生成封存证据的质量简报，CLI、MCP 与页面共享问题、推荐和选择记录。页面或显式 `assess decide` 可记录选择/拒绝，但不等于执行或审批；对话无需每次写入状态。规则建议与宿主解释分开，自动执行与收益编排列入 R30。
+中文：`assess` 共享质量简报、推荐与选择；`improvement prepare/execute/show` 绑定原始断言、候选身份和累计预算，显式执行后保留配对改善、回归及不确定性。页面与 MCP 只读展示历史。选择、源码修改、候选验证和经验激活分别留痕；缺失费用数据保持未知。

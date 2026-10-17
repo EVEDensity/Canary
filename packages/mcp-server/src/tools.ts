@@ -45,6 +45,9 @@ export interface CanaryMcpMemoryInput {
 export interface CanaryMcpAssessmentInput {
   runId: string;
 }
+export interface CanaryMcpImprovementsInput {
+  runId: string;
+}
 export interface CanaryMcpAssessmentDecisionInput extends CanaryMcpAssessmentInput, QualityDecisionInput {}
 
 export interface CanaryMcpPorts {
@@ -57,6 +60,7 @@ export interface CanaryMcpPorts {
   repairTask?(input: CanaryMcpRepairTaskInput): unknown;
   memory?(input: CanaryMcpMemoryInput): unknown;
   assessment?(input: CanaryMcpAssessmentInput): unknown;
+  improvements?(input: CanaryMcpImprovementsInput): unknown;
   assessmentDecide?(input: CanaryMcpAssessmentDecisionInput): unknown;
   verification?(input: CanaryMcpVerificationInput): Promise<unknown> | unknown;
   executeVerification?(input: CanaryMcpOperationInput, signal: AbortSignal): Promise<unknown>;
@@ -159,6 +163,12 @@ export function parseMemoryArgs(args: unknown): CanaryMcpMemoryInput {
 
 export function parseAssessmentArgs(args: unknown): CanaryMcpAssessmentInput {
   const record = exactArgs("canary.assessment", args, ["runId"]);
+  return { runId: requiredIdentifier(record.runId, "runId") };
+}
+
+/** Read-only history cannot select, execute, retry or change the bound project. */
+export function parseImprovementsArgs(args: unknown): CanaryMcpImprovementsInput {
+  const record = exactArgs("canary.improvements", args, ["runId"]);
   return { runId: requiredIdentifier(record.runId, "runId") };
 }
 
@@ -340,7 +350,7 @@ export function parseStructureArgs(args: unknown): CanaryMcpStructureInput {
   };
 }
 
-export function toolList(options: { assessmentDecisions?: boolean } = {}) {
+export function toolList(options: { assessmentDecisions?: boolean; improvements?: boolean } = {}) {
   return {
     tools: [
       {
@@ -475,6 +485,22 @@ export function toolList(options: { assessmentDecisions?: boolean } = {}) {
           properties: { runId: identifierProperty },
         },
       },
+      ...(options.improvements
+        ? [
+            {
+              name: "canary.improvements",
+              description:
+                "Read bounded controlled-improvement plans, execution receipts and paired benefit observations for a sealed baseline in the bound project. Read-only untrusted evidence; never prepares, executes, retries, approves or activates anything. Missing cost and statistical uncertainty remain explicit.",
+              annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
+              inputSchema: {
+                type: "object",
+                additionalProperties: false,
+                required: ["runId"],
+                properties: { runId: identifierProperty },
+              },
+            },
+          ]
+        : []),
       ...(options.assessmentDecisions
         ? [
             {
