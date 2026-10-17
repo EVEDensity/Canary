@@ -55,6 +55,15 @@ function partialProject() {
   writeProject(cwd, "export default async (input) => ({ value: input });");
   return cwd;
 }
+it("preserves the frozen artifact exit when collection enrollment encounters a file instead of its storage parent", async () => {
+  const cwd = partialProject();
+  writeFileSync(join(cwd, ".canary"), "retained non-directory marker");
+  const result = await executeCi(["--project", cwd], (options) => runCommandDetailed({ ...options, cwd }));
+  expect(result.exitCode).toBe(5);
+  expect(result.issues[0]?.code).toBe("ARTIFACT_IO");
+  expect(result.issues[0]?.message).not.toContain("busy");
+  expect(readFileSync(join(cwd, ".canary"), "utf8")).toBe("retained non-directory marker");
+});
 function partialRun(cwd: string, runId: string, mismatch = false) {
   const artifactDir = join(cwd, ".canary", "artifacts", runId),
     startedAt = new Date().toISOString();

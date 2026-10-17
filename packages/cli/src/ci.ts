@@ -25,6 +25,7 @@ import {
   sha256,
   writePrivateJson,
   CollectionBusyError,
+  CollectionStorageError,
 } from "@canary/trace";
 import { resolveProjectContext } from "./home.js";
 import { versionSnapshot } from "./diagnostics.js";
@@ -42,6 +43,7 @@ export class CliFailure extends Error {
 }
 export function classifyCiError(error: unknown, context: ProjectContext): CliFailure {
   if (error instanceof CliFailure) return error;
+  if(error instanceof CollectionStorageError)return new CliFailure(5,error.code,error.message,"Check artifact storage and its parent permissions; preserve existing evidence before retrying.");
   if (error instanceof CollectionBusyError) return new CliFailure(4,error.code,error.message,"Wait for collection maintenance, or inspect canary archive recover --json; preserve interrupted locks until their ownership is reviewed.");
   if (error instanceof ArtifactIntegrityError)
     return new CliFailure(

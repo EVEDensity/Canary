@@ -25,11 +25,19 @@ export class CollectionBusyError extends Error {
     super("Evidence maintenance or a writer is active or interrupted; inspect the collection locks before retrying.");
   }
 }
+export class CollectionStorageError extends Error {
+  readonly code = "ARTIFACT_IO";
+  constructor() {
+    super(
+      "Evidence storage cannot be accessed safely; inspect the artifact collection and parent directory permissions.",
+    );
+  }
+}
 export function ordinaryCollectionPath(path: string): string {
   let current = resolve(path);
   while (true) {
     const stat = lstatSync(current, { throwIfNoEntry: false });
-    if (stat && (!stat.isDirectory() || stat.isSymbolicLink())) throw new CollectionBusyError();
+    if (stat && (!stat.isDirectory() || stat.isSymbolicLink())) throw new CollectionStorageError();
     const parent = dirname(current);
     if (parent === current) break;
     current = parent;
@@ -48,8 +56,8 @@ function exclusive(file: string, retryMs = 0): () => void {
       fd = openSync(file, "wx", 0o600);
       break;
     } catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== "EEXIST" || performance.now() >= deadline)
-        throw new CollectionBusyError();
+      if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw new CollectionStorageError();
+      if (performance.now() >= deadline) throw new CollectionBusyError();
       Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 5);
     }
   }
@@ -70,14 +78,20 @@ function exclusive(file: string, retryMs = 0): () => void {
 }
 /** A short enrollment barrier; independent executions retain distinct leases and can run concurrently. */
 export function withCollectionMutation<T>(root: string, action: () => T): T {
-  // Callers creating a new collection may not yet have its immediate parent.
-  let parent = dirname(resolve(root));
-  while (!existsSync(parent)) parent = dirname(parent);
-  ordinaryCollectionPath(parent);
-  mkdirSync(dirname(resolve(root)), { recursive: true });
-  const canonical = ordinaryCollectionPath(root);
-  if (existsSync(`${canonical}.maintenance-recovery.lock`)) throw new CollectionBusyError();
-  const release = exclusive(gatePath(canonical), 200);
+  let canonical: string, release: () => void;
+  try {
+    // Callers creating a new collection may not yet have its immediate parent.
+    let parent = dirname(resolve(root));
+    while (!existsSync(parent)) parent = dirname(parent);
+    ordinaryCollectionPath(parent);
+    mkdirSync(dirname(resolve(root)), { recursive: true });
+    canonical = ordinaryCollectionPath(root);
+    if (existsSync(`${canonical}.maintenance-recovery.lock`)) throw new CollectionBusyError();
+    release = exclusive(gatePath(canonical), 200);
+  } catch (error) {
+    if (error instanceof CollectionBusyError || error instanceof CollectionStorageError) throw error;
+    throw new CollectionStorageError();
+  }
   try {
     if (existsSync(`${canonical}.maintenance-recovery.lock`)) throw new CollectionBusyError();
     return action();
