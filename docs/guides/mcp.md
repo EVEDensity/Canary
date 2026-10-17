@@ -11,6 +11,7 @@ Set `CANARY_MCP_TOKEN` in the host's process environment before `serve`, or supp
 
 ## Read retained evidence
 
+- `canary.assessment`: read the shared quality brief and existing choices for a sealed `runId`. CLI, MCP and workspace return the same view: scope, counts, issue/evidence references, rule-derived recommendations, alternatives, uncertainty and decision revision. No model call or decision write occurs. Unknown token/cost telemetry stays unknown; source gaps are not filled in from current files.
 - `canary.evidence`: bounded run/check summaries, redacted diagnostics and available experience delivery metadata.
 - `canary.diagnostics`: a bounded page of retained failures and source positions; pass `maxChecks` and `checkOffset` as needed.
 - `canary.structure`: a bounded page of sealed historical structure; missing snapshots are not reconstructed from current source.
@@ -21,6 +22,18 @@ Set `CANARY_MCP_TOKEN` in the host's process environment before `serve`, or supp
 Evidence reads require a sealed run in the bound project's artifact collection. Follow pagination metadata instead of treating a bounded page as a complete result. Truncated receipts direct you to the CLI or full project artifact. Source positions and hashes do not establish a root cause or artifact authorship.
 
 Repair task scope must include the authorized source, regression test and any new check configuration. Missing scope remains blocked; the tool does not expand it. Use CLI `repair-task verify` for offline integrity and `repair-task check` to assess a sealed candidate in the original project. Candidate admission is `ready-for-regression`, never repair verification; the existing `canary.repair_verify` operation provides the subsequent regression evidence.
+
+## Record a guided choice
+
+Decision recording is disabled and absent from `tools/list` by default. Enable it only in the trusted server startup:
+
+```sh
+canary mcp serve --config <path> --allow-assessment-decisions
+```
+
+`canary.assessment_decide` requires `runId`, current `reportHash`, `expectedRevision`, `optionId`, `action: select|reject`, `actor` and `reason`. It records a direction without executing checks, editing source, approving a repair or activating experience. `actor` is caller-declared audit metadata, not authenticated human approval; tool arguments cannot enable the capability. Conversation does not require a stored choice.
+
+The shared view is bounded to 64 KiB, with up to the latest 16 choices and explicit omission counts. Separate records under `<artifactRoot>/.quality` retain up to 8 report versions and 32 choices per run without changing the run manifest. Changed evidence makes older choices stale. Stale hashes/revisions, corrupt records and unavailable evidence reject mutations. `error.data.qualityCode` preserves `QUALITY_STALE`, `QUALITY_BUSY`, `QUALITY_STORAGE`, `QUALITY_EVIDENCE` or `QUALITY_INPUT`; inspect the condition and refresh before retrying.
 
 ## Execute a scoped operation
 
@@ -40,4 +53,4 @@ A cancelled operation or nonzero child process cannot return `verified`. Preserv
 
 `canary mcp matrix` reports this server's supported protocol/transport declarations and tool inventory. Server tests exercise the Canary protocol client; those declarations are separate from verified interoperability with every external MCP host. Sampling and Streamable HTTP sessions are not implemented. Use the [official Skill guide](skills.md) for client-discovered task instructions rather than assuming MCP installs a Skill.
 
-中文：MCP 在启动时绑定一个受信任项目，通过 stdio 提供限量、脱敏的封存证据与 CLI 同源验证操作。token 由宿主启动环境提供，工具参数不能切换项目、传凭据或提高授权。复现/修复默认预览或评估，prepare/execute 必须显式选择；缺失条件仍阻塞。兼容声明和测试客户端通过不等于所有第三方宿主已实测。
+中文：MCP 在启动时绑定受信任项目，通过 stdio 共享封存证据、质量简报和同源验证操作。`assessment` 只读；`assessment_decide` 必须通过启动参数显式启用，仅记录方向，不授予执行或审批。工具不能切换项目、传凭据或提高授权；兼容声明与逐客户端实测分别记录。

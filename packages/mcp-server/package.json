@@ -1,7 +1,10 @@
 {
   "name": "@canary/mcp-server",
-  "version": "0.7.1",
+  "version": "0.8.0",
   "type": "module",
+  "dependencies": {
+    "@canary/core": "workspace:*"
+  },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {

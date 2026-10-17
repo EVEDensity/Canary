@@ -1,8 +1,10 @@
 # Canary verification Skill / Canary 验证 Skill
 
-Canary includes the official `canary-verify` Agent Skill at `integrations/skills/canary-verify/`. It guides a compatible host through assessment, explanation, evidence-backed recommendations, user choice and verification. Its references route Agent case comparisons and project checks to the matching CLI workflow; existing authorization carries forward. See [Agent assessment and guided improvement](agent-workflow.md).
+Canary includes the official `canary-verify` Agent Skill at `integrations/skills/canary-verify/`. It reads the shared quality brief with `canary assess <runId> --json`, then guides a compatible host through explanation, recommendations, user choice and verification. Agent case comparisons and project checks use their matching workflow; existing authorization and choices carry forward. See [Agent assessment and guided improvement](agent-workflow.md).
 
 Canary 在 `integrations/skills/canary-verify/` 提供官方 Skill，由宿主承接“评测 → 问题解释 → 推荐与备选 → 用户选择 → 执行验证”的对话流程。Agent 比较与项目修复使用各自证据；不新增源码、依赖、联网、凭据或发布许可。
+
+`assess` reads sealed evidence without running a model or writing decision state. The host explains the rule-derived recommendations and uncertainty. Use explicit `assess decide` only when the task calls for retaining a selection/rejection; ordinary conversation needs no state write. A recorded choice grants neither execution nor approval, and the Skill does not ask again for an already authorized choice. CLI, MCP and workspace read the same report and decision revision.
 
 ## Install in a project / 项目内安装
 

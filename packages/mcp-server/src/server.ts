@@ -20,7 +20,21 @@ import {
   type JsonRpcRequest,
   type JsonRpcResponse,
 } from "./protocol.js";
-import { isCanaryTool, parseEvidenceArgs, parseProposalArgs, parseRunArgs, parseStructureArgs, parseVerificationArgs, parseRepairTaskArgs, parseMemoryArgs, parseOperationArgs, toolList, type CanaryMcpPorts } from "./tools.js";
+import {
+  isCanaryTool,
+  parseEvidenceArgs,
+  parseProposalArgs,
+  parseRunArgs,
+  parseStructureArgs,
+  parseVerificationArgs,
+  parseRepairTaskArgs,
+  parseMemoryArgs,
+  parseAssessmentArgs,
+  parseAssessmentDecisionArgs,
+  parseOperationArgs,
+  toolList,
+  type CanaryMcpPorts,
+} from "./tools.js";
 
 export interface CanaryMcpServerOptions {
   token: string;
@@ -51,8 +65,9 @@ export class CanaryMcpServer {
     const trimmed = line.trim();
     if (!trimmed) return null;
     let parsed: unknown;
-    try { parsed = JSON.parse(trimmed); }
-    catch {
+    try {
+      parsed = JSON.parse(trimmed);
+    } catch {
       return { jsonrpc: "2.0", id: null, error: { code: JSONRPC_PARSE, message: "Parse error" } };
     }
     return this.handleMessage(parsed);
@@ -60,7 +75,11 @@ export class CanaryMcpServer {
 
   handleMessage(raw: unknown): JsonRpcResponse | null {
     if (Array.isArray(raw)) {
-      return { jsonrpc: "2.0", id: null, error: { code: JSONRPC_INVALID_REQUEST, message: "JSON-RPC batches are not supported" } };
+      return {
+        jsonrpc: "2.0",
+        id: null,
+        error: { code: JSONRPC_INVALID_REQUEST, message: "JSON-RPC batches are not supported" },
+      };
     }
     if (!isRecord(raw) || raw.jsonrpc !== "2.0") {
       const id = isRecord(raw) && (typeof raw.id === "string" || typeof raw.id === "number") ? raw.id : null;
@@ -69,7 +88,11 @@ export class CanaryMcpServer {
     const message = raw as JsonRpcRequest;
     if (typeof message.method !== "string") {
       if (message.id === undefined) return null;
-      return { jsonrpc: "2.0", id: message.id ?? null, error: { code: JSONRPC_INVALID_REQUEST, message: "Invalid Request" } };
+      return {
+        jsonrpc: "2.0",
+        id: message.id ?? null,
+        error: { code: JSONRPC_INVALID_REQUEST, message: "Invalid Request" },
+      };
     }
     if (message.method.startsWith("notifications/")) {
       this.handleNotification(message.method, message.params);
@@ -86,8 +109,9 @@ export class CanaryMcpServer {
     if (typeof raw === "string") {
       const trimmed = raw.trim();
       if (!trimmed) return null;
-      try { message = JSON.parse(trimmed); }
-      catch {
+      try {
+        message = JSON.parse(trimmed);
+      } catch {
         return { jsonrpc: "2.0", id: null, error: { code: JSONRPC_PARSE, message: "Parse error" } };
       }
     }
@@ -99,7 +123,11 @@ export class CanaryMcpServer {
       return { jsonrpc: "2.0", id, error: { code: REQUEST_CANCELLED, message: "Request cancelled" } };
     }
     if (this.inFlight >= this.maxConcurrent) {
-      return { jsonrpc: "2.0", id, error: { code: JSONRPC_INVALID_REQUEST, message: "resource limit: max concurrent tool calls" } };
+      return {
+        jsonrpc: "2.0",
+        id,
+        error: { code: JSONRPC_INVALID_REQUEST, message: "resource limit: max concurrent tool calls" },
+      };
     }
     const controller = new AbortController();
     if (typeof id === "string" || typeof id === "number") this.inflightById.set(id, controller);
@@ -111,8 +139,22 @@ export class CanaryMcpServer {
       if (controller.signal.aborted) {
         return { jsonrpc: "2.0", id, error: { code: REQUEST_CANCELLED, message: "Request cancelled" } };
       }
-      const code = typeof (error as { code?: unknown }).code === "number" ? (error as { code: number }).code : JSONRPC_INVALID_PARAMS;
-      return { jsonrpc: "2.0", id, error: { code, message: error instanceof Error ? error.message : String(error) } };
+      const code =
+        typeof (error as { code?: unknown }).code === "number"
+          ? (error as { code: number }).code
+          : JSONRPC_INVALID_PARAMS;
+      const qualityCode = (error as { code?: unknown }).code;
+      return {
+        jsonrpc: "2.0",
+        id,
+        error: {
+          code,
+          message: error instanceof Error ? error.message : String(error),
+          ...(typeof qualityCode === "string" && /^QUALITY_(?:STALE|BUSY|STORAGE|EVIDENCE|INPUT)$/.test(qualityCode)
+            ? { data: { qualityCode } }
+            : {}),
+        },
+      };
     } finally {
       this.inFlight = Math.max(0, this.inFlight - 1);
       if (typeof id === "string" || typeof id === "number") {
@@ -154,14 +196,22 @@ export class CanaryMcpServer {
     if (hasMeta) return this.modernRequest(id, method, message.params);
     if (this.era === "legacy") return this.legacyRequest(id, method, message.params);
     if (method === "server/discover") {
-      return { jsonrpc: "2.0", id, error: { code: JSONRPC_INVALID_PARAMS, message: "server/discover requires modern params._meta" } };
+      return {
+        jsonrpc: "2.0",
+        id,
+        error: { code: JSONRPC_INVALID_PARAMS, message: "server/discover requires modern params._meta" },
+      };
     }
     return { jsonrpc: "2.0", id, error: { code: JSONRPC_METHOD_NOT_FOUND, message: `Method not found: ${method}` } };
   }
 
   private legacyInitialize(id: number | string, params: unknown): JsonRpcResponse {
     if (!isRecord(params) || typeof params.protocolVersion !== "string") {
-      return { jsonrpc: "2.0", id, error: { code: JSONRPC_INVALID_PARAMS, message: "initialize requires protocolVersion" } };
+      return {
+        jsonrpc: "2.0",
+        id,
+        error: { code: JSONRPC_INVALID_PARAMS, message: "initialize requires protocolVersion" },
+      };
     }
     if (params.protocolVersion !== LEGACY_PROTOCOL_VERSION) {
       if (params.protocolVersion === MODERN_PROTOCOL_VERSION) {
@@ -188,7 +238,11 @@ export class CanaryMcpServer {
 
   private legacyRequest(id: number | string, method: string, params: unknown): JsonRpcResponse {
     if (!this.legacyInitialized && method !== "ping") {
-      return { jsonrpc: "2.0", id, error: { code: JSONRPC_INVALID_REQUEST, message: "legacy session is not initialized" } };
+      return {
+        jsonrpc: "2.0",
+        id,
+        error: { code: JSONRPC_INVALID_REQUEST, message: "legacy session is not initialized" },
+      };
     }
     return this.dispatch(id, method, params, "legacy");
   }
@@ -198,7 +252,14 @@ export class CanaryMcpServer {
     if (!parsed.ok) return { jsonrpc: "2.0", id, error: parsed.error };
     this.era = "modern";
     if (method === "initialize") {
-      return { jsonrpc: "2.0", id, error: { code: JSONRPC_METHOD_NOT_FOUND, message: "initialize is a legacy handshake; modern clients use server/discover and per-request _meta" } };
+      return {
+        jsonrpc: "2.0",
+        id,
+        error: {
+          code: JSONRPC_METHOD_NOT_FOUND,
+          message: "initialize is a legacy handshake; modern clients use server/discover and per-request _meta",
+        },
+      };
     }
     return this.dispatch(id, method, params, "modern");
   }
@@ -206,7 +267,12 @@ export class CanaryMcpServer {
   private dispatch(id: number | string, method: string, params: unknown, era: Era): JsonRpcResponse {
     if (method === "ping") return { jsonrpc: "2.0", id, result: era === "modern" ? { _meta: resultMeta() } : {} };
     if (method === "server/discover") {
-      if (era !== "modern") return { jsonrpc: "2.0", id, error: { code: JSONRPC_METHOD_NOT_FOUND, message: "server/discover is a modern method" } };
+      if (era !== "modern")
+        return {
+          jsonrpc: "2.0",
+          id,
+          error: { code: JSONRPC_METHOD_NOT_FOUND, message: "server/discover is a modern method" },
+        };
       return {
         jsonrpc: "2.0",
         id,
@@ -218,18 +284,27 @@ export class CanaryMcpServer {
         },
       };
     }
-    if (method === "tools/list") return { jsonrpc: "2.0", id, result: withMeta(toolList(), era) };
-    if (method === "tools/call") return { jsonrpc: "2.0", id, result: pending((signal) => this.callTool(params, signal)) };
+    if (method === "tools/list")
+      return {
+        jsonrpc: "2.0",
+        id,
+        result: withMeta(toolList({ assessmentDecisions: Boolean(this.ports.assessmentDecide) }), era),
+      };
+    if (method === "tools/call")
+      return { jsonrpc: "2.0", id, result: pending((signal) => this.callTool(params, signal)) };
     return { jsonrpc: "2.0", id, error: { code: JSONRPC_METHOD_NOT_FOUND, message: `Method not found: ${method}` } };
   }
 
   private async callTool(params: unknown, signal: AbortSignal): Promise<unknown> {
-    if (!isRecord(params) || typeof params.name !== "string") throw Object.assign(new Error("tools/call requires name"), { code: JSONRPC_INVALID_PARAMS });
+    if (!isRecord(params) || typeof params.name !== "string")
+      throw Object.assign(new Error("tools/call requires name"), { code: JSONRPC_INVALID_PARAMS });
     const authError = this.authorize(params);
     if (authError) throw Object.assign(new Error(authError), { code: MCP_INVALID_TOKEN });
-    if (!isCanaryTool(params.name)) throw Object.assign(new Error(`Unknown or disabled tool: ${params.name}`), { code: JSONRPC_METHOD_NOT_FOUND });
+    if (!isCanaryTool(params.name))
+      throw Object.assign(new Error(`Unknown or disabled tool: ${params.name}`), { code: JSONRPC_METHOD_NOT_FOUND });
     const args = isRecord(params.arguments) ? params.arguments : params.arguments === undefined ? {} : undefined;
-    if (args === undefined) throw Object.assign(new Error("arguments must be an object"), { code: JSONRPC_INVALID_PARAMS });
+    if (args === undefined)
+      throw Object.assign(new Error("arguments must be an object"), { code: JSONRPC_INVALID_PARAMS });
     if (params.name === "canary.run") {
       const input = parseRunArgs(args);
       const value = await this.ports.run(input, signal);
@@ -255,6 +330,18 @@ export class CanaryMcpServer {
       if (!this.ports.memory) throw new Error("Project memory is unavailable in this binding");
       return toolContent(this.ports.memory(input));
     }
+    if (params.name === "canary.assessment") {
+      const input = parseAssessmentArgs(args);
+      if (!this.ports.assessment) throw new Error("Quality assessment is unavailable in this binding");
+      return toolContent(this.ports.assessment(input));
+    }
+    if (params.name === "canary.assessment_decide") {
+      if (!this.ports.assessmentDecide)
+        throw Object.assign(new Error("Assessment decision recording is disabled in this binding"), {
+          code: JSONRPC_METHOD_NOT_FOUND,
+        });
+      return toolContent(this.ports.assessmentDecide(parseAssessmentDecisionArgs(args)));
+    }
     if (params.name === "canary.verification") {
       if (!this.ports.verification) throw new Error("Verification evidence is unavailable in this binding");
       return toolContent(await this.ports.verification(parseVerificationArgs(args)));
@@ -267,14 +354,21 @@ export class CanaryMcpServer {
   }
 
   private authorize(params: Record<string, unknown>): string | undefined {
-    const fromArgs = isRecord(params.arguments) ? params.arguments.token ?? params.arguments.authorization : undefined;
+    const fromArgs = isRecord(params.arguments)
+      ? (params.arguments.token ?? params.arguments.authorization)
+      : undefined;
     if (fromArgs !== undefined) return "authorization cannot be supplied or raised by tool arguments";
     return undefined;
   }
 }
 
-interface Pending { pending: true; run: (signal: AbortSignal) => Promise<unknown> }
-function pending(run: (signal: AbortSignal) => Promise<unknown>): Pending { return { pending: true, run }; }
+interface Pending {
+  pending: true;
+  run: (signal: AbortSignal) => Promise<unknown>;
+}
+function pending(run: (signal: AbortSignal) => Promise<unknown>): Pending {
+  return { pending: true, run };
+}
 function isPending(value: unknown): value is Pending {
   return Boolean(value) && typeof value === "object" && (value as Pending).pending === true;
 }

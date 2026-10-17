@@ -11,9 +11,23 @@ export const UNSUPPORTED_PROTOCOL_VERSION = -32022;
 export const REQUEST_CANCELLED = -32800;
 export const MCP_INVALID_TOKEN = -32001;
 
-export const SERVER_INFO = { name: "canary-mcp-server", version: "0.7.1" } as const;
+export const SERVER_INFO = { name: "canary-mcp-server", version: "0.8.0" } as const;
 
-export const TOOL_NAMES = ["canary.run", "canary.evidence", "canary.structure", "canary.submit_proposal", "canary.diagnostics", "canary.repair_task", "canary.memory", "canary.verification", "canary.reproduce", "canary.repair_verify", "canary.change_verify"] as const;
+export const TOOL_NAMES = [
+  "canary.run",
+  "canary.evidence",
+  "canary.structure",
+  "canary.submit_proposal",
+  "canary.diagnostics",
+  "canary.repair_task",
+  "canary.memory",
+  "canary.assessment",
+  "canary.assessment_decide",
+  "canary.verification",
+  "canary.reproduce",
+  "canary.repair_verify",
+  "canary.change_verify",
+] as const;
 export type CanaryMcpToolName = (typeof TOOL_NAMES)[number];
 
 export const COMPATIBILITY_MATRIX = {
@@ -21,10 +35,11 @@ export const COMPATIBILITY_MATRIX = {
   protocols: [...SUPPORTED_PROTOCOL_VERSIONS],
   transports: ["stdio-ndjson", "in-process"],
   hosts: ["dual-era stdio MCP clients; Canary test client"],
-  sdk: "@canary/mcp-server@0.7.1",
+  sdk: "@canary/mcp-server@0.8.0",
   tools: [...TOOL_NAMES],
   sampling: false,
   sourceWrite: false,
+  assessmentDecisionRecording: "startup-opt-in",
   streamableHttpSession: false,
 };
 
@@ -86,7 +101,10 @@ export function parseModernMeta(params: unknown): { ok: true; meta: ModernMeta }
     return { ok: false, error: { code: JSONRPC_INVALID_PARAMS, message: `${PROTOCOL_VERSION_KEY} is required` } };
   }
   if (protocolVersion === LEGACY_PROTOCOL_VERSION) {
-    return { ok: false, error: { code: JSONRPC_INVALID_PARAMS, message: "legacy 2025-11-25 must use initialize, not per-request _meta" } };
+    return {
+      ok: false,
+      error: { code: JSONRPC_INVALID_PARAMS, message: "legacy 2025-11-25 must use initialize, not per-request _meta" },
+    };
   }
   if (!isSupportedVersion(protocolVersion) || protocolVersion !== MODERN_PROTOCOL_VERSION) {
     return { ok: false, error: unsupportedVersion(protocolVersion) };
@@ -100,7 +118,10 @@ export function parseModernMeta(params: unknown): { ok: true; meta: ModernMeta }
     meta: {
       protocolVersion,
       clientCapabilities: capabilities as Record<string, unknown>,
-      clientInfo: info && typeof info === "object" && !Array.isArray(info) ? info as { name?: string; version?: string } : undefined,
+      clientInfo:
+        info && typeof info === "object" && !Array.isArray(info)
+          ? (info as { name?: string; version?: string })
+          : undefined,
     },
   };
 }

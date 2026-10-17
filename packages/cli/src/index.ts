@@ -50,6 +50,7 @@ import { reproductionCommand } from "./reproduction.js";
 import { repairCommand } from "./repair.js";
 import { repairTaskCommand } from "./repair-task.js";
 import { projectMemoryCommand, queryProjectMemory } from "./project-memory.js";
+import { assessmentCommand } from "./assessment.js";
 import { changeVerificationCommand } from "./change-verification.js";
 
 export interface CliOptions {
@@ -96,6 +97,8 @@ const USAGE = `Usage: canary run [--ci] [--project <directory>] [--affected --ba
        canary replay <runId> [--headless] [--no-open]
        canary diagnostics <runId> [--out <bundle.json>] [--config <path>]
        canary diagnostics verify <bundle.json>
+       canary assess <runId> [--project <directory>] [--config <path>] [--json]
+       canary assess decide <runId> --report-hash <hash> --expected-revision <n> --option <id> --action select|reject --actor <name> --reason <text> [--json]
        canary installation [--verify] [--json]
        canary upgrade [--check [--json] | --rollback]
        canary change-verify <runId> --base <git-ref> [--summary] [--project <directory>] [--config <path>]
@@ -130,7 +133,7 @@ const USAGE = `Usage: canary run [--ci] [--project <directory>] [--affected --ba
        canary uninstall
        canary export --out <file> [--format json|ndjson] [--run <runId>] [--max-runs <n>] [--config <path>]
        canary mcp matrix
-       canary mcp serve --token <token> [--config <path>]`;
+       canary mcp serve --token <token> [--allow-assessment-decisions] [--config <path>]`;
 
 async function importModule(filePath: string): Promise<Record<string, unknown>> {
   const url = pathToFileURL(resolve(filePath)).href;
@@ -1379,6 +1382,7 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
   if (command === "reproduce") return reproductionCommand(rest);
   if (command === "repair-verify") return repairCommand(rest);
   if (command === "repair-task") return repairTaskCommand(rest);
+  if (command === "assess") return assessmentCommand(rest);
   if (command === "memory") return projectMemoryCommand(rest);
   if (command === "change-verify") return changeVerificationCommand(rest);
   if (command === "diagnostics") {

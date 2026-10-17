@@ -53,7 +53,7 @@ describe("S-02 compatibility matrix and dual-era protocol", () => {
     expect(COMPATIBILITY_MATRIX.sampling).toBe(false);
     expect(COMPATIBILITY_MATRIX.sourceWrite).toBe(false);
     expect(COMPATIBILITY_MATRIX.streamableHttpSession).toBe(false);
-    expect(COMPATIBILITY_MATRIX.tools).toEqual(["canary.run", "canary.evidence", "canary.structure", "canary.submit_proposal", "canary.diagnostics", "canary.repair_task", "canary.memory", "canary.verification", "canary.reproduce", "canary.repair_verify", "canary.change_verify"]);
+    expect(COMPATIBILITY_MATRIX.tools).toEqual(["canary.run", "canary.evidence", "canary.structure", "canary.submit_proposal", "canary.diagnostics", "canary.repair_task", "canary.memory", "canary.assessment", "canary.assessment_decide", "canary.verification", "canary.reproduce", "canary.repair_verify", "canary.change_verify"]);
   });
 
   it("serves a modern client with per-request _meta without initialize", async () => {

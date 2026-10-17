@@ -13,11 +13,13 @@ Confirm the project directory and the available CLI with `canary version` and `c
 
 ## Assess, explain and offer a next step
 
-For an assessment, read [checks and diagnosis](references/checks.md). Reuse matching retained evidence when available; otherwise run the requested checks or configured Agent cases. Identify whether the evidence describes project checks, Agent cases or both. Automatic script discovery does not create Agent behavior tests.
+For an assessment, read [checks and diagnosis](references/checks.md). Reuse matching retained evidence when available; otherwise run the requested checks or configured Agent cases. Read the shared brief with `canary assess <runId> --json` in the bound project/configuration. Identify whether it describes project checks, Agent cases or both. Automatic script discovery does not create Agent behavior tests.
 
-Return a short quality brief: what was assessed, observed failures or gaps, their run/case/check references, and the next useful action. Separate observations from root-cause hypotheses. Group related symptoms conservatively and prioritize task correctness, tool behavior and hard failures before cosmetic or speculative changes. A green run still needs its tested scope stated.
+Explain the shared report's observed failures/gaps, run/case/check references, recommended options, uncertainty and existing choices. Its recommendations are rule-derived guidance, not model-confirmed root causes. Read matching evidence only when needed and preserve omission/unknown counts. Prioritize task correctness, tool behavior and hard failures; a green run still needs its tested scope stated. Do not reconstruct historical evidence from current source.
 
 When there is a meaningful decision, offer concrete alternatives with the recommended option first. Explain why it is preferred, which files/configuration would change, expected benefit, validation needed, and any known call or context cost. Offer a bounded investigation when evidence is insufficient. Do not manufacture alternatives when the task already specifies a clear action, or repeat a choice already authorized by the user.
+
+Read current, non-stale choices before asking again. A retained selection records direction, not execution or approval. Use `canary assess decide` only when the task explicitly requires retaining a selection/rejection; ordinary conversation does not need a state write. Supply the current report hash/revision, matching option ID, actor and reason; never invent human approval. On stale or corrupt state, refresh/inspect before writing again. MCP decision recording requires a separate server startup opt-in, which tool arguments cannot grant.
 
 For example, a recorded wrong tool argument may justify repairing its construction and retaining a regression case; alternatives may be reviewing an ambiguous contract or inspecting the matching trace first. Tie every recommendation to actual evidence, not this example. Label anticipated benefit as a hypothesis until compared runs support it.
 

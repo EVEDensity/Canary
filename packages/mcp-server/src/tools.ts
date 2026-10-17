@@ -1,4 +1,5 @@
 import { JSONRPC_INVALID_PARAMS, TOOL_NAMES, isRecord } from "./protocol.js";
+import { qualityDecisionInputSchema, type QualityDecisionInput } from "@canary/core";
 
 export interface CanaryMcpRunInput {
   caseId?: string;
@@ -41,6 +42,11 @@ export interface CanaryMcpMemoryInput {
   maxChars?: number;
 }
 
+export interface CanaryMcpAssessmentInput {
+  runId: string;
+}
+export interface CanaryMcpAssessmentDecisionInput extends CanaryMcpAssessmentInput, QualityDecisionInput {}
+
 export interface CanaryMcpPorts {
   projectRoot: string;
   run(input: CanaryMcpRunInput, signal: AbortSignal): Promise<unknown>;
@@ -50,11 +56,16 @@ export interface CanaryMcpPorts {
   diagnostics?(input: CanaryMcpEvidenceInput): unknown;
   repairTask?(input: CanaryMcpRepairTaskInput): unknown;
   memory?(input: CanaryMcpMemoryInput): unknown;
+  assessment?(input: CanaryMcpAssessmentInput): unknown;
+  assessmentDecide?(input: CanaryMcpAssessmentDecisionInput): unknown;
   verification?(input: CanaryMcpVerificationInput): Promise<unknown> | unknown;
   executeVerification?(input: CanaryMcpOperationInput, signal: AbortSignal): Promise<unknown>;
 }
 
-export interface CanaryMcpVerificationInput { runId: string; kind: "repair" | "change" | "reproduction" }
+export interface CanaryMcpVerificationInput {
+  runId: string;
+  kind: "repair" | "change" | "reproduction";
+}
 export interface CanaryMcpOperationInput {
   operation: "reproduce" | "repair-verify" | "change-verify";
   runId: string;
@@ -73,28 +84,42 @@ const TEST_PATH = /^(?![A-Za-z]:)(?!\/)(?!-)(?!.*\.\.)(?!.*[\\\0\r\n]).*\.(?:tes
 const BASELINE = /^(?![-\s])(?!.*\s$)[^\0\r\n]{1,160}$/;
 const OPERATION_SPECS = {
   "canary.reproduce": { operation: "reproduce", required: ["runId", "checkId"], optional: ["action", "workspace"] },
-  "canary.repair_verify": { operation: "repair-verify", required: ["runId", "candidateRunId", "regression", "tests"], optional: ["action", "workspace", "candidateWorkspace"] },
+  "canary.repair_verify": {
+    operation: "repair-verify",
+    required: ["runId", "candidateRunId", "regression", "tests"],
+    optional: ["action", "workspace", "candidateWorkspace"],
+  },
   "canary.change_verify": { operation: "change-verify", required: ["runId", "base"], optional: [] },
 } as const;
 type OperationToolName = keyof typeof OPERATION_SPECS;
 const identifierProperty = { type: "string", minLength: 1, maxLength: 160, pattern: IDENTIFIER.source };
 const workspaceProperty = { type: "string", minLength: 42, maxLength: 42, pattern: WORKSPACE.source };
 const OPERATION_PROPERTIES = {
-  runId: identifierProperty, candidateRunId: identifierProperty, checkId: identifierProperty,
+  runId: identifierProperty,
+  candidateRunId: identifierProperty,
+  checkId: identifierProperty,
   regression: { type: "array", minItems: 1, maxItems: 16, uniqueItems: true, items: identifierProperty },
-  tests: { type: "array", minItems: 1, maxItems: 16, uniqueItems: true, items: { type: "string", minLength: 1, pattern: TEST_PATH.source } },
+  tests: {
+    type: "array",
+    minItems: 1,
+    maxItems: 16,
+    uniqueItems: true,
+    items: { type: "string", minLength: 1, pattern: TEST_PATH.source },
+  },
   base: { type: "string", minLength: 1, maxLength: 160, pattern: BASELINE.source },
   action: { type: "string", enum: ["inspect", "prepare", "execute"] },
-  workspace: workspaceProperty, candidateWorkspace: workspaceProperty,
+  workspace: workspaceProperty,
+  candidateWorkspace: workspaceProperty,
 };
 function exactArgs(name: string, args: unknown, keys: string[]) {
   const record = assertToolArgs(name, args);
-  if (Object.keys(record).some(key => !keys.includes(key))) throw invalid(`${name} has unsupported arguments`);
+  if (Object.keys(record).some((key) => !keys.includes(key))) throw invalid(`${name} has unsupported arguments`);
   return record;
 }
 export function parseVerificationArgs(args: unknown): CanaryMcpVerificationInput {
   const record = exactArgs("canary.verification", args, ["runId", "kind"]);
-  if (typeof record.kind !== "string" || !["repair", "change", "reproduction"].includes(record.kind)) throw invalid("Unknown verification kind");
+  if (typeof record.kind !== "string" || !["repair", "change", "reproduction"].includes(record.kind))
+    throw invalid("Unknown verification kind");
   return { runId: requiredIdentifier(record.runId, "runId"), kind: record.kind as CanaryMcpVerificationInput["kind"] };
 }
 /** Selection narrows the sealed evidence; it never authorizes source writes or execution. */
@@ -103,7 +128,15 @@ export function parseRepairTaskArgs(args: unknown): CanaryMcpRepairTaskInput {
   const runId = requiredIdentifier(record.runId, "runId");
   const checks = record.checks === undefined ? undefined : requiredList(record.checks, "checks", IDENTIFIER);
   const allowedPaths = record.allowedPaths;
-  if (allowedPaths !== undefined && (!Array.isArray(allowedPaths) || !allowedPaths.length || allowedPaths.length > 32 || new Set(allowedPaths).size !== allowedPaths.length || allowedPaths.some(path => !isRepairTaskPath(path)))) throw invalid("Invalid allowedPaths");
+  if (
+    allowedPaths !== undefined &&
+    (!Array.isArray(allowedPaths) ||
+      !allowedPaths.length ||
+      allowedPaths.length > 32 ||
+      new Set(allowedPaths).size !== allowedPaths.length ||
+      allowedPaths.some((path) => !isRepairTaskPath(path)))
+  )
+    throw invalid("Invalid allowedPaths");
   return { runId, ...(checks ? { checks } : {}), ...(allowedPaths ? { allowedPaths: allowedPaths as string[] } : {}) };
 }
 
@@ -111,7 +144,11 @@ export function parseRepairTaskArgs(args: unknown): CanaryMcpRepairTaskInput {
 export function parseMemoryArgs(args: unknown): CanaryMcpMemoryInput {
   const record = exactArgs("canary.memory", args, ["runId", "checks", "maxItems", "maxChars"]);
   const maxChars = record.maxChars;
-  if (maxChars !== undefined && (!Number.isInteger(maxChars) || (maxChars as number) < 512 || (maxChars as number) > 32768)) throw invalid("maxChars must be an integer from 512 to 32768");
+  if (
+    maxChars !== undefined &&
+    (!Number.isInteger(maxChars) || (maxChars as number) < 512 || (maxChars as number) > 32768)
+  )
+    throw invalid("maxChars must be an integer from 512 to 32768");
   return {
     runId: requiredIdentifier(record.runId, "runId"),
     ...(record.checks === undefined ? {} : { checks: requiredList(record.checks, "checks", IDENTIFIER) }),
@@ -120,13 +157,54 @@ export function parseMemoryArgs(args: unknown): CanaryMcpMemoryInput {
   };
 }
 
+export function parseAssessmentArgs(args: unknown): CanaryMcpAssessmentInput {
+  const record = exactArgs("canary.assessment", args, ["runId"]);
+  return { runId: requiredIdentifier(record.runId, "runId") };
+}
+
+/** A recorded choice is advisory audit data, never execution or human approval. */
+export function parseAssessmentDecisionArgs(args: unknown): CanaryMcpAssessmentDecisionInput {
+  const record = exactArgs("canary.assessment_decide", args, [
+    "runId",
+    "reportHash",
+    "expectedRevision",
+    "optionId",
+    "action",
+    "actor",
+    "reason",
+  ]);
+  const { runId, ...choice } = record;
+  const parsed = qualityDecisionInputSchema.safeParse(choice);
+  if (!parsed.success)
+    throw invalid(
+      "Invalid assessment decision: " + parsed.error.issues.map((issue) => issue.path.join(".") || "input").join(", "),
+    );
+  return { runId: requiredIdentifier(runId, "runId"), ...parsed.data };
+}
+
 function isRepairTaskPath(value: unknown): value is string {
-  if (typeof value !== "string" || !value || value.length > 256 || value !== value.trim() || /[\\:*?"<>|\[\]{}\x00-\x1f\x7f]/.test(value)) return false;
-  return value.split("/").every(part => Boolean(part) && part !== "." && part !== ".." && !/[. ]$/.test(part) &&
-    !/^(?:\.git|\.canary|node_modules|\.ssh|\.aws|\.azure|\.gnupg)$/i.test(part) &&
-    !/^\.env(?:\.|$)/i.test(part) && !/\.(?:env|pem|key|p12|pfx|jks|keystore)$/i.test(part) &&
-    !/^(?:id_rsa|id_dsa|id_ecdsa|id_ed25519)(?:\.|$)/i.test(part) &&
-    !/^(?:con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\.|$)/i.test(part));
+  if (
+    typeof value !== "string" ||
+    !value ||
+    value.length > 256 ||
+    value !== value.trim() ||
+    /[\\:*?"<>|\[\]{}\x00-\x1f\x7f]/.test(value)
+  )
+    return false;
+  return value
+    .split("/")
+    .every(
+      (part) =>
+        Boolean(part) &&
+        part !== "." &&
+        part !== ".." &&
+        !/[. ]$/.test(part) &&
+        !/^(?:\.git|\.canary|node_modules|\.ssh|\.aws|\.azure|\.gnupg)$/i.test(part) &&
+        !/^\.env(?:\.|$)/i.test(part) &&
+        !/\.(?:env|pem|key|p12|pfx|jks|keystore)$/i.test(part) &&
+        !/^(?:id_rsa|id_dsa|id_ecdsa|id_ed25519)(?:\.|$)/i.test(part) &&
+        !/^(?:con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\.|$)/i.test(part),
+    );
 }
 export function parseOperationArgs(name: string, args: unknown): CanaryMcpOperationInput {
   if (!Object.hasOwn(OPERATION_SPECS, name)) throw invalid("Unknown verification operation");
@@ -139,19 +217,44 @@ export function parseOperationArgs(name: string, args: unknown): CanaryMcpOperat
     return { operation: spec.operation, runId, base };
   }
   const action = record.action === undefined ? "inspect" : record.action;
-  if (typeof action !== "string" || !["inspect", "prepare", "execute"].includes(action)) throw invalid("Unknown verification action");
+  if (typeof action !== "string" || !["inspect", "prepare", "execute"].includes(action))
+    throw invalid("Unknown verification action");
   const workspace = optionalWorkspace(record.workspace, "workspace");
-  if (spec.operation === "reproduce") return { operation: spec.operation, runId, checkId: requiredIdentifier(record.checkId, "checkId"), action: action as CanaryMcpOperationInput["action"], workspace };
+  if (spec.operation === "reproduce")
+    return {
+      operation: spec.operation,
+      runId,
+      checkId: requiredIdentifier(record.checkId, "checkId"),
+      action: action as CanaryMcpOperationInput["action"],
+      workspace,
+    };
   return {
-    operation: spec.operation, runId, candidateRunId: requiredIdentifier(record.candidateRunId, "candidateRunId"),
-    regression: requiredList(record.regression, "regression", IDENTIFIER), tests: requiredList(record.tests, "tests", TEST_PATH),
-    action: action as CanaryMcpOperationInput["action"], workspace, candidateWorkspace: optionalWorkspace(record.candidateWorkspace, "candidateWorkspace"),
+    operation: spec.operation,
+    runId,
+    candidateRunId: requiredIdentifier(record.candidateRunId, "candidateRunId"),
+    regression: requiredList(record.regression, "regression", IDENTIFIER),
+    tests: requiredList(record.tests, "tests", TEST_PATH),
+    action: action as CanaryMcpOperationInput["action"],
+    workspace,
+    candidateWorkspace: optionalWorkspace(record.candidateWorkspace, "candidateWorkspace"),
   };
 }
 
 const FORBIDDEN_KEYS = [
-  "projectRoot", "project", "cwd", "configPath", "mode", "write", "writeSource",
-  "activation", "authorizationId", "token", "apiKey", "secret", "push", "apply",
+  "projectRoot",
+  "project",
+  "cwd",
+  "configPath",
+  "mode",
+  "write",
+  "writeSource",
+  "activation",
+  "authorizationId",
+  "token",
+  "apiKey",
+  "secret",
+  "push",
+  "apply",
 ];
 
 export function assertToolArgs(name: string, args: unknown): Record<string, unknown> {
@@ -172,13 +275,34 @@ export function parseRunArgs(args: unknown): CanaryMcpRunInput {
   return { headless: true, caseId };
 }
 
-export function parseEvidenceArgs(args: unknown, name: "canary.evidence" | "canary.diagnostics" = "canary.evidence"): CanaryMcpEvidenceInput {
-  const record = exactArgs(name, args, name === "canary.diagnostics" ? ["runId", "maxChecks", "checkOffset"] : ["runId", "caseId", "maxCases", "maxEvents", "maxChecks", "checkOffset"]);
+export function parseEvidenceArgs(
+  args: unknown,
+  name: "canary.evidence" | "canary.diagnostics" = "canary.evidence",
+): CanaryMcpEvidenceInput {
+  const record = exactArgs(
+    name,
+    args,
+    name === "canary.diagnostics"
+      ? ["runId", "maxChecks", "checkOffset"]
+      : ["runId", "caseId", "maxCases", "maxEvents", "maxChecks", "checkOffset"],
+  );
   const runId = requiredIdentifier(record.runId, "runId");
-  if (name === "canary.diagnostics") return { runId, maxChecks: optionalBoundInt(record.maxChecks, "maxChecks", 32), checkOffset: boundedOffset(record.checkOffset, "checkOffset") };
+  if (name === "canary.diagnostics")
+    return {
+      runId,
+      maxChecks: optionalBoundInt(record.maxChecks, "maxChecks", 32),
+      checkOffset: boundedOffset(record.checkOffset, "checkOffset"),
+    };
   const maxCases = optionalBoundInt(record.maxCases, "maxCases", 32);
   const maxEvents = optionalBoundInt(record.maxEvents, "maxEvents", 64);
-  return { runId, caseId: optionalString(record.caseId, "caseId"), maxCases, maxEvents, maxChecks: optionalBoundInt(record.maxChecks, "maxChecks", 32), checkOffset: boundedOffset(record.checkOffset, "checkOffset") };
+  return {
+    runId,
+    caseId: optionalString(record.caseId, "caseId"),
+    maxCases,
+    maxEvents,
+    maxChecks: optionalBoundInt(record.maxChecks, "maxChecks", 32),
+    checkOffset: boundedOffset(record.checkOffset, "checkOffset"),
+  };
 }
 
 export function parseProposalArgs(args: unknown): CanaryMcpProposalInput {
@@ -188,23 +312,41 @@ export function parseProposalArgs(args: unknown): CanaryMcpProposalInput {
 }
 
 export function parseStructureArgs(args: unknown): CanaryMcpStructureInput {
-  const record = exactArgs("canary.structure", args, ["runId", "pathPrefix", "offset", "maxNodes", "edgeOffset", "unknownOffset", "changeOffset"]);
+  const record = exactArgs("canary.structure", args, [
+    "runId",
+    "pathPrefix",
+    "offset",
+    "maxNodes",
+    "edgeOffset",
+    "unknownOffset",
+    "changeOffset",
+  ]);
   const runId = requiredIdentifier(record.runId, "runId");
   const pathPrefix = optionalString(record.pathPrefix, "pathPrefix");
-  if (pathPrefix && (pathPrefix.startsWith("/") || pathPrefix.includes("..") || pathPrefix.includes("\\"))) throw invalid("pathPrefix must be project relative");
+  if (pathPrefix && (pathPrefix.startsWith("/") || pathPrefix.includes("..") || pathPrefix.includes("\\")))
+    throw invalid("pathPrefix must be project relative");
   const offset = boundedOffset(record.offset, "offset");
   const edgeOffset = boundedOffset(record.edgeOffset, "edgeOffset");
   const unknownOffset = boundedOffset(record.unknownOffset, "unknownOffset");
   const changeOffset = boundedOffset(record.changeOffset, "changeOffset");
-  return { runId, pathPrefix, offset, edgeOffset, unknownOffset, changeOffset, maxNodes: optionalBoundInt(record.maxNodes, "maxNodes", 200) };
+  return {
+    runId,
+    pathPrefix,
+    offset,
+    edgeOffset,
+    unknownOffset,
+    changeOffset,
+    maxNodes: optionalBoundInt(record.maxNodes, "maxNodes", 200),
+  };
 }
 
-export function toolList() {
+export function toolList(options: { assessmentDecisions?: boolean } = {}) {
   return {
     tools: [
       {
         name: "canary.run",
-        description: "Execute checks in the bound trusted project, with automatic detection when no config exists. Project commands run with host permissions; artifacts are written. Headless only.",
+        description:
+          "Execute checks in the bound trusted project, with automatic detection when no config exists. Project commands run with host permissions; artifacts are written. Headless only.",
         annotations: { readOnlyHint: false, destructiveHint: true, openWorldHint: true },
         inputSchema: {
           type: "object",
@@ -233,12 +375,21 @@ export function toolList() {
       {
         name: "canary.structure",
         annotations: { readOnlyHint: true },
-        description: "Read a bounded page of the sealed project structure for a run in the bound project. Never reconstructs old runs from current source.",
+        description:
+          "Read a bounded page of the sealed project structure for a run in the bound project. Never reconstructs old runs from current source.",
         inputSchema: {
           type: "object",
           additionalProperties: false,
           required: ["runId"],
-          properties: { runId: identifierProperty, pathPrefix: { type: "string" }, offset: { type: "integer", minimum: 0, maximum: 1000000 }, edgeOffset: { type: "integer", minimum: 0, maximum: 1000000 }, unknownOffset: { type: "integer", minimum: 0, maximum: 1000000 }, changeOffset: { type: "integer", minimum: 0, maximum: 1000000 }, maxNodes: { type: "integer", minimum: 1, maximum: 200 } },
+          properties: {
+            runId: identifierProperty,
+            pathPrefix: { type: "string" },
+            offset: { type: "integer", minimum: 0, maximum: 1000000 },
+            edgeOffset: { type: "integer", minimum: 0, maximum: 1000000 },
+            unknownOffset: { type: "integer", minimum: 0, maximum: 1000000 },
+            changeOffset: { type: "integer", minimum: 0, maximum: 1000000 },
+            maxNodes: { type: "integer", minimum: 1, maximum: 200 },
+          },
         },
       },
       {
@@ -252,19 +403,134 @@ export function toolList() {
           properties: { proposal: { type: "object" } },
         },
       },
-      { name: "canary.diagnostics", description: "Read a bounded page of sealed failures and original evidence locations.", annotations: { readOnlyHint: true }, inputSchema: { type: "object", additionalProperties: false, required: ["runId"], properties: { runId: identifierProperty, maxChecks: { type: "integer", minimum: 1, maximum: 32 }, checkOffset: { type: "integer", minimum: 0, maximum: 1000000 } } } },
-      { name: "canary.repair_task", description: "Build a bounded repair task from sealed project failures and source evidence. Returns untrusted evidence and explicit limits; never executes checks, writes files, approves a repair or grants source permissions.", annotations: { readOnlyHint: true }, inputSchema: { type: "object", additionalProperties: false, required: ["runId"], properties: { runId: identifierProperty, checks: { type: "array", minItems: 1, maxItems: 16, uniqueItems: true, items: identifierProperty }, allowedPaths: { type: "array", minItems: 1, maxItems: 32, uniqueItems: true, items: { type: "string", minLength: 1, maxLength: 256, description: "Canonical project-relative path using /; no traversal, glob, private state or credential files." } } } } },
-      { name: "canary.memory", description: "Read bounded, related historical repair facts for a sealed failed run in the bound project. Advisory evidence only; historical verification does not verify this failure or grant execution, source writes, activation or approval. No memory is recorded or revoked by this tool.", annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false }, inputSchema: { type: "object", additionalProperties: false, required: ["runId"], properties: { runId: identifierProperty, checks: { type: "array", minItems: 1, maxItems: 16, uniqueItems: true, items: identifierProperty }, maxItems: { type: "integer", minimum: 1, maximum: 10 }, maxChars: { type: "integer", minimum: 512, maximum: 32768 } } } },
-      { name: "canary.verification", description: "Read the sealed repair, change or reproduction receipt. Missing or incompatible evidence is unavailable.", annotations: { readOnlyHint: true }, inputSchema: { type: "object", additionalProperties: false, required: ["runId", "kind"], properties: { runId: identifierProperty, kind: { type: "string", enum: ["repair", "change", "reproduction"] } } } },
-      ...(Object.keys(OPERATION_SPECS) as OperationToolName[]).map(name => {
+      {
+        name: "canary.diagnostics",
+        description: "Read a bounded page of sealed failures and original evidence locations.",
+        annotations: { readOnlyHint: true },
+        inputSchema: {
+          type: "object",
+          additionalProperties: false,
+          required: ["runId"],
+          properties: {
+            runId: identifierProperty,
+            maxChecks: { type: "integer", minimum: 1, maximum: 32 },
+            checkOffset: { type: "integer", minimum: 0, maximum: 1000000 },
+          },
+        },
+      },
+      {
+        name: "canary.repair_task",
+        description:
+          "Build a bounded repair task from sealed project failures and source evidence. Returns untrusted evidence and explicit limits; never executes checks, writes files, approves a repair or grants source permissions.",
+        annotations: { readOnlyHint: true },
+        inputSchema: {
+          type: "object",
+          additionalProperties: false,
+          required: ["runId"],
+          properties: {
+            runId: identifierProperty,
+            checks: { type: "array", minItems: 1, maxItems: 16, uniqueItems: true, items: identifierProperty },
+            allowedPaths: {
+              type: "array",
+              minItems: 1,
+              maxItems: 32,
+              uniqueItems: true,
+              items: {
+                type: "string",
+                minLength: 1,
+                maxLength: 256,
+                description:
+                  "Canonical project-relative path using /; no traversal, glob, private state or credential files.",
+              },
+            },
+          },
+        },
+      },
+      {
+        name: "canary.memory",
+        description:
+          "Read bounded, related historical repair facts for a sealed failed run in the bound project. Advisory evidence only; historical verification does not verify this failure or grant execution, source writes, activation or approval. No memory is recorded or revoked by this tool.",
+        annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
+        inputSchema: {
+          type: "object",
+          additionalProperties: false,
+          required: ["runId"],
+          properties: {
+            runId: identifierProperty,
+            checks: { type: "array", minItems: 1, maxItems: 16, uniqueItems: true, items: identifierProperty },
+            maxItems: { type: "integer", minimum: 1, maximum: 10 },
+            maxChars: { type: "integer", minimum: 512, maximum: 32768 },
+          },
+        },
+      },
+      {
+        name: "canary.assessment",
+        description:
+          "Read a bounded quality brief and recorded choices for sealed Agent or project evidence in the bound project. Recommendations are advisory hypotheses; this read never creates decision state, executes checks or approves changes.",
+        annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
+        inputSchema: {
+          type: "object",
+          additionalProperties: false,
+          required: ["runId"],
+          properties: { runId: identifierProperty },
+        },
+      },
+      ...(options.assessmentDecisions
+        ? [
+            {
+              name: "canary.assessment_decide",
+              description:
+                "Record a selected or rejected assessment option only when the server was explicitly started with decision recording enabled. Actor is caller-declared audit metadata, not authenticated human approval. Requires current report hash and revision. Never executes, grants source writes, activates experience or approves a repair.",
+              annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
+              inputSchema: {
+                type: "object",
+                additionalProperties: false,
+                required: ["runId", "reportHash", "expectedRevision", "optionId", "action", "actor", "reason"],
+                properties: {
+                  runId: identifierProperty,
+                  reportHash: { type: "string", pattern: "^[a-f0-9]{64}$" },
+                  expectedRevision: { type: "integer", minimum: 0, maximum: Number.MAX_SAFE_INTEGER },
+                  optionId: { type: "string", minLength: 1, maxLength: 180, pattern: "^[A-Za-z0-9][A-Za-z0-9_.:-]*$" },
+                  action: { type: "string", enum: ["select", "reject"] },
+                  actor: { type: "string", minLength: 1, maxLength: 96 },
+                  reason: { type: "string", minLength: 1, maxLength: 512 },
+                },
+              },
+            },
+          ]
+        : []),
+      {
+        name: "canary.verification",
+        description:
+          "Read the sealed repair, change or reproduction receipt. Missing or incompatible evidence is unavailable.",
+        annotations: { readOnlyHint: true },
+        inputSchema: {
+          type: "object",
+          additionalProperties: false,
+          required: ["runId", "kind"],
+          properties: {
+            runId: identifierProperty,
+            kind: { type: "string", enum: ["repair", "change", "reproduction"] },
+          },
+        },
+      },
+      ...(Object.keys(OPERATION_SPECS) as OperationToolName[]).map((name) => {
         const spec = OPERATION_SPECS[name];
         return {
           name,
-          description: spec.operation === "change-verify"
-            ? "Analyze sealed change evidence against a Git baseline in the bound project and save its receipt. This operation does not execute project checks."
-            : "Use the existing CLI verification in the bound project. Inspect by default; prepare/execute must be selected explicitly. Missing services or credentials remain blocked; no credentials can be supplied here.",
+          description:
+            spec.operation === "change-verify"
+              ? "Analyze sealed change evidence against a Git baseline in the bound project and save its receipt. This operation does not execute project checks."
+              : "Use the existing CLI verification in the bound project. Inspect by default; prepare/execute must be selected explicitly. Missing services or credentials remain blocked; no credentials can be supplied here.",
           annotations: { readOnlyHint: false, destructiveHint: true, openWorldHint: true },
-          inputSchema: { type: "object", additionalProperties: false, required: [...spec.required], properties: Object.fromEntries([...spec.required, ...spec.optional].map(field => [field, OPERATION_PROPERTIES[field]])) },
+          inputSchema: {
+            type: "object",
+            additionalProperties: false,
+            required: [...spec.required],
+            properties: Object.fromEntries(
+              [...spec.required, ...spec.optional].map((field) => [field, OPERATION_PROPERTIES[field]]),
+            ),
+          },
         };
       }),
     ],
@@ -304,7 +570,14 @@ function optionalWorkspace(value: unknown, field: string): string | undefined {
 }
 
 function requiredList(value: unknown, field: string, pattern: RegExp): string[] {
-  if (!Array.isArray(value) || !value.length || value.length > 16 || value.some(item => typeof item !== "string" || !pattern.test(item)) || new Set(value).size !== value.length) throw invalid(`Invalid ${field}`);
+  if (
+    !Array.isArray(value) ||
+    !value.length ||
+    value.length > 16 ||
+    value.some((item) => typeof item !== "string" || !pattern.test(item)) ||
+    new Set(value).size !== value.length
+  )
+    throw invalid(`Invalid ${field}`);
   return value as string[];
 }
 
@@ -318,6 +591,7 @@ function optionalBoundInt(value: unknown, field: string, max: number): number | 
 
 function boundedOffset(value: unknown, field: string): number {
   if (value === undefined) return 0;
-  if (!Number.isInteger(value) || (value as number) < 0 || (value as number) > 1_000_000) throw invalid(`${field} must be between 0 and 1000000`);
+  if (!Number.isInteger(value) || (value as number) < 0 || (value as number) > 1_000_000)
+    throw invalid(`${field} must be between 0 and 1000000`);
   return value as number;
 }

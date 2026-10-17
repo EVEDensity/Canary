@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## 0.8.0
+
+- R29: share sealed, version-bound quality briefs and rule-derived recommendations across CLI, MCP and the workspace.
+- Record explicit selections and rejections with report hashes, revisions, actors and reasons; retain prior briefs without changing run manifests or granting execution.
+- Reject stale, corrupt, unsafe or secret-bearing decisions; bound issue output, history and storage while retaining sample and coverage denominators.
+- Add bilingual recommendation cards, evidence navigation and immediate selection feedback; load assessments on demand and preserve form state across refreshes and language changes.
+- 新增质量简报、推荐与备选、选择记录及页面入口；选择与执行分开，受控改进编排继续列入 R30。
+
 ## 0.7.1
 
 - Guide Skill hosts through Agent assessment, evidence-backed explanations, recommended alternatives, user-selected actions and candidate verification.

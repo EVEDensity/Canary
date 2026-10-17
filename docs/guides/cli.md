@@ -17,6 +17,20 @@ CI mode runs the existing check plan and writes local artifacts without a report
 
 Add `--base <commit-or-ref>` to seal a version-bound change analysis after project checks. The report separates measured coverage denominators, unknown files, explicit behavior and verification gaps. Informational gaps and unavailable analysis preserve the check exit code; explicitly required behavior contracts remain CI gates.
 
+## Assess and choose a next step
+
+```sh
+canary assess <runId> --json
+canary assess <runId> --project <directory> --json
+canary assess decide <runId> --report-hash <hash> --expected-revision <revision> --option <optionId> --action select --actor maintainer --reason "Review the failing behavior" --json
+```
+
+`assess` is read-only: it generates a bounded brief from sealed Agent/project results, coverage and linked history without running checks or a model. CLI, MCP and workspace share its report, recommendations, options and existing decisions. Read the current report's `contentHash`, view `revision` and option ID before recording a choice. Both commands support `--project <directory>`, `--config <path>` and `--json`; use `--action reject` to record a rejection.
+
+Only `assess decide` writes a selection. Actor/reason are audit metadata; a choice is not execution, authenticated approval or verified improvement. Recommendations follow evidence rules, not a model-confirmed root cause. Reuse already selected directions; ordinary conversation need not write a record.
+
+Records live outside sealed runs in `<artifactRoot>/.quality`, with up to 8 report versions and 32 choices per run. The shared 64 KiB view includes up to the latest 16 choices and omission counts. A manifest change marks old choices stale. Stale report/revision, corrupt state and unavailable evidence reject writes; refresh and inspect before retrying. Historical gaps remain unknown rather than being reconstructed from current source. See [Agent workflow](agent-workflow.md).
+
 ## Hand off a repair
 
 ```sh
@@ -65,4 +79,4 @@ canary mcp matrix
 
 The [official Skill](skills.md) supports the current task with project-local discovery and managed updates. The [MCP server](mcp.md) exposes the same bounded project evidence and verification actions to a host. Existing reviewed experiences distinguish selection from actual function-context delivery; see [project experience](r8-project-experience.md).
 
-中文：CLI 沿现有检查和证据链提供检查、诊断、修复交接、复现与修复/变更验证。修复任务的包完整性、候选准入和真正的回归验证分别记录，不能互相替代。保留真实退出码和 run ID；执行需任务授权和已准备的条件，缺失证据保持未知、阻塞或不足。
+中文：CLI 沿现有证据链提供检查、质量简报、显式选择、修复交接、复现与回归验证。`assess` 只读，`assess decide` 才记录方向；选择、审批与实际执行分别保留。保留真实退出码和 run ID，缺失证据保持未知、阻塞或不足。

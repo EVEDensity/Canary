@@ -247,7 +247,11 @@ importers:
         specifier: workspace:*
         version: link:../policy
 
-  packages/mcp-server: {}
+  packages/mcp-server:
+    dependencies:
+      '@canary/core':
+        specifier: workspace:*
+        version: link:../core
 
   packages/policy:
     dependencies:
