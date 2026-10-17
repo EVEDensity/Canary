@@ -68,7 +68,7 @@ The destination must stay inside the selected project. The installer does not se
 
 ## Format and client coverage / 格式与客户端范围
 
-The official package follows the [Agent Skills specification](https://agentskills.io/specification): matching lowercase folder/name, required YAML `name` and `description`, and references relative to the Skill root. Installation tests validate these fields and links and exercise actual install, repeat, update, conflict preservation, rollback and removal on disk with Node.
+The official package follows the [Agent Skills specification](https://agentskills.io/specification): matching lowercase folder/name and required YAML `name` and `description`. Markdown links resolve within the bundle from their containing document; older root-relative links remain accepted for rollback. Parent traversal and absolute paths are rejected. Installation tests validate metadata and links and exercise actual install, repeat, update, conflict preservation, rollback and removal on disk with Node.
 
 The packaged Skill and local delivery workflow are available. This round has not tested discovery or invocation in every Agent Skills client; a compatible file format does not establish full client support. Use your client's current Skill discovery instructions and reload its project context when required. Explicit invocation can use `$canary-verify` in clients that support that syntax.
 

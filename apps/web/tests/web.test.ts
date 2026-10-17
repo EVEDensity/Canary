@@ -8,9 +8,9 @@ import { createWebServer, FileArtifactRepository, RunStore } from "../src/index.
 import { buildRunDiagnostics, verifyDiagnosticBundle, beginArtifacts, sealArtifacts, writePrivateJson } from "@canary/trace";
 import { buildStructure } from "@canary/structure";
 
-function get(url: string): Promise<{ status: number; body: string }> {
+function get(url: string, headers: Record<string, string> = {}): Promise<{ status: number; body: string }> {
   return new Promise((resolvePromise, reject) => {
-    const req = request(url, (response) => { let body = ""; response.setEncoding("utf8"); response.on("data", (part) => body += part); response.on("end", () => resolvePromise({ status: response.statusCode ?? 0, body })); });
+    const req = request(url, { headers }, (response) => { let body = ""; response.setEncoding("utf8"); response.on("data", (part) => body += part); response.on("end", () => resolvePromise({ status: response.statusCode ?? 0, body })); });
     req.on("error", reject); req.end();
   });
 }
@@ -32,6 +32,25 @@ function coverage(runId: string, status: "provisional" | "final" = "final", cove
 }
 
 describe("web run store and HTTP/SSE", () => {
+  it("keeps operator credentials out of URLs, prevents caching/framing and denies cross-site reads", async () => {
+    let closed = false;
+    const web = createWebServer(new RunStore(), "127.0.0.1", 0, undefined, {
+      writeToken: "test-token", onClose: () => { closed = true; },
+    });
+    const { url } = await web.listen();
+    try {
+      const page = await fetch(url);
+      expect(page.headers.get("cache-control")).toBe("no-store");
+      expect(page.headers.get("content-security-policy")).toContain("frame-ancestors 'none'");
+      expect(page.headers.get("x-frame-options")).toBe("DENY");
+      expect((await post(url + "/api/session/close?token=test-token", {})).status).toBe(403);
+      expect(closed).toBe(false);
+      expect((await fetch(url + "/api/runs", { headers: { "sec-fetch-site": "cross-site" } })).status).toBe(403);
+      expect((await get(url, { "sec-fetch-site": "cross-site", "sec-fetch-mode": "navigate", "sec-fetch-dest": "document" })).status).toBe(200);
+      expect((await post(url + "/api/session/close", {}, WRITE)).status).toBe(200);
+      expect(closed).toBe(true);
+    } finally { await close(web.server); }
+  });
   it("serves the shared diagnosis and a verifiable bundle without truncating retained evidence", async () => {
     const root = mkdtempSync(join(tmpdir(), "canary-web-diagnostics-"));
     const artifactRoot = join(root, ".canary", "artifacts");

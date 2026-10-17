@@ -14,7 +14,7 @@
   "dependencies": {
     "@canary/core": "workspace:*",
     "typescript": "^5.7.0",
-    "source-map-js": "1.2.1"
+    "source-map-js": "1.2.2"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",

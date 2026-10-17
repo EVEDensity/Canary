@@ -11,7 +11,7 @@ export const UNSUPPORTED_PROTOCOL_VERSION = -32022;
 export const REQUEST_CANCELLED = -32800;
 export const MCP_INVALID_TOKEN = -32001;
 
-export const SERVER_INFO = { name: "canary-mcp-server", version: "1.0.0" } as const;
+export const SERVER_INFO = { name: "canary-mcp-server", version: "1.0.1" } as const;
 
 export const TOOL_NAMES = [
   "canary.run",
@@ -36,7 +36,7 @@ export const COMPATIBILITY_MATRIX = {
   protocols: [...SUPPORTED_PROTOCOL_VERSIONS],
   transports: ["stdio-ndjson", "in-process"],
   hosts: ["dual-era stdio MCP clients; Canary test client"],
-  sdk: "@canary/mcp-server@1.0.0",
+  sdk: "@canary/mcp-server@1.0.1",
   tools: [...TOOL_NAMES],
   sampling: false,
   sourceWrite: false,

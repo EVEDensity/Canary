@@ -123,6 +123,7 @@ describe("canary run --headless", () => {
       }
       expect(uiLine).toContain("canary UI:");
       const url = uiLine.replace(/^.*canary UI:\s*/, "").trim();
+      expect(new URL(url).searchParams.has("token")).toBe(false);
       const snapshot = await fetch(new URL("/api/runs", url).href);
       expect(snapshot.ok).toBe(true);
       const runs = await snapshot.json() as Array<{ status: string }>;
@@ -133,6 +134,7 @@ describe("canary run --headless", () => {
       await result.close();
       expect(result.exitCode).toBe(0);
       expect(result.uiUrl).toContain("http://");
+      expect(new URL(result.uiUrl).searchParams.has("token")).toBe(false);
     }
   });
 
