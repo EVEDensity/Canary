@@ -27,9 +27,13 @@ Run the checks relevant to your change. Preserve assertions, public schemas, CLI
 
 ## Pull requests
 
-`main` is the deployment branch. Develop fixes and features on separate branches and merge through reviewed PRs. Every branch runs CI; website deployment, GitHub Releases and npm publication are restricted to `main`. Track functional changes in Issues with scope and acceptance criteria.
+`main` is the deployment branch. Develop fixes and features on separate branches and merge through reviewed PRs. Every branch runs CI; website deployment and GitHub Releases are restricted to `main`. Track functional changes in Issues with scope and acceptance criteria.
 
-`main` 为部署分支。功能与修复在独立分支开发，经 PR 评审后合并。所有分支运行 CI，官网部署、GitHub Release 和 npm 发布仅允许从 `main` 执行；功能任务通过 Issue 明确范围与验收标准。
+`main` 为部署分支。功能与修复在独立分支开发，经 PR 评审后合并。所有分支运行 CI，官网部署和 GitHub Release 仅允许从 `main` 执行；功能任务通过 Issue 明确范围与验收标准。
+
+Use purpose-based names: `feat/<feature>`, `fix/<issue>`, `test/<scope>`, `docs/<topic>` or `chore/<maintenance>`. Delete merged branches after checking that no newer commits or worktrees depend on them. Preserve unmerged work before cleanup.
+
+分支按功能命名，例如 `feat/agent-assessment`、`fix/release-security`、`test/coverage`；合并后确认没有新增提交或 worktree 占用，再删除分支。未合并内容先保留。
 
 - Describe the change and how it was verified.
 - Update affected guides and translations.
@@ -50,7 +54,7 @@ Review ownership is maintained in [.github/CODEOWNERS](.github/CODEOWNERS). Curr
 
 Merge into `main` to publish an unreleased version from the root `package.json` after CI succeeds. The Release workflow checks out the exact validated commit, validates and builds the project, generates categorized release notes, and attaches workspace package archives, the website bundle and SHA-256 checksums. Existing versions are skipped; update the root and affected package versions for the next release. Tag pushes do not trigger publication. Manual Release runs must select `main`. Versions with a prerelease suffix are marked as prereleases.
 
-GitHub Releases require Actions with write access to repository contents; no npm token is required. Retry a failed run from Actions. npm publication is a separate opt-in checkbox when manually running Release and requires `NPM_TOKEN`.
+GitHub Releases require Actions with write access to repository contents; no npm token or publication is required. Retry a failed run from Actions.
 
 Release notes credit merged PRs with their authors and links, grouped by labels in `.github/release.yml`. The linked PR records each contributor's work. Direct commits do not provide the same PR attribution; prefer PRs for collaborative changes. Release credits describe contributions, while `CODEOWNERS` defines ongoing review ownership.
 

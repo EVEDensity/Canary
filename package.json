@@ -1,6 +1,6 @@
 {
   "name": "canary",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "private": true,
   "license": "Apache-2.0",
   "description": "AI Agent evaluation and guided improvement with traceable project verification.",
@@ -40,6 +40,7 @@
     "verify:entry": "node scripts/run-logged.mjs verification/entry -- node scripts/verify-entry.mjs",
     "verify:r8": "node scripts/verify-r8.mjs",
     "verify:release": "node scripts/run-logged.mjs verification/release -- node scripts/verify-r32.mjs",
+    "verify:repository": "node scripts/verify-repository.mjs",
     "verify:map": "node scripts/run-logged.mjs verification/map -- node scripts/verify-map.mjs",
     "verify:architecture-ci": "node scripts/run-logged.mjs verification/architecture-ci -- node scripts/verify-architecture-ci.mjs"
   },

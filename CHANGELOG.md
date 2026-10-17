@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## 1.0.1
+
+- Update source-map-js and shell-quote to patched releases and enforce dependency/repository checks in CI and release validation.
+- Keep report operator credentials out of launch URLs; reject URL-only authorization and cross-site requests, prevent page caching and embedding.
+- Repair Skill reference links and document purpose-based branch names, merged-branch cleanup and GitHub-only release delivery.
+- 修复依赖安全通告与页面凭据暴露路径，补齐发布检查、Skill 引用和分支维护规范。
+
 ## 1.0.0
 
 - R32: freeze supported CI exits, MCP authority and operating schemas, retaining legacy prepared and interrupted record hashes.

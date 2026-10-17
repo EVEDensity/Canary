@@ -119,15 +119,14 @@ function resolveRegressionDir(projectRoot: string): string {
   return resolve(projectRoot, "cases/regression");
 }
 
-function requestWriteToken(request: IncomingMessage, url: URL): string | undefined {
+function requestWriteToken(request: IncomingMessage): string | undefined {
   const header = request.headers["x-canary-write-token"];
   if (typeof header === "string" && header) return header;
-  const query = url.searchParams.get("token");
-  return query || undefined;
+  return undefined;
 }
 
-function allowWrite(request: IncomingMessage, url: URL, hooks?: WebServerHooks): boolean {
-  return Boolean(hooks?.writeToken) && requestWriteToken(request, url) === hooks?.writeToken;
+function allowWrite(request: IncomingMessage, hooks?: WebServerHooks): boolean {
+  return Boolean(hooks?.writeToken) && requestWriteToken(request) === hooks?.writeToken;
 }
 
 export function createWebServer(
@@ -172,6 +171,9 @@ async function handleRequest(
   workspace?: WorkspaceReader,
 ): Promise<void> {
   try {
+    response.setHeader("Cache-Control", "no-store");
+    response.setHeader("X-Frame-Options", "DENY");
+    response.setHeader("Content-Security-Policy", "frame-ancestors 'none'; base-uri 'none'; object-src 'none'");
     const url = new URL(request.url ?? "/", "http://127.0.0.1");
     const parts = url.pathname.split("/").filter(Boolean);
     const origin = `http://${request.headers.host}`;
@@ -181,6 +183,12 @@ async function handleRequest(
     }
     if (request.headers.origin && request.headers.origin !== origin) {
       writeJson(response, 403, { error: "Same-origin request required" });
+      return;
+    }
+    const documentNavigation = request.method === "GET" && ["/", "/index.html"].includes(url.pathname) &&
+      request.headers["sec-fetch-mode"] === "navigate" && request.headers["sec-fetch-dest"] === "document";
+    if (request.headers["sec-fetch-site"] === "cross-site" && !documentNavigation) {
+      writeJson(response, 403, { error: "Cross-site request refused" });
       return;
     }
     response.setHeader("X-Content-Type-Options", "nosniff");
@@ -293,7 +301,7 @@ async function handleRequest(
       return;
     }
     if (url.pathname === "/api/session/close") {
-      if (request.method !== "POST" || !allowWrite(request, url, hooks)) {
+      if (request.method !== "POST" || !allowWrite(request, hooks)) {
         writeJson(response, 403, { error: "Write token required" });
         return;
       }
@@ -446,7 +454,7 @@ async function handleRequest(
           writeJson(response, 405, { error: "GET or POST required" });
           return;
         }
-        if (request.method === "POST" && !allowWrite(request, url, hooks)) {
+        if (request.method === "POST" && !allowWrite(request, hooks)) {
           writeJson(response, 403, { error: "Write token required" });
           return;
         }
@@ -621,7 +629,7 @@ async function handleRequest(
           writeJson(response, 405, { error: "POST required" });
           return;
         }
-        if (!allowWrite(request, url, hooks)) {
+        if (!allowWrite(request, hooks)) {
           writeJson(response, 403, { error: "Write token required" });
           return;
         }
@@ -674,7 +682,7 @@ async function handleRequest(
           response.end("Method Not Allowed");
           return;
         }
-        if (!allowWrite(request, url, hooks)) {
+        if (!allowWrite(request, hooks)) {
           writeJson(response, 403, { error: "Write API requires x-canary-write-token" });
           return;
         }
@@ -696,7 +704,7 @@ async function handleRequest(
       }
       if (parts[3] === "improvements") {
         if (request.method === "POST" && parts[4]) {
-          if (!allowWrite(request, url, hooks)) {
+          if (!allowWrite(request, hooks)) {
             writeJson(response, 403, { error: "Write API requires x-canary-write-token" });
             return;
           }

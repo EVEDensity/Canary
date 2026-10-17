@@ -30,7 +30,7 @@ Retaining an improvement as experience requires its existing proposed/validation
 
 Use the requested task's authorization for any source or test edits. This Skill does not authorize editing code merely because a check failed. Preserve retained baseline evidence and the original check definitions.
 
-When the repair came through a task bundle, follow [repair handoff](references/handoff.md) to check the sealed candidate against its original identity and declared scope first. `ready-for-regression` is candidate admission with `repairVerified: false`; it does not replace the regression execution below.
+When the repair came through a task bundle, follow [repair handoff](handoff.md) to check the sealed candidate against its original identity and declared scope first. `ready-for-regression` is candidate admission with `repairVerified: false`; it does not replace the regression execution below.
 
 For an authorized repair, add a meaningful regression test within the repair's scope, rerun the original checks, and collect a sealed candidate run. Inspect the repair assessment:
 

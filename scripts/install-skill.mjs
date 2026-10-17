@@ -15,7 +15,7 @@ import {
 } from "node:fs";
 import { createHash, randomUUID } from "node:crypto";
 import { homedir } from "node:os";
-import { basename, dirname, isAbsolute, join, relative, resolve } from "node:path";
+import { basename, dirname, isAbsolute, join, relative, resolve, posix } from "node:path";
 import { fileURLToPath } from "node:url";
 
 export const OFFICIAL_SKILL_ROOT = resolve(
@@ -183,10 +183,12 @@ export function validateSkillPackage(root = OFFICIAL_SKILL_ROOT) {
     for (const match of file.content.toString("utf8").matchAll(/\[[^\]]*\]\(([^)]+)\)/g)) {
       const target = match[1].split("#")[0];
       if (!target || /^https:\/\//.test(target)) continue;
-      if (!safeFile(target) || !files.some((item) => item.path === target))
+      const localTarget = posix.join(posix.dirname(file.path), target);
+      // Resolve Markdown from its containing document; retain older root-relative bundles for rollback.
+      if (!safeFile(target) || !files.some((item) => item.path === localTarget || item.path === target))
         throw problem(
           "SKILL_REFERENCE_INVALID",
-          "Skill references must resolve to bundled files using paths relative to the Skill root.",
+          "Skill references must resolve to bundled files using safe relative paths.",
           "Restore the missing reference or fix the relative link.",
         );
     }

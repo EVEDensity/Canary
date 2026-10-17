@@ -484,7 +484,7 @@ export async function runCommandDetailed(options: CliOptions = {}): Promise<RunC
       },
     );
     const listening = await web.listen();
-    uiUrl = `${listening.url}/?runId=${encodeURIComponent(runId)}&token=${encodeURIComponent(writeToken)}`;
+    uiUrl = `${listening.url}/?runId=${encodeURIComponent(runId)}`;
     if (!options.json && !options.suppressOutput) {
       console.log(`runId: ${runId}`);
       console.log(`canary UI: ${uiUrl}`);

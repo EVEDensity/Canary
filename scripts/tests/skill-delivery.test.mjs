@@ -70,6 +70,20 @@ test("fresh install, repeat, explicit update, rollback and removal exercise real
   assert.ok(!existsSync(f.destination));
 });
 
+test("nested Markdown references resolve beside the document and legacy root links remain restorable", (t) => {
+  const f = fixture(t),
+    reference = join(f.source, "references", "verification.md");
+  const original = readFileSync(reference, "utf8");
+  for (const target of ["handoff.md", "references/handoff.md"]) {
+    writeFileSync(reference, original + "\n[Handoff](" + target + ")\n");
+    assert.equal(validateSkillPackage(f.source).name, "canary-verify");
+  }
+  for (const target of ["missing.md", "../SKILL.md", "../../outside.md", "/SKILL.md"]) {
+    writeFileSync(reference, original + "\n[Invalid](" + target + ")\n");
+    assert.throws(() => validateSkillPackage(f.source), code("SKILL_REFERENCE_INVALID"));
+  }
+});
+
 test("unowned Skills, local edits, extra files and extra empty directories survive mutations", (t) => {
   const f = fixture(t);
   mkdirSync(f.destination, { recursive: true });

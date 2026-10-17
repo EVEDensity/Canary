@@ -12,6 +12,7 @@ A private report should include the affected version, impact and a minimal repro
 
 - Canary executes project commands and configuration with host permissions. Use an external sandbox for untrusted projects.
 - Keep the report server on loopback. Its operator token is not a multi-user authentication system.
+- Send report write credentials through `x-canary-write-token`; URL query parameters do not grant write access. Report pages are not cacheable or embeddable.
 - Configured adapters, commands and tools may contact external services.
 - Artifact hashes detect content changes; they do not authenticate imported claims or authorize disclosure.
 
