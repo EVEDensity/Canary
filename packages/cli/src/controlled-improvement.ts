@@ -1,9 +1,6 @@
 import { randomUUID } from "node:crypto";
-import { spawn } from "node:child_process";
 import { lstatSync, readFileSync, realpathSync } from "node:fs";
-import { createRequire } from "node:module";
 import { relative, resolve, sep } from "node:path";
-import { pathToFileURL } from "node:url";
 import {
   isRepairTaskPath,
   parseCanaryConfig,
@@ -21,7 +18,7 @@ import {
   type TestCase,
 } from "@canary/core";
 import { measureControlledBenefit } from "@canary/improvement";
-import { createRunnerPorts, killProcessTree, type RunnerPorts } from "@canary/runner";
+import { createRunnerPorts, type RunnerPorts } from "@canary/runner";
 import {
   FileArtifactRepository,
   RunStore,
@@ -30,11 +27,14 @@ import {
   createImprovementSession,
   executeImprovementSession,
   readImprovementSession,
+  inspectImprovementRecovery,
+  recoverImprovementSession,
   readQualityAssessment,
   readSealedQualityRun,
   sha256,
 } from "@canary/trace";
 import { runEvaluation } from "./app.js";
+import { loadBoundedConfiguration } from "./bounded-config.js";
 import { projectSourceInventory } from "./discovery.js";
 import { resolveProjectContext } from "./home.js";
 
@@ -243,71 +243,10 @@ export function prepareControlledImprovement(
     };
   return createImprovementSession(repository, parseImprovementPlan({ ...body, contentHash: hash(body) }));
 }
-/** Config imports run in a terminable child, so top-level await or a busy loop cannot hold this attempt open. */
-async function readExecutableConfig(file: string, signal: AbortSignal): Promise<unknown> {
-  if (signal.aborted) throw new Error("Config load cancelled");
-  const token = randomUUID(),
-    tsx = pathToFileURL(createRequire(import.meta.url).resolve("tsx/esm/api")).href,
-    script = `const file=${JSON.stringify(file)}, token=${JSON.stringify(token)}; try {const url=(await import('node:url')).pathToFileURL(file).href; const module=/\\.[cm]?tsx?$/.test(file)?await(await import(${JSON.stringify(tsx)})).tsImport(url,{parentURL:${JSON.stringify(import.meta.url)}}):await import(url); const value=module.default; const raw=value&&typeof value==='object'&&'default'in value?value.default:value; const body=JSON.stringify(raw); if(typeof body!=='string'||Buffer.byteLength(body)>1048576)throw Error('config budget'); process.send({token,body},()=>process.disconnect());}catch{process.exitCode=2;if(process.connected)process.disconnect();}`;
-  return new Promise((accept, reject) => {
-    const child = spawn(process.execPath, ["--input-type=module", "-e", script], {
-      cwd: resolve(file, ".."),
-      detached: process.platform !== "win32",
-      windowsHide: true,
-      stdio: ["ignore", "pipe", "pipe", "ipc"],
-    });
-    let body: string | undefined,
-      outputBytes = 0,
-      failed = false;
-    const abort = () => {
-      failed = true;
-      if (child.pid) killProcessTree(child.pid);
-    };
-    signal.addEventListener("abort", abort, { once: true });
-    const output = (chunk: Buffer) => {
-      outputBytes += chunk.length;
-      if (outputBytes > 262_144) abort();
-    };
-    child.stdout?.on("data", output);
-    child.stderr?.on("data", output);
-    child.on("message", (message: unknown) => {
-      if (
-        !message ||
-        typeof message !== "object" ||
-        !("token" in message) ||
-        message.token !== token ||
-        !("body" in message) ||
-        typeof message.body !== "string" ||
-        Buffer.byteLength(message.body) > 1_048_576 ||
-        body !== undefined
-      ) {
-        abort();
-        return;
-      }
-      body = message.body;
-    });
-    child.on("error", () => {
-      failed = true;
-    });
-    child.on("close", (code) => {
-      signal.removeEventListener("abort", abort);
-      if (failed || signal.aborted || code !== 0 || !body) {
-        reject(new Error("Trusted configuration could not load within its execution budget"));
-        return;
-      }
-      try {
-        accept(JSON.parse(body));
-      } catch {
-        reject(new Error("Trusted configuration did not return bounded JSON"));
-      }
-    });
-    if (signal.aborted) abort();
-  });
-}
-async function importConfig(file: string, signal: AbortSignal): Promise<CanaryConfig> {
+async function importConfig(file: string, signal: AbortSignal, maximumMs: number): Promise<CanaryConfig> {
   let raw: unknown;
   if (file.endsWith(".json")) raw = JSON.parse(readFileSync(file, "utf8").replace(/^\uFEFF/, ""));
-  else raw = await readExecutableConfig(file, signal);
+  else raw = await loadBoundedConfiguration(file, signal, maximumMs);
   const config = parseCanaryConfig(raw) as CanaryConfig;
   if (
     config.agent.adapter !== "function" ||
@@ -374,7 +313,11 @@ export async function executeControlledImprovement(
       if (contracts(cases) !== plan.scope.contractsHash || baseline.totalCases !== plan.scope.trials)
         return stopped("IMPROVEMENT_CONTRACT_DRIFT");
       // The durable running attempt has already been written before any trusted module import.
-      const loaded = await importConfig(context.configFile, controller.signal);
+      const loaded = await importConfig(
+        context.configFile,
+        controller.signal,
+        Math.max(1, remainingMs - (Date.now() - started)),
+      );
       if (loaded.tools?.entry) {
         const path = loaded.tools.entry.replace(/^\.\//, "");
         if (!plan.scope.allowedPaths.includes(path))
@@ -518,8 +461,8 @@ export async function controlledImprovementCommand(args: string[]): Promise<numb
   const json = args.includes("--json");
   try {
     const [command, id] = args;
-    if (!["prepare", "execute", "show"].includes(command ?? "") || !id || id.startsWith("--"))
-      input("Use canary improvement prepare <runId>, execute <sessionId>, or show <sessionId>");
+    if (!["prepare", "execute", "show", "recover"].includes(command ?? "") || !id || id.startsWith("--"))
+      input("Use canary improvement prepare <runId>, execute/show/recover <sessionId>");
     const flags = new Map<string, string[]>(),
       booleans = new Set<string>(),
       repeatable = new Set(["--allow", "--regression", "--holdout"]),
@@ -542,11 +485,17 @@ export async function controlledImprovementCommand(args: string[]): Promise<numb
             ]
           : command === "execute"
             ? ["--plan-hash", "--actor", "--reason"]
-            : []),
+            : command === "recover"
+              ? ["--session-hash", "--lock-hash", "--actor", "--reason"]
+              : []),
       ]);
     for (let index = 2; index < args.length; index++) {
       const name = args[index]!;
-      if (name === "--json" || (name === "--execute" && command === "execute")) {
+      if (
+        name === "--json" ||
+        (name === "--execute" && command === "execute") ||
+        (name === "--apply" && command === "recover")
+      ) {
         if (booleans.has(name)) input("Duplicate command flag");
         booleans.add(name);
         continue;
@@ -576,7 +525,30 @@ export async function controlledImprovementCommand(args: string[]): Promise<numb
         maxToolCalls: numberFlag(flags, "--max-tool-calls"),
         maxCases: numberFlag(flags, "--max-cases"),
       });
-    else if (command === "show") session = readImprovementSession(new FileArtifactRepository(context.artifactRoot), id);
+    else if (command === "recover") {
+      const repository = new FileArtifactRepository(context.artifactRoot);
+      if (!booleans.has("--apply")) {
+        const preview = inspectImprovementRecovery(repository, id);
+        console.log(
+          json
+            ? JSON.stringify(preview)
+            : [
+                `Recovery: ${preview.status} · ${preview.code}`,
+                `Session hash: ${preview.sessionHash}`,
+                `Lock hash: ${preview.lockHash}`,
+                preview.nextAction,
+              ].join("\n"),
+        );
+        return ["ready", "not-needed"].includes(preview.status) ? 0 : 1;
+      }
+      session = recoverImprovementSession(repository, id, {
+        sessionHash: valueFlag(flags, "--session-hash"),
+        lockHash: valueFlag(flags, "--lock-hash"),
+        actor: valueFlag(flags, "--actor"),
+        reason: valueFlag(flags, "--reason"),
+      });
+    } else if (command === "show")
+      session = readImprovementSession(new FileArtifactRepository(context.artifactRoot), id);
     else {
       if (!booleans.has("--execute")) input("Execution requires --execute, the exact plan hash, actor and reason");
       const controller = new AbortController(),

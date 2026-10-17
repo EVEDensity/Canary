@@ -12,7 +12,14 @@ import {
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { randomUUID } from "node:crypto";
-import { qualityContentHash, type ImprovementPlan, type ImprovementAttemptResult } from "@canary/core";
+import { spawn } from "node:child_process";
+import { once } from "node:events";
+import {
+  qualityContentHash,
+  improvementAttemptResultSchema,
+  type ImprovementPlan,
+  type ImprovementAttemptResult,
+} from "@canary/core";
 import {
   beginArtifacts,
   sealArtifacts,
@@ -24,6 +31,8 @@ import {
   readImprovementSession,
   listImprovementSessions,
   executeImprovementSession,
+  inspectImprovementRecovery,
+  recoverImprovementSession,
 } from "../src/index.js";
 const roots: string[] = [];
 afterEach(() => {
@@ -134,6 +143,203 @@ const blocked = (): ImprovementAttemptResult => ({
   status: "blocked",
   code: "FIXTURE_STOP",
   observed: { durationMs: 1, cases: 0, toolCalls: 0, managedLiveModelCalls: 0, monetaryCost: null },
+});
+it("rejects unknown completed counters before they can become zero cumulative budget usage", async () => {
+  const result = {
+    ...blocked(),
+    status: "completed",
+    observed: { ...blocked().observed, cases: null, toolCalls: null },
+  };
+  expect(improvementAttemptResultSchema.safeParse(result).success).toBe(false);
+  const f = fixture();
+  createImprovementSession(f.repo, f.plan);
+  const session = await executeImprovementSession(
+    f.repo,
+    f.plan.id,
+    f.authorization,
+    async () => result as ImprovementAttemptResult,
+  );
+  expect(session.attempts[0]?.result).toMatchObject({
+    status: "blocked",
+    code: "IMPROVEMENT_EXECUTION",
+    observed: { cases: null, toolCalls: null },
+  });
+  const execute = vi.fn(async () => blocked());
+  await expect(executeImprovementSession(f.repo, f.plan.id, f.authorization, execute)).rejects.toMatchObject({
+    code: "IMPROVEMENT_BUDGET",
+  });
+  expect(execute).not.toHaveBeenCalled();
+});
+
+function interruptedFixture(legacy = false) {
+  const f = fixture();
+  const session = createImprovementSession(f.repo, f.plan);
+  const owner = { pid: 2_147_483_646, nonce: randomUUID() };
+  const pending = {
+    ...session,
+    revision: 1,
+    attempts: [
+      {
+        index: 1,
+        executionRequest: f.authorization,
+        startedAt: new Date().toISOString(),
+        state: "running",
+        ...(legacy ? {} : { owner }),
+      },
+    ],
+  };
+  const file = join(f.root, ".improvements", `${f.plan.id}.json`);
+  writeFileSync(file, JSON.stringify({ ...pending, contentHash: qualityContentHash(pending) }));
+  writeFileSync(`${file}.lock`, JSON.stringify(legacy ? { pid: owner.pid, token: owner.nonce } : owner));
+  return { ...f, file, owner };
+}
+it("audits an orphan lock before the first charge and preserves corrupt or changed-lock evidence", () => {
+  const f = fixture(),
+    session = createImprovementSession(f.repo, f.plan),
+    file = join(f.root, ".improvements", `${f.plan.id}.json`);
+  writeFileSync(`${file}.lock`, JSON.stringify({ pid: 2_147_483_646, nonce: randomUUID() }));
+  const p = inspectImprovementRecovery(f.repo, f.plan.id),
+    request = {
+      sessionHash: p.sessionHash,
+      lockHash: p.lockHash,
+      actor: "maintainer",
+      reason: "Clear uncharged orphan writer",
+    };
+  writeFileSync(`${file}.lock`, JSON.stringify({ pid: 2_147_483_646, nonce: randomUUID() }));
+  expect(() => recoverImprovementSession(f.repo, f.plan.id, request)).toThrow(/state changed/);
+  const fresh = inspectImprovementRecovery(f.repo, f.plan.id);
+  const recovered = recoverImprovementSession(f.repo, f.plan.id, { ...request, lockHash: fresh.lockHash });
+  expect(recovered).toMatchObject({ revision: 1, attempts: [], plan: session.plan });
+  expect(recovered.recoveries).toHaveLength(1);
+  writeFileSync(file, '{"v":');
+  expect(() => inspectImprovementRecovery(f.repo, f.plan.id)).toThrow(/corrupt/);
+  expect(readFileSync(file, "utf8")).toBe('{"v":');
+});
+it("recovers a durable attempt after the actual owning child exits without releasing its lock", async () => {
+  const f = fixture();
+  createImprovementSession(f.repo, f.plan);
+  const source = `import {FileArtifactRepository,executeImprovementSession} from ${JSON.stringify(new URL("../dist/index.js", import.meta.url).href)};
+    const keep=setInterval(()=>{},1000);
+    await executeImprovementSession(new FileArtifactRepository(${JSON.stringify(f.root)}),${JSON.stringify(f.plan.id)},${JSON.stringify(f.authorization)},async()=>{
+      process.send('charged');await new Promise(()=>{});
+    });clearInterval(keep);`;
+  const child = spawn(process.execPath, ["--input-type=module", "-e", source], {
+    stdio: ["ignore", "ignore", "ignore", "ipc"],
+    windowsHide: true,
+  });
+  const closed = once(child, "close");
+  const timeout = setTimeout(() => child.kill(), 8000);
+  try {
+    const [message] = await Promise.race([
+      once(child, "message"),
+      closed.then(() => {
+        throw new Error("Writer exited before charge");
+      }),
+    ]);
+    expect(message).toBe("charged");
+    expect(inspectImprovementRecovery(f.repo, f.plan.id).status).toBe("active");
+    child.kill();
+    await closed;
+    const p = inspectImprovementRecovery(f.repo, f.plan.id);
+    expect(p.status).toBe("ready");
+    const result = recoverImprovementSession(f.repo, f.plan.id, {
+      sessionHash: p.sessionHash,
+      lockHash: p.lockHash,
+      actor: "maintainer",
+      reason: "Close actual exited fixture writer",
+    });
+    expect(result.attempts).toHaveLength(1);
+    expect(result.attempts[0]?.result).toMatchObject({
+      code: "IMPROVEMENT_INTERRUPTED",
+      observed: { durationMs: null, cases: null, toolCalls: null },
+    });
+    expect(f.repo.verify(f.plan.baseline.runId).status).toBe("verified");
+  } finally {
+    clearTimeout(timeout);
+    if (child.exitCode === null && child.signalCode === null) child.kill();
+    await closed;
+  }
+}, 12000);
+it.each([false, true])(
+  "closes an interrupted %s ledger with exact approval, unknown telemetry and no budget reset",
+  async (legacy) => {
+    const f = interruptedFixture(legacy),
+      before = readFileSync(f.file, "utf8");
+    const preview = inspectImprovementRecovery(f.repo, f.plan.id);
+    expect(preview.status).toBe("ready");
+    expect(readFileSync(f.file, "utf8")).toBe(before);
+    const recovered = recoverImprovementSession(f.repo, f.plan.id, {
+      sessionHash: preview.sessionHash,
+      lockHash: preview.lockHash,
+      actor: "maintainer",
+      reason: "Close dead writer ledger",
+    });
+    expect(recovered.revision).toBe(3);
+    expect(recovered.recoveries).toHaveLength(1);
+    expect(recovered.attempts[0]?.result).toEqual({
+      status: "blocked",
+      code: "IMPROVEMENT_INTERRUPTED",
+      observed: { durationMs: null, cases: null, toolCalls: null, managedLiveModelCalls: 0, monetaryCost: null },
+    });
+    expect(existsSync(`${f.file}.lock`)).toBe(false);
+    expect(existsSync(`${f.file}.recover.lock`)).toBe(false);
+    expect(inspectImprovementRecovery(f.repo, f.plan.id).status).toBe("not-needed");
+    const execute = vi.fn(async () => blocked());
+    await expect(executeImprovementSession(f.repo, f.plan.id, f.authorization, execute)).rejects.toMatchObject({
+      code: "IMPROVEMENT_BUDGET",
+    });
+    expect(execute).not.toHaveBeenCalled();
+  },
+);
+it("blocks live/mismatched owners, stale lock approval and interrupted recovery guards without changing the record", () => {
+  const f = interruptedFixture(),
+    original = readFileSync(f.file, "utf8");
+  const approval = () => {
+    const p = inspectImprovementRecovery(f.repo, f.plan.id);
+    return {
+      sessionHash: p.sessionHash,
+      lockHash: p.lockHash,
+      actor: "maintainer",
+      reason: "Inspect interrupted writer",
+    };
+  };
+  const old = approval();
+  writeFileSync(`${f.file}.lock`, JSON.stringify({ ...f.owner, pid: process.pid }));
+  expect(inspectImprovementRecovery(f.repo, f.plan.id).status).toBe("blocked");
+  expect(() => recoverImprovementSession(f.repo, f.plan.id, old)).toThrow(/state changed/);
+  writeFileSync(`${f.file}.lock`, JSON.stringify(f.owner));
+  writeFileSync(`${f.file}.recover.lock`, JSON.stringify({ pid: process.pid, nonce: randomUUID() }));
+  expect(() => inspectImprovementRecovery(f.repo, f.plan.id)).toThrow(/recovery/);
+  expect(() => recoverImprovementSession(f.repo, f.plan.id, old)).toThrow(/writer/);
+  expect(readFileSync(f.file, "utf8")).toBe(original);
+});
+it("retains active-owner and unproven legacy claims, and supports a dead owned attempt with an absent lock", () => {
+  for (const legacy of [false, true]) {
+    const f = interruptedFixture(legacy);
+    const pending = JSON.parse(readFileSync(f.file, "utf8"));
+    if (!legacy) pending.attempts[0].owner.pid = process.pid;
+    pending.contentHash = qualityContentHash(pending);
+    writeFileSync(f.file, JSON.stringify(pending));
+    if (!legacy) writeFileSync(`${f.file}.lock`, JSON.stringify(pending.attempts[0].owner));
+    const p = inspectImprovementRecovery(f.repo, f.plan.id);
+    if (!legacy) expect(p.status).toBe("active");
+  }
+  const f = interruptedFixture();
+  // Remove only this fixture's writer lock, simulating a completed OS cleanup.
+  rmSync(`${f.file}.lock`);
+  const p = inspectImprovementRecovery(f.repo, f.plan.id);
+  expect(p).toMatchObject({ status: "ready", lockHash: "absent" });
+  expect(
+    recoverImprovementSession(f.repo, f.plan.id, {
+      sessionHash: p.sessionHash,
+      lockHash: p.lockHash,
+      actor: "operator",
+      reason: "Close interrupted attempt",
+    }).attempts[0]?.state,
+  ).toBe("finished");
+  const unproven = interruptedFixture(true);
+  rmSync(`${unproven.file}.lock`);
+  expect(inspectImprovementRecovery(unproven.repo, unproven.plan.id).status).toBe("blocked");
 });
 it("prepares an inert separate record and persists a charged attempt before invoking executable work", async () => {
   const { repo, root, plan, authorization } = fixture(),

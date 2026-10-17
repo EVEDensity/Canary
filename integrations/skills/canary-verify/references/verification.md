@@ -18,6 +18,10 @@ This executor supports function Agents, mock tools and serializable deterministi
 
 For HTTP/MCP or another unsupported contract, use the existing reviewed `candidate`/`compare` workflow within the task's explicit call budget. Preserve its weaker evidence boundaries; do not convert it into an R30 success. Project regression receipts remain separate from Agent comparisons.
 
+For slow analysis, `canary profile <runId> --samples 3 --json` measures discovery, structure, evidence, the quality brief and memory lookup without importing configuration or executing checks. Report each stage's measured scope and unavailable reasons; sequential samples are not a production latency guarantee.
+
+After an interrupted attempt, inspect `canary improvement recover <sessionId> --json`. Recovery is a separate state change: when authorized, apply only its exact `sessionHash` and `lockHash` with `--apply --session-hash <hash> --lock-hash <hash|absent> --actor <actor> --reason "<reason>"`. Live or unproven ownership blocks recovery. Never remove a lock or signal a persisted PID to bypass that result. Recovery closes a dead-owner ledger without rerunning work, restoring budget or inventing missing counters. A leftover recovery guard requires inspection; it is not automatically stolen. Continue only with a newly reviewed plan and the task's remaining authorization.
+
 Retaining an improvement as experience requires its existing proposed/validation/regression/holdout/review flow. Preparing or validating a soft trial may execute additional Agent calls; do not activate experience or export/install a draft from a verbal choice alone. Follow the project's reviewed experience guide and current control revision for those actions. Function-context delivery, Agent use and measured benefit remain separate facts; HTTP/MCP adapters do not inject that experience context.
 
 ## Project repair and change evidence

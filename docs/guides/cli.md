@@ -17,6 +17,16 @@ CI mode runs the existing check plan and writes local artifacts without a report
 
 Add `--base <commit-or-ref>` to seal a version-bound change analysis after project checks. The report separates measured coverage denominators, unknown files, explicit behavior and verification gaps. Informational gaps and unavailable analysis preserve the check exit code; explicitly required behavior contracts remain CI gates.
 
+## Measure analysis overhead
+
+```sh
+canary profile <runId> --samples 3 --json
+```
+
+`profile` is read-only and accepts 1–5 samples (default 1), `--project <directory>` and `--config <path>`. It measures discovery, structure build, evidence verification, quality-brief generation and project-memory lookup without importing project configuration or running checks, Agents or models. Each stage returns actual duration samples/minimum/median/maximum, available scope counts and input identity, consistency, a status code and next action. Missing inputs remain unavailable; blocked stages return exit 1, invalid arguments exit 2. Missing measurements are not zero-cost or successful validation.
+
+The report includes input and elapsed budgets. Samples are sequential observations of current source and retained evidence, not a production latency guarantee. The time budget is checked between synchronous operations; see [maintenance](local-log-maintenance.md) for recovery and retention boundaries.
+
 ## Assess and choose a next step
 
 ```sh
@@ -28,6 +38,8 @@ canary assess decide <runId> --report-hash <hash> --expected-revision <revision>
 `assess` is read-only: it generates a bounded brief from sealed Agent/project results, coverage and linked history without running checks or a model. CLI, MCP and workspace share its report, recommendations, options and existing decisions. Read the current report's `contentHash`, view `revision` and option ID before recording a choice. Both commands support `--project <directory>`, `--config <path>` and `--json`; use `--action reject` to record a rejection.
 
 Only `assess decide` writes a selection. Actor/reason are audit metadata; a choice is not execution, authenticated approval or verified improvement. Recommendations follow evidence rules, not a model-confirmed root cause. Reuse already selected directions; ordinary conversation need not write a record.
+
+Choices live outside sealed runs in `<artifactRoot>/.quality`, with up to 8 report versions and 32 choices per run. The shared 64 KiB view includes up to the latest 16 choices and omission counts. A manifest change marks old choices stale. Stale revisions, corrupt state and unavailable evidence reject writes; historical gaps remain unknown rather than being reconstructed from current source.
 
 ## Controlled Agent improvement
 
@@ -41,7 +53,16 @@ canary improvement show <sessionId> --config <agent-config> --json
 
 The supported executor uses trusted function Agents, mock tools and serializable deterministic contracts without loaded experience. It disables managed live calls; observed tool limits do not meter arbitrary outbound code or provider billing. An execution exit of 0 requires observed fixed-contract improvement, at least five paired trials, no regressions, passing holdout and successful run gates. Small samples, missing contracts or unknown costs remain explicit. `show` is read-only; records are stored under `<artifactRoot>/.improvements`, outside sealed runs. See [the complete workflow](agent-workflow.md).
 
-Records live outside sealed runs in `<artifactRoot>/.quality`, with up to 8 report versions and 32 choices per run. The shared 64 KiB view includes up to the latest 16 choices and omission counts. A manifest change marks old choices stale. Stale report/revision, corrupt state and unavailable evidence reject writes; refresh and inspect before retrying. Historical gaps remain unknown rather than being reconstructed from current source. See [Agent workflow](agent-workflow.md).
+Executable configuration runs in a Worker with a responsive supervisor, deadline, bounded output and parent-disconnect handling. It is not an operating system sandbox.
+
+### Recover an interrupted attempt
+
+```sh
+canary improvement recover <sessionId> --config <agent-config> --json
+canary improvement recover <sessionId> --apply --session-hash <sessionHash> --lock-hash <lockHash-or-absent> --actor maintainer --reason "Close the interrupted attempt" --config <agent-config> --json
+```
+
+The default command only inspects the ledger. `--apply` requires the exact previewed hashes and an actor/reason; pass the literal `absent` when the preview reports no lock. Only a proven absent owner can be recovered. Live or unknown owners, mismatched identity, changed records and interrupted recovery guards remain blocked. Recovery records an interrupted result with unknown observed metrics, keeps the attempt consumed and does not rerun work, verify a fix or terminate stored PIDs. Preserve a blocked guard for inspection. See [the workflow](agent-workflow.md).
 
 ## Hand off a repair
 

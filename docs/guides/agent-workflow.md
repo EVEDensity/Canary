@@ -59,11 +59,27 @@ Preparation reads sealed evidence and source hashes without importing project co
 
 Execution requires the exact plan hash, actor/reason and `--execute`. It charges an attempt before loading configuration, runs sequentially through the existing runner, seals a `candidateOf` run and retains paired changes and available telemetry. Run, case, elapsed-time and observed tool-call budgets are cumulative; no retry starts automatically. Stale choices/source, interrupted state and stopped attempts require inspection and a new reviewed plan. Records live outside sealed runs under `<artifactRoot>/.improvements`.
 
+Executable configuration loads in a Worker behind a responsive supervisor. Deadline, cancellation, excessive output or loss of the parent connection stops the loader; the parent accepts only a bounded response from that invocation. This bounds the managed configuration phase, not operating system permissions or arbitrary project side effects.
+
 This workflow supports function Agents, mock tools and serializable deterministic contracts without loaded experience. Managed tool calls are admitted before invocation, retain their actual name/arguments and use JSON argument snapshots within 64 KiB. Controlled tool assertions use those calls, including the absence of calls; self-reported tool events cannot replace them. Managed live model/Judge calls are disabled. Project code remains trusted: declared scope and managed tool limits are not an operating system sandbox, a transitive dependency inventory or a billing cap on arbitrary outbound code. Tokens and monetary cost remain unknown. Uncalibrated Judge scores, missing trials, changed contracts, regressions and small samples cannot yield a successful benefit exit. Observations apply to the fixed contract, not overall correctness or population performance.
 
 The workspace and read-only MCP `canary.improvements` expose retained sessions and recheck candidate evidence. Candidate execution, source editing and experience activation remain separate actions. HTTP/MCP candidates continue to use a reviewed configuration with `candidate`/`compare`; use [project repair verification](repair-verification.md) for project regressions.
 
 Stop at success, the agreed budget, changed authorization requirements or an unchanged blocker. Continuous improvement is invoked within the task; recurring monitoring needs a separate user request.
+
+## Measure and recover
+
+```sh
+canary profile <runId> --samples 3 --config <agent-config> --json
+canary improvement recover <sessionId> --config <agent-config> --json
+canary improvement recover <sessionId> --apply --session-hash <sessionHash> --lock-hash <lockHash-or-absent> --actor maintainer --reason "Close the interrupted attempt" --config <agent-config> --json
+```
+
+`profile` reads current source and selected retained evidence without importing project configuration, running checks or calling an Agent/model. With 1–5 samples, it reports discovery, structure build, evidence verification, quality brief and project-memory lookup durations, scope counts, available identities and explicit blocked/unavailable reasons. Sequential samples describe this workload, not production latency or improvement. The elapsed budget is checked between operations; an ongoing synchronous analysis is not preempted.
+
+`recover` previews ownership and exact session/lock hashes by default. Explicit `--apply` closes only an interrupted ledger whose owner is proven absent; use the returned `lockHash`, including the literal `absent` when no lock exists. Active, unproven, mismatched or changed ownership blocks recovery. It records actor/reason, keeps the attempt consumed and marks its unobserved duration, cases and tool calls unknown. It does not rerun work, establish a repair result or terminate a persisted PID. An interrupted recovery guard is retained for inspection.
+
+Decision and improvement records protect referenced run evidence from retention. Busy, corrupt or changed reference stores block pruning. Session storage is bounded to 64 records; records and source evidence remain intact at the limit. Full evidence archival and migration are part of the next release-acceptance stage; see [maintenance](local-log-maintenance.md).
 
 ## Retain useful knowledge
 

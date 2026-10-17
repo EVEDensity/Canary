@@ -21,7 +21,7 @@ export { killProcessTree, pidAlive, reclaimOrphans, waitForExit, PROCESS_ADAPTER
 export { budgetExceeded, budgetUsed, classifyRemoteFailure, classifyTermination } from "./lifecycle.js";
 export { RunIsolationError, acquireRunLock, createExecutionWorkspace, isolatedEnv, releaseRunLock, reservePort, assertExclusiveTempDir } from "./workspace.js";
 export type { ExecutionWorkspace, IsolationFaultCode, PortLease } from "./workspace.js";
-export { findCheckpointForPid, listCheckpoints, readCheckpoint, recoverPartialRun, recoverStaleRuns, writeCheckpoint } from "./checkpoint.js";
+export { RunRecoveryError, findCheckpointForPid, listCheckpoints, readCheckpoint, recoverPartialRun, recoverStaleRuns, writeCheckpoint } from "./checkpoint.js";
 export type { RecoveredRun, RunCheckpoint } from "./checkpoint.js";
 
 export const DEFAULT_SAMPLE_INTERVAL_MS = 1000;

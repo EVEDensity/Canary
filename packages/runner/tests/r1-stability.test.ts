@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { spawn } from "node:child_process";
-import { existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -215,7 +215,8 @@ describe("R1 temp, env, port and lock isolation", () => {
 
 describe("R1 checkpoint and partial recovery", () => {
   it("recovers a crashed run without dropping completed results", async () => {
-    const artifactDir = mkdtempSync(join(tmpdir(), "canary-r1-ckpt-"));
+    const artifactDir = join(mkdtempSync(join(tmpdir(), "canary-r1-ckpt-")), "run_partial");
+    mkdirSync(artifactDir);
     const snapshot = {
       runId: "run_partial",
       status: "running" as const,

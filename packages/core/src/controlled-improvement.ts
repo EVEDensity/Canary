@@ -87,6 +87,15 @@ export const improvementPlanSchema = z
 export const improvementAuthorizationSchema = z
   .object({ planHash: digest, actor: plain(96), reason: plain(512) })
   .strict();
+const owner = z.object({ pid: z.number().int().positive(), nonce: z.string().uuid() }).strict();
+export const improvementRecoveryInputSchema = z
+  .object({
+    sessionHash: digest,
+    lockHash: z.union([digest, z.literal("absent")]),
+    actor: plain(96),
+    reason: plain(512),
+  })
+  .strict();
 export const improvementAttemptResultSchema = z
   .object({
     status: z.enum(["completed", "blocked", "cancelled"]),
@@ -96,15 +105,21 @@ export const improvementAttemptResultSchema = z
     benefit: controlledBenefitSchema.optional(),
     observed: z
       .object({
-        durationMs: z.number().nonnegative(),
-        cases: z.number().int().nonnegative(),
-        toolCalls: z.number().int().nonnegative(),
+        durationMs: z.number().nonnegative().nullable(),
+        cases: z.number().int().nonnegative().nullable(),
+        toolCalls: z.number().int().nonnegative().nullable(),
         managedLiveModelCalls: z.literal(0),
         monetaryCost: z.null(),
       })
       .strict(),
   })
-  .strict();
+  .strict()
+  .refine(
+    (result) =>
+      result.status !== "completed" ||
+      (result.observed.durationMs !== null && result.observed.cases !== null && result.observed.toolCalls !== null),
+    "Completed improvement requires measured execution counters",
+  );
 export const improvementAttemptSchema = z
   .object({
     index: z.number().int().min(1).max(3),
@@ -112,6 +127,7 @@ export const improvementAttemptSchema = z
     startedAt: date,
     finishedAt: date.optional(),
     state: z.enum(["running", "finished"]),
+    owner: owner.optional(),
     result: improvementAttemptResultSchema.optional(),
   })
   .strict();
@@ -120,8 +136,12 @@ export const improvementSessionSchema = z
     v: z.literal(1),
     kind: z.literal("canary.improvement-session"),
     plan: improvementPlanSchema,
-    revision: z.number().int().min(0).max(6),
+    revision: z.number().int().min(0).max(14),
     attempts: z.array(improvementAttemptSchema).max(3),
+    recoveries: z
+      .array(improvementRecoveryInputSchema.extend({ at: date }).strict())
+      .max(8)
+      .optional(),
     contentHash: digest,
   })
   .strict();
@@ -180,6 +200,7 @@ export function parseImprovementSession(value: unknown): ImprovementSession {
     if (result?.status === "completed" && (!result.candidateRunId || !result.benefit))
       throw new Error("Completed improvement requires candidate evidence and benefit");
   }
-  if (session.revision !== revisions) throw new Error("Improvement revision mismatch");
+  if (session.revision !== revisions + (session.recoveries?.length ?? 0))
+    throw new Error("Improvement revision mismatch");
   return session;
 }

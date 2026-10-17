@@ -2,7 +2,7 @@ import { afterEach, expect, it, vi } from "vitest";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { type EvalResult, type RunSnapshot, snapshotSourceCase } from "@canary/core";
+import { type EvalResult, type RunSnapshot, snapshotSourceCase, qualityContentHash } from "@canary/core";
 import {
   beginArtifacts,
   FileArtifactRepository,
@@ -22,6 +22,54 @@ import {
 import { resolveProjectContext } from "../src/home.js";
 
 const roots: string[] = [];
+
+it("previews recovery without configuration imports and applies only exact approved interrupted state", async () => {
+  const f = fixture(),
+    session = prepareControlledImprovement(f.context, f.preparation);
+  const file = join(f.context.artifactRoot, ".improvements", `${session.plan.id}.json`);
+  const running = {
+    ...session,
+    revision: 1,
+    attempts: [
+      {
+        index: 1,
+        executionRequest: executionRequest(session.plan.contentHash),
+        startedAt: new Date().toISOString(),
+        state: "running",
+        owner: { pid: 2_147_483_646, nonce: "12345678-1234-4234-8234-123456789012" },
+      },
+    ],
+  };
+  writeFileSync(file, JSON.stringify({ ...running, contentHash: qualityContentHash(running) }));
+  // Recovery inspects the ledger even if executable configuration has changed or is unusable.
+  writeFileSync(f.context.configFile, "throw new Error('configuration must not be imported');");
+  const log = vi.spyOn(console, "log").mockImplementation(() => {}),
+    before = readFileSync(file, "utf8");
+  const args = ["recover", session.plan.id, "--project", f.root, "--config", f.context.configFile, "--json"];
+  expect(await controlledImprovementCommand(args)).toBe(0);
+  const preview = JSON.parse(log.mock.calls.at(-1)![0]);
+  expect(preview).toMatchObject({ status: "ready", lockHash: "absent", executionGranted: false });
+  expect(readFileSync(file, "utf8")).toBe(before);
+  expect(
+    await controlledImprovementCommand([
+      ...args,
+      "--apply",
+      "--session-hash",
+      preview.sessionHash,
+      "--lock-hash",
+      "absent",
+      "--actor",
+      "maintainer",
+      "--reason",
+      "Close interrupted fixture attempt",
+    ]),
+  ).toBe(0);
+  expect(JSON.parse(log.mock.calls.at(-1)![0]).attempts[0].result).toMatchObject({
+    code: "IMPROVEMENT_INTERRUPTED",
+    observed: { cases: null, toolCalls: null },
+  });
+  expect(await controlledImprovementCommand([...args, "--apply"])).toBe(2);
+});
 
 it("honors a stricter configured managed-tool limit before invoking any tool", async () => {
   const f = fixture(),
