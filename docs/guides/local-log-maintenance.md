@@ -25,3 +25,30 @@ pnpm logs:prune --apply
 ## 运行中断
 
 当前日志包装器在 Ctrl+C 时终止其子进程树。无法确认结束的记录保留 running/锁，不自动删除。Canary 检查自身仍使用原有 checkpoint 和 stale-run 恢复；下一次正常运行会检查遗留状态，不把半写 artifact 算作成功。
+
+## 分析开销与改进会话恢复
+
+```sh
+canary profile <runId> --samples 3 --json
+canary improvement recover <sessionId> --json
+canary improvement recover <sessionId> --apply --session-hash <sessionHash> --lock-hash <lockHash-or-absent> --actor maintainer --reason "Close the interrupted attempt" --json
+```
+
+`profile` 支持 1–5 次顺序采样，默认 1 次；只读测量项目发现、结构构建、证据核验、质量简报和项目记忆检索，不加载可执行配置，不运行检查、Agent 或模型。报告包含各阶段实际耗时、输入范围、可用身份、未知原因及下一步。采样描述当前工作负载，不代表生产延迟保证；时间预算在同步操作之间检查。
+
+`improvement recover` 默认只预览。执行恢复需要 `--apply`、当前会话与锁哈希，以及操作者和原因；预览无锁时传入字面值 `absent`。仅在确认原所有者已退出时关闭中断账本，未知指标保持 `null`，已消耗的 attempt 不退回；不会重跑、认定修复成功或向持久化 PID 发送终止信号。活跃、未知、身份不匹配或发生变更的所有者阻止恢复，残留恢复锁保留供检查。
+
+受控改进的配置加载使用 Worker 和响应式 supervisor，处理超时、取消、输出超限与父连接断开；它不提供操作系统沙箱。
+
+## Artifact 保留
+
+配置 `artifacts.retention` 后，先预览运行证据清理计划，再显式应用：
+
+```sh
+canary prune --config <config> --json
+canary prune --config <config> --apply --json
+```
+
+质量决策和改进会话引用的 baseline、candidate 与谱系依赖均受保护。计划包含引用/运行集合哈希、受保护 run ID 和阻塞原因；记录损坏、链接文件、半写入、残留锁或计划后发生变更时拒绝清理。应用期间与受管决策、改进和恢复操作互斥。普通 artifact 创建通过删除前重新核验检查变更，尚不是跨所有写入方的全局事务。
+
+保留规则可能因证据保护而无法满足数量或空间目标；不会为满足配额删除被引用证据。改进存储上限为 64 个会话，达到上限后保留已有记录；新的评测可使用新的 artifact collection。不要只移动会话文件来绕过上限：完整证据归档与迁移属于后续发布验收范围。`logs:prune` 仍仅清理日志，与 artifact 保留相互独立。

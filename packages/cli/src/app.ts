@@ -210,6 +210,9 @@ export async function runEvaluation(input: EvaluationInput): Promise<{ runId: st
         writeLiveArtifacts(artifactDir, failed);
         writeFinalReports(artifactDir, failed, input.config.reporters?.length ? input.config.reporters : ["json", "markdown", "junit"], failed.gate!, failed.improvements ?? []);
         writeCheckpoint({ ...checkpoint(), status: "failed", termination: "error" });
+        // Workers and trace are already closed. Seal the sanitized failure itself;
+        // the original privacy error still reaches CI and is never a recovery success.
+        sealArtifacts(artifactDir, { privacy });
       }
       throw error;
     }

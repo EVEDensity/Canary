@@ -234,6 +234,9 @@ describe("R3 real local run evidence", () => {
     const run = JSON.parse(readFileSync(join(dir, "run.json"), "utf8"));
     expect(run.status).toBe("failed");
     expect(run.evidence.privacyFailure).toBe(true);
+    expect(run.recoveryOf).toBeUndefined();
+    expect(run.evidence.lineage.recoveryOf).toBeUndefined();
+    expect(existsSync(join(dir, "privacy-findings.json"))).toBe(true);
     expect(readAll(dir)).not.toContain("opaque-r3-fixture-value");
     expect(verifyArtifacts(dir).status).toBe("verified");
   }, 15_000);

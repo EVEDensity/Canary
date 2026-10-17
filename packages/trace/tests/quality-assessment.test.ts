@@ -131,7 +131,9 @@ describe("R29 version-bound assessment and choices", () => {
     expect(rejected.selections).toEqual([]);
     expect(repository.verify("run_quality")).toEqual(before);
     expect(parseQualityRecord(JSON.parse(readFileSync(file, "utf8"))).decisions).toHaveLength(2);
-    expect(planRetention(root, { maxRuns: 0 }).candidates).toEqual(["run_quality"]);
+    const retention = planRetention(root, { maxRuns: 0 });
+    expect(retention.candidates).toEqual([]);
+    expect(retention.protectedRuns).toContain("run_quality");
   });
   it("keeps one current direction per issue while preserving superseded choices and opaque source identities", () => {
     const current = fixture({

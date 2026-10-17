@@ -202,7 +202,7 @@ describe("guided quality workspace", () => {
       sessions: [
         session,
         { ...session, plan: { ...plan, id: "improvement_prepared" }, attempts: [] },
-        { ...session, plan: { ...plan, id: "improvement_blocked" }, attempts: [{ ...session.attempts[0], result: { ...result, status: "blocked" } }] },
+        { ...session, plan: { ...plan, id: "improvement_blocked" }, attempts: [{ ...session.attempts[0], result: { ...result, status: "blocked", observed: { cases: null, toolCalls: null, durationMs: null } } }] },
         { ...session, plan: { ...plan, id: "improvement_cancelled" }, attempts: [{ ...session.attempts[0], result: { ...result, status: "cancelled" } }] },
         { ...session, plan: { ...plan, id: "improvement_running" }, attempts: [{ ...session.attempts[0], state: "running", result: undefined }] },
       ],
@@ -227,6 +227,8 @@ describe("guided quality workspace", () => {
     expect(blocked.textContent).toContain("Blocked");
     expect(blocked.textContent).toContain("Execution is incomplete");
     expect(blocked.textContent).not.toContain("Observed improvement");
+    expect(blocked.textContent).toContain("This attempt: Unknown cases");
+    expect(blocked.textContent).not.toContain("0.00");
     expect(f.root.textContent).toContain("Model tokens and monetary cost are unknown");
     expect(f.root.textContent).toContain("2 additional improvement records");
     expect(f.root.textContent).toContain("not causal or population evidence");

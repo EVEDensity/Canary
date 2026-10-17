@@ -1,8 +1,30 @@
-import { existsSync } from "node:fs";
+import { existsSync, lstatSync, readFileSync } from "node:fs";
 import { relative, resolve, isAbsolute, join } from "node:path";
-import { CLI_EXIT, ciResultSchema, type CiResult, type CliExitCode, type ProjectContext, type RunSnapshot } from "@canary/core";
-import { findCheckpointForPid, recoverPartialRun, RunIsolationError } from "@canary/runner";
-import { ArtifactIntegrityError, ArtifactPrivacyError, FileArtifactRepository, redactValue } from "@canary/trace";
+import {
+  CLI_EXIT,
+  ciResultSchema,
+  type CiResult,
+  type CliExitCode,
+  type ProjectContext,
+  type RunSnapshot,
+} from "@canary/core";
+import {
+  listCheckpoints,
+  readCheckpoint,
+  writeCheckpoint,
+  RunIsolationError,
+  RunRecoveryError,
+  type RunCheckpoint,
+} from "@canary/runner";
+import {
+  ArtifactIntegrityError,
+  ArtifactPrivacyError,
+  FileArtifactRepository,
+  redactValue,
+  safeArtifactPath,
+  sha256,
+  writePrivateJson,
+} from "@canary/trace";
 import { resolveProjectContext } from "./home.js";
 import { versionSnapshot } from "./diagnostics.js";
 import type { CliOptions, RunCommandResult } from "./index.js";
@@ -19,14 +41,32 @@ export class CliFailure extends Error {
 }
 export function classifyCiError(error: unknown, context: ProjectContext): CliFailure {
   if (error instanceof CliFailure) return error;
-  if (error instanceof ArtifactIntegrityError) return new CliFailure(5, error.code, error.message, "Preserve the run directory and inspect canary verify <runId> --json; do not regenerate hashes over damaged evidence.");
-  if (error instanceof ArtifactPrivacyError) return new CliFailure(6, error.code, error.message, "Review the trusted fixture and redaction policy locally; preserve the partial-run status.");
-  if (error instanceof RunIsolationError) {
+  if (error instanceof ArtifactIntegrityError)
     return new CliFailure(
-      CLI_EXIT.environment,
+      5,
       error.code,
       error.message,
-      error.suggestion,
+      "Preserve the run directory and inspect canary verify <runId> --json; do not regenerate hashes over damaged evidence.",
+    );
+  if (error instanceof ArtifactPrivacyError)
+    return new CliFailure(
+      6,
+      error.code,
+      error.message,
+      "Review the redaction policy and retained privacy findings; preserve the failed or partial evidence before retrying.",
+    );
+  if (error instanceof RunIsolationError) {
+    return new CliFailure(CLI_EXIT.environment, error.code, error.message, error.suggestion);
+  }
+  if (error instanceof RunRecoveryError) {
+    const live = ["RUN_RECOVERY_LIVE_OWNER", "RUN_RECOVERY_UNPROVEN_PROCESS"].includes(error.code);
+    return new CliFailure(
+      live ? CLI_EXIT.environment : CLI_EXIT.artifact,
+      error.code,
+      live
+        ? "Recovery is blocked by live or unproven process ownership."
+        : "Retained recovery evidence failed validation.",
+      "Preserve the checkpoint and inspect the original owner and evidence before retrying; do not remove locks or terminate processes using retained PIDs.",
     );
   }
   const fsError = error as { code?: string; path?: string } | null;
@@ -53,14 +93,28 @@ export function classifyCiError(error: unknown, context: ProjectContext): CliFai
     "Preserve local artifacts and reproduce with a minimal trusted configuration; report the Canary and Node versions.",
   );
 }
-const valueFlags = new Set(["--project", "--config", "--case", "--tag", "--repetitions", "--entry", "--retry-of", "--experience-check", "--base"]);
+const valueFlags = new Set([
+  "--project",
+  "--config",
+  "--case",
+  "--tag",
+  "--repetitions",
+  "--entry",
+  "--retry-of",
+  "--experience-check",
+  "--base",
+]);
 const booleanFlags = new Set(["--ci", "--json", "--headless", "--no-open", "--agent-check", "--affected"]);
 export function parseCiOptions(args: string[]): CliOptions {
   const options: CliOptions = { ci: true, headless: true, noOpen: true, suppressOutput: true };
   const seen = new Set<string>();
   for (let i = 0; i < args.length; i++) {
     const flag = args[i]!;
-    if (booleanFlags.has(flag)) { if (flag === "--agent-check") options.agentCheck = true; if (flag === "--affected") options.affected = true; continue; }
+    if (booleanFlags.has(flag)) {
+      if (flag === "--agent-check") options.agentCheck = true;
+      if (flag === "--affected") options.affected = true;
+      continue;
+    }
     if (!valueFlags.has(flag))
       throw new CliFailure(
         2,
@@ -85,7 +139,8 @@ export function parseCiOptions(args: string[]): CliOptions {
     if (flag === "--retry-of") options.retryOf = value;
     if (flag === "--base") options.baseRef = value;
     if (flag === "--experience-check") {
-      if (!/^[A-Za-z0-9][A-Za-z0-9_.-]*$/.test(value)) throw new CliFailure(2, "CLI_ARGUMENT", "Invalid internal check ID.", "Use a declared project check ID.");
+      if (!/^[A-Za-z0-9][A-Za-z0-9_.-]*$/.test(value))
+        throw new CliFailure(2, "CLI_ARGUMENT", "Invalid internal check ID.", "Use a declared project check ID.");
       options.experienceContext = { checkId: value, checkType: "agent" };
     }
     if (flag === "--repetitions") {
@@ -100,8 +155,77 @@ export function parseCiOptions(args: string[]): CliOptions {
       options.repetitions = count;
     }
   }
-  if (options.experienceContext && !options.agentCheck) throw new CliFailure(2, "CLI_ARGUMENT", "Check context requires a project agent check.", "Run the project configuration instead.");
+  if (options.experienceContext && !options.agentCheck)
+    throw new CliFailure(
+      2,
+      "CLI_ARGUMENT",
+      "Check context requires a project agent check.",
+      "Run the project configuration instead.",
+    );
   return options;
+}
+
+interface InterruptedEvidence {
+  checkpoint: RunCheckpoint;
+  snapshot: RunSnapshot;
+  runHash: string;
+  integrity: "partial" | "verified";
+  manifestHash?: string;
+}
+/** A PID alone cannot distinguish an earlier or concurrent invocation in this process. */
+function associateInterruptedEvidence(
+  context: ProjectContext,
+  existing: Set<string> | undefined,
+): InterruptedEvidence | undefined {
+  if (!existing) return undefined;
+  const candidates = listCheckpoints(context.artifactRoot).filter(
+    (checkpoint) =>
+      checkpoint.pid === process.pid &&
+      !existing.has(checkpoint.runId) &&
+      ["running", "finalizing", "interrupted", "failed", "cancelled"].includes(checkpoint.status),
+  );
+  // Ambiguous invocations must not acquire authority over each other's retained evidence.
+  if (candidates.length !== 1) return undefined;
+  const checkpoint = candidates[0]!,
+    repository = new FileArtifactRepository(context.artifactRoot);
+  const integrity = repository.verify(checkpoint.runId);
+  if (integrity.status !== "partial" && integrity.status !== "verified") return undefined;
+  const file = safeArtifactPath(checkpoint.artifactDir, "run.json"),
+    stat = lstatSync(file);
+  if (!stat.isFile() || stat.isSymbolicLink() || stat.nlink !== 1 || stat.size > 16_777_216) return undefined;
+  const runHash = sha256(readFileSync(file)),
+    snapshot = repository.readRun(checkpoint.runId);
+  if (
+    !snapshot ||
+    snapshot.runId !== checkpoint.runId ||
+    snapshot.startedAt !== checkpoint.startedAt ||
+    !["idle", "running", "failed", "cancelled"].includes(snapshot.status) ||
+    (integrity.status === "verified" &&
+      (snapshot.status !== "failed" ||
+        checkpoint.status !== "failed" ||
+        !snapshot.finishedAt ||
+        !Number.isFinite(Date.parse(snapshot.finishedAt)))) ||
+    ![snapshot.totalCases, snapshot.completedCases, snapshot.passedCases].every(
+      (count) => Number.isSafeInteger(count) && count >= 0,
+    ) ||
+    snapshot.passedCases > snapshot.completedCases ||
+    snapshot.completedCases > snapshot.totalCases ||
+    snapshot.results.some(
+      (result) =>
+        result.runId !== checkpoint.runId ||
+        !checkpoint.completedCaseKeys.includes(
+          result.repetition ? `${result.caseId}#${result.repetition}` : result.caseId,
+        ),
+    ) ||
+    snapshot.checks?.some((check) => !checkpoint.completedCaseKeys.includes(check.id)) ||
+    sha256(readFileSync(file)) !== runHash ||
+    JSON.stringify(readCheckpoint(checkpoint.artifactDir)) !== JSON.stringify(checkpoint)
+  )
+    return undefined;
+  const finalIntegrity = repository.verify(checkpoint.runId);
+  if (finalIntegrity.status !== integrity.status || finalIntegrity.manifestHash !== integrity.manifestHash)
+    return undefined;
+  return { checkpoint, snapshot, runHash, integrity: integrity.status, manifestHash: integrity.manifestHash };
 }
 
 export async function executeCi(
@@ -116,35 +240,53 @@ export async function executeCi(
   const stop = (): void => controller.abort();
   process.once("SIGINT", stop);
   process.once("SIGTERM", stop);
-  let recoveredRunId: string | null = null;
-  let recoveredArtifactPath: string | null = null;
-  let recoveredSnapshot: RunSnapshot | undefined;
+  let interrupted: InterruptedEvidence | undefined;
+  let existingCheckpoints: Set<string> | undefined;
+  let secondaryFailure: CliFailure | undefined;
   try {
     const options = parseCiOptions(args);
     context = resolveProjectContext(options);
-    if (Number(process.versions.node.split(".")[0]) < 22)
+    if (Number(process.versions.node.split(".")[0]) < 24)
       throw new CliFailure(
         4,
         "NODE_UNSUPPORTED",
-        "Node 22 or later is required.",
+        "Node 24 or later is required.",
         "Run this CLI with the documented Node runtime.",
       );
+    try {
+      existingCheckpoints = new Set(listCheckpoints(context.artifactRoot).map((checkpoint) => checkpoint.runId));
+    } catch {
+      /* A corrupt checkpoint cannot grant association authority or mask the runner's outcome. */
+    }
     result = await run({ ...options, signal: controller.signal });
     exitCode = result.exitCode as CliExitCode;
   } catch (error) {
     failure = classifyCiError(error, context);
+    if (controller.signal.aborted && failure.code === "CANARY_INTERNAL")
+      failure = new CliFailure(
+        CLI_EXIT.interrupted,
+        "RUN_INTERRUPTED",
+        "The requested run was interrupted.",
+        "Inspect the retained partial evidence before retrying the run.",
+      );
     exitCode = failure.exitCode;
-    const found = findCheckpointForPid(context.artifactRoot, process.pid, false);
-    if (found) {
-      try {
-        const repository = new FileArtifactRepository(context.artifactRoot);
-        const recovered = await recoverPartialRun(found.artifactDir, repository.readRun(found.runId));
-        recoveredRunId = found.runId;
-        recoveredArtifactPath = join(found.artifactDir, "run.json");
-        recoveredSnapshot = recovered.snapshot;
-      } catch {
-        /* Keep the original classified failure; partial recovery must not mask it. */
+    try {
+      interrupted = associateInterruptedEvidence(context, existingCheckpoints);
+      if (interrupted?.integrity === "partial" && ["running", "finalizing"].includes(interrupted.checkpoint.status)) {
+        // This invocation has stopped, but its process remains alive. Retain partial evidence;
+        // recovery, workspace removal and recorded PID signalling are separate operations.
+        writeCheckpoint({
+          ...interrupted.checkpoint,
+          status: "interrupted",
+          termination:
+            controller.signal.aborted || failure.exitCode === CLI_EXIT.interrupted
+              ? "cancelled"
+              : (interrupted.checkpoint.termination ?? "error"),
+        });
+        interrupted.checkpoint = readCheckpoint(interrupted.checkpoint.artifactDir)!;
       }
+    } catch {
+      /* Keep the original classified failure; checkpoint inspection must not replace it. */
     }
   } finally {
     process.off("SIGINT", stop);
@@ -164,15 +306,23 @@ export async function executeCi(
       context,
       exitCode,
       outcome: exitCode === 0 ? "passed" : exitCode === 1 ? "failed" : exitCode === 3 ? "interrupted" : "error",
-      runId: result?.runId ?? recoveredRunId,
-      artifactPath: result?.artifactPath ?? recoveredArtifactPath,
+      runId: result?.runId ?? interrupted?.checkpoint.runId ?? null,
+      artifactPath: result?.artifactPath ?? (interrupted ? join(interrupted.checkpoint.artifactDir, "run.json") : null),
       summary: {
-        total: result?.snapshot.totalCases ?? recoveredSnapshot?.totalCases ?? 0,
-        passed: result?.snapshot.passedCases ?? recoveredSnapshot?.passedCases ?? 0,
-        failed: (result?.snapshot.checks ?? recoveredSnapshot?.checks)?.filter((check) => check.status === "failed" || check.status === "blocked").length ?? (result?.snapshot.results ?? recoveredSnapshot?.results ?? []).filter((r) => !r.passed).length,
+        total: result?.snapshot.totalCases ?? interrupted?.snapshot.totalCases ?? 0,
+        passed: result?.snapshot.passedCases ?? interrupted?.snapshot.passedCases ?? 0,
+        failed:
+          (result?.snapshot.checks ?? interrupted?.snapshot.checks)?.filter(
+            (check) => check.status === "failed" || check.status === "blocked",
+          ).length ?? (result?.snapshot.results ?? interrupted?.snapshot.results ?? []).filter((r) => !r.passed).length,
       },
       issues: failure
-        ? [{ code: failure.code, severity: "error", message: failure.message, suggestion: failure.suggestion }]
+        ? [failure, ...(secondaryFailure ? [secondaryFailure] : [])].map((issue) => ({
+            code: issue.code,
+            severity: "error",
+            message: issue.message,
+            suggestion: issue.suggestion,
+          }))
         : exitCode === 0
           ? []
           : [
@@ -186,16 +336,50 @@ export async function executeCi(
             ],
       ...(result?.selection ? { selection: result.selection } : {}),
       runtime: versionSnapshot(),
-      capabilities: { scope: (result?.snapshot.checks ?? recoveredSnapshot?.checks) ? "project-checks" : "configured-agent-cases", web: false, automaticExport: false },
+      capabilities: {
+        scope: (result?.snapshot.checks ?? interrupted?.snapshot.checks) ? "project-checks" : "configured-agent-cases",
+        web: false,
+        automaticExport: false,
+      },
     });
-  const envelopeRunId = result?.runId ?? recoveredRunId;
+  const envelopeRunId = result?.runId ?? interrupted?.checkpoint.runId;
   if (envelopeRunId) {
     try {
-      if (!existsSync(join(context.artifactRoot, envelopeRunId))) throw new CliFailure(5, "ARTIFACT_IO", "Run artifact directory is missing.", "Preserve partial evidence and inspect the reported artifactRoot.");
-      new FileArtifactRepository(context.artifactRoot).writeJson(envelopeRunId, "ci.json", payload());
+      if (!existsSync(join(context.artifactRoot, envelopeRunId)))
+        throw new CliFailure(
+          5,
+          "ARTIFACT_IO",
+          "Run artifact directory is missing.",
+          "Preserve partial evidence and inspect the reported artifactRoot.",
+        );
+      if (interrupted && !result) {
+        const dir = interrupted.checkpoint.artifactDir,
+          repository = new FileArtifactRepository(context.artifactRoot),
+          integrity = repository.verify(envelopeRunId);
+        if (
+          JSON.stringify(readCheckpoint(dir)) !== JSON.stringify(interrupted.checkpoint) ||
+          sha256(readFileSync(safeArtifactPath(dir, "run.json"))) !== interrupted.runHash ||
+          integrity.status !== interrupted.integrity ||
+          integrity.manifestHash !== interrupted.manifestHash
+        )
+          throw new CliFailure(
+            5,
+            "CI_ENVELOPE_CHANGED",
+            "Run evidence changed before its CI envelope could be recorded.",
+            "Preserve the run directory and inspect its original checkpoint; retry after the writer finishes.",
+          );
+        if (interrupted.integrity === "partial") {
+          // Do not seal incomplete bytes or add recovery lineage while the owner is still live.
+          writePrivateJson(safeArtifactPath(dir, "ci.json"), payload());
+        } else repository.writeJson(envelopeRunId, "ci.json", payload());
+      } else new FileArtifactRepository(context.artifactRoot).writeJson(envelopeRunId, "ci.json", payload());
     } catch (error) {
-      failure = classifyCiError(error, context);
-      exitCode = failure.exitCode;
+      const envelopeFailure = classifyCiError(error, context);
+      if (failure) secondaryFailure = envelopeFailure;
+      else {
+        failure = envelopeFailure;
+        exitCode = failure.exitCode;
+      }
     }
   }
   return payload();

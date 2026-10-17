@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## 0.10.0
+
+- R31: add read-only, bounded `profile` measurements for five analysis stages with actual timings, input scope, available identities and actionable unavailable states.
+- Supervise executable configuration through a Worker with deadlines, bounded output and parent-disconnect handling; preserve host-permission boundaries.
+- Add hash-bound preview/apply recovery for interrupted improvement ledgers; retain charged attempts, unknown observations and ownership audit without rerunning work or terminating a process identified by a stored PID.
+- Protect decision/session evidence during retention; reject corrupt, busy or changed references and coordinate managed record/recovery writers. Generic artifact creation remains subject to rechecks rather than a collection-wide transaction.
+- 新增只读分阶段测量、受控配置加载、中断会话恢复与引用证据保留；完整归档、迁移与稳定版验收继续列入 R32。
+
 ## 0.9.0
 
 - R30: connect selected Agent improvement options to hashed verification plans and explicit candidate execution with cumulative run, trial, time and observed tool budgets.
