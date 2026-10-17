@@ -113,3 +113,7 @@ canary mcp matrix
 The [official Skill](skills.md) supports the current task with project-local discovery and managed updates. The [MCP server](mcp.md) exposes the same bounded project evidence and verification actions to a host. Existing reviewed experiences distinguish selection from actual function-context delivery; see [project experience](r8-project-experience.md).
 
 中文：CLI 沿现有证据链提供检查、质量简报、显式选择、修复交接、复现与回归验证。`assess` 只读，`assess decide` 才记录方向；选择、审批与实际执行分别保留。保留真实退出码和 run ID，缺失证据保持未知、阻塞或不足。
+
+## Evidence archive operations
+
+`archive create <directory>` previews a complete collection copy; add `--rotate` to review moving the collection and freeing its record quotas. `archive restore <directory>` previews restoration into an empty original artifact location. Both mutations require `--apply --plan-hash <hash> --actor <name> --reason <text>`. `archive show` verifies an archive; `archive recover` inspects interrupted collection operation locks. All accept `--project`, `--config` and `--json`. See [archive, recovery and stable contracts](evidence-archive.md).

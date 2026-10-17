@@ -1,0 +1,188 @@
+{
+  "legacyPrepared": {
+    "v": 1,
+    "kind": "canary.improvement-session",
+    "plan": {
+      "v": 1,
+      "kind": "canary.improvement-plan",
+      "id": "improvement_aa6345a9-8642-4422-a5b0-cf972b6bd3a2",
+      "projectId": "3131b8e2d0044e8aa1db45d5c92133d6230d109e48ba86b1d877d40988fb3740",
+      "createdAt": "2026-10-17T16:39:53.446Z",
+      "baseline": {
+        "runId": "run_f107393b-5af3-47d6-97a7-4472d25efe99",
+        "runHash": "87a76ec53d48fdca60778ace9fb106c7344f93e0e1e61e1fb6bd6759ba7d9e1a",
+        "manifestHash": "e08d62812393dfa908a158a69427be7580d3036b39cc11834de643e1485c4cc2",
+        "configHash": "670e34ce2f8cb77c793baafcda5d095821d503287235c9d2ad8badbeb2aa89e5",
+        "casesHash": "1a7a8685f1b410a0de159afb0518a1c493e8fd675a5dad93a554fc17a4442192",
+        "sourceHash": "5b1e71cac19c2817",
+        "gitCommit": "d870fcd0bb7e2ad88c80e4fed0f1eef45fd75da7",
+        "gitDirty": true
+      },
+      "selection": {
+        "reportHash": "d75cbebcb6bd74ef01310601d772dc8728fcc197cb2208ed019e36d49fc37ab4",
+        "expectedRevision": 1,
+        "optionId": "issue_a53fa370554527ac:repair-behavior",
+        "selectionRevision": 1
+      },
+      "scope": {
+        "caseIds": [
+          "case-1",
+          "case-2",
+          "case-3",
+          "case-4",
+          "case-5",
+          "case-6"
+        ],
+        "regressionCaseIds": [
+          "case-1"
+        ],
+        "holdoutCaseIds": [
+          "case-5",
+          "case-6"
+        ],
+        "allowedPaths": [
+          "candidate.mjs",
+          "tools.mjs"
+        ],
+        "contractsHash": "1a7a8685f1b410a0de159afb0518a1c493e8fd675a5dad93a554fc17a4442192",
+        "trials": 6
+      },
+      "candidate": {
+        "configPath": "canary.config.json",
+        "configFileHash": "517599db17750f6f4f0efd2ddbb8fedb832576181e29a58f4ef24d2e2d2d1ba7",
+        "entry": "candidate.mjs",
+        "entryHash": "70cd01e66c01d0849e86674eef2001a10e0c4df70c543ec61d62e141a993148c",
+        "inventoryHash": "99b1317e02df0e61c6039d89c95bf4184ce297bee70cd5b15a2a7f3853723eb7"
+      },
+      "budget": {
+        "maxRuns": 1,
+        "maxCases": 6,
+        "maxDurationMs": 30000,
+        "maxToolCalls": 6,
+        "maxLiveModelCalls": 0
+      },
+      "success": {
+        "requireRegressionImprovement": true,
+        "allowRegressions": false,
+        "requireHoldoutPass": true,
+        "minimumPairs": 5
+      },
+      "executionGranted": false,
+      "contentHash": "7d2df2701a8623cc1d08610d3961fa1c35c4416ef55a9d99e32960c75b1851f1"
+    },
+    "revision": 0,
+    "attempts": [],
+    "contentHash": "e022424e6bdf947f02218b3545ba61958b3b69194147d83e3675e648d2d3dda8"
+  },
+  "recoveredInterrupted": {
+    "v": 1,
+    "kind": "canary.improvement-session",
+    "plan": {
+      "v": 1,
+      "kind": "canary.improvement-plan",
+      "id": "improvement_aa6345a9-8642-4422-a5b0-cf972b6bd3a2",
+      "projectId": "3131b8e2d0044e8aa1db45d5c92133d6230d109e48ba86b1d877d40988fb3740",
+      "createdAt": "2026-10-17T16:39:53.446Z",
+      "baseline": {
+        "runId": "run_f107393b-5af3-47d6-97a7-4472d25efe99",
+        "runHash": "87a76ec53d48fdca60778ace9fb106c7344f93e0e1e61e1fb6bd6759ba7d9e1a",
+        "manifestHash": "e08d62812393dfa908a158a69427be7580d3036b39cc11834de643e1485c4cc2",
+        "configHash": "670e34ce2f8cb77c793baafcda5d095821d503287235c9d2ad8badbeb2aa89e5",
+        "casesHash": "1a7a8685f1b410a0de159afb0518a1c493e8fd675a5dad93a554fc17a4442192",
+        "sourceHash": "5b1e71cac19c2817",
+        "gitCommit": "d870fcd0bb7e2ad88c80e4fed0f1eef45fd75da7",
+        "gitDirty": true
+      },
+      "selection": {
+        "reportHash": "d75cbebcb6bd74ef01310601d772dc8728fcc197cb2208ed019e36d49fc37ab4",
+        "expectedRevision": 1,
+        "optionId": "issue_a53fa370554527ac:repair-behavior",
+        "selectionRevision": 1
+      },
+      "scope": {
+        "caseIds": [
+          "case-1",
+          "case-2",
+          "case-3",
+          "case-4",
+          "case-5",
+          "case-6"
+        ],
+        "regressionCaseIds": [
+          "case-1"
+        ],
+        "holdoutCaseIds": [
+          "case-5",
+          "case-6"
+        ],
+        "allowedPaths": [
+          "candidate.mjs",
+          "tools.mjs"
+        ],
+        "contractsHash": "1a7a8685f1b410a0de159afb0518a1c493e8fd675a5dad93a554fc17a4442192",
+        "trials": 6
+      },
+      "candidate": {
+        "configPath": "canary.config.json",
+        "configFileHash": "517599db17750f6f4f0efd2ddbb8fedb832576181e29a58f4ef24d2e2d2d1ba7",
+        "entry": "candidate.mjs",
+        "entryHash": "70cd01e66c01d0849e86674eef2001a10e0c4df70c543ec61d62e141a993148c",
+        "inventoryHash": "99b1317e02df0e61c6039d89c95bf4184ce297bee70cd5b15a2a7f3853723eb7"
+      },
+      "budget": {
+        "maxRuns": 1,
+        "maxCases": 6,
+        "maxDurationMs": 30000,
+        "maxToolCalls": 6,
+        "maxLiveModelCalls": 0
+      },
+      "success": {
+        "requireRegressionImprovement": true,
+        "allowRegressions": false,
+        "requireHoldoutPass": true,
+        "minimumPairs": 5
+      },
+      "executionGranted": false,
+      "contentHash": "7d2df2701a8623cc1d08610d3961fa1c35c4416ef55a9d99e32960c75b1851f1"
+    },
+    "revision": 3,
+    "attempts": [
+      {
+        "index": 1,
+        "executionRequest": {
+          "planHash": "7d2df2701a8623cc1d08610d3961fa1c35c4416ef55a9d99e32960c75b1851f1",
+          "actor": "fixture-runner",
+          "reason": "Verify the retained contract"
+        },
+        "startedAt": "2026-10-18T00:00:00Z",
+        "state": "finished",
+        "owner": {
+          "pid": 999999,
+          "nonce": "12345678-1234-4234-8234-123456789012"
+        },
+        "finishedAt": "2026-10-18T00:00:01Z",
+        "result": {
+          "status": "blocked",
+          "code": "IMPROVEMENT_INTERRUPTED",
+          "observed": {
+            "durationMs": null,
+            "cases": null,
+            "toolCalls": null,
+            "managedLiveModelCalls": 0,
+            "monetaryCost": null
+          }
+        }
+      }
+    ],
+    "contentHash": "130e79b13a717c0d29618285f5f685e991380d7226fa02dd96a77d2d719d7ee5",
+    "recoveries": [
+      {
+        "sessionHash": "9013cc93b367b698cd5a56e85989c28e9de5dc639aed9ef1611a6c8191c68a61",
+        "lockHash": "0000000000000000000000000000000000000000000000000000000000000000",
+        "actor": "fixture-runner",
+        "reason": "Close the interrupted fixture ledger",
+        "at": "2026-10-18T00:00:01Z"
+      }
+    ]
+  }
+}

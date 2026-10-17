@@ -24,6 +24,7 @@ import {
 import { readArtifactManifest, safeArtifactPath, sha256, verifyArtifacts } from "./artifacts.js";
 import { qualityOrdinaryParents, readQualityBytes } from "./quality-assessment.js";
 import { retentionReferences, RetentionError, type RetentionBlocker } from "./retention-references.js";
+import { withCollectionMutation } from "./collection-guard.js";
 export { RetentionError, type RetentionBlocker } from "./retention-references.js";
 
 export interface RetentionPlan {
@@ -115,6 +116,7 @@ export function planRetention(
   protect: string[] = [],
   now = Date.now(),
 ): RetentionPlan {
+  const maintenanceBusy=existsSync(`${resolve(root)}.maintenance.lock`)||existsSync(`${resolve(root)}.maintenance-recovery.lock`);
   if (!existsSync(root))
     return {
       v: 1,
@@ -122,10 +124,10 @@ export function planRetention(
       candidates: [],
       protectedRuns: protect,
       retainedBytes: 0,
-      withinBudget: true,
+      withinBudget: !maintenanceBusy,
       referenceHash: qualityContentHash([]),
       collectionHash: qualityContentHash([]),
-      blockers: [],
+      blockers: maintenanceBusy?[{store:".",code:"RETENTION_BUSY",message:"Interrupted collection maintenance requires inspection before pruning."}]:[],
     };
   const references = retentionReferences(root),
     {
@@ -135,7 +137,8 @@ export function planRetention(
     } = references.blockers.some((blocker) => blocker.store === ".")
       ? { rows: [], blockers: [], hash: qualityContentHash([]) }
       : collection(root),
-    blockers = [...references.blockers, ...runBlockers],
+    blockers:RetentionBlocker[] = [...references.blockers, ...runBlockers,
+      ...(readdirSync(root).some(name=>/^\.operation_[-a-f0-9]{36}\.lock$/.test(name))||existsSync(`${resolve(root)}.maintenance.lock`)||existsSync(`${resolve(root)}.maintenance-recovery.lock`)?[{store:".",code:"RETENTION_BUSY" as const,message:"A collection operation or maintenance lock is active or interrupted; inspect recovery before pruning."}]:[])],
     protectedIds = new Set([...protect, ...references.runIds]),
     candidates = new Set<string>();
   let count = 0,
@@ -236,6 +239,10 @@ function lockReferences(base: string, runIds: string[], recordFiles: string[]) {
   }
 }
 export function applyRetention(root: string, plan: RetentionPlan): string[] {
+  return withCollectionMutation(root,()=>applyRetentionUnlocked(root,plan));
+}
+function applyRetentionUnlocked(root:string,plan:RetentionPlan):string[] {
+  if(existsSync(root)&&readdirSync(root).some(name=>/^\.operation_[-a-f0-9]{36}\.lock$/.test(name)))throw new RetentionError("RETENTION_BUSY","A collection operation is active or interrupted; inspect recovery before pruning.");
   const removed: string[] = [];
   if (!existsSync(root)) return removed;
   if (plan.blockers?.length) throw new RetentionError(plan.blockers[0]!.code, plan.blockers[0]!.message);

@@ -20,6 +20,8 @@ Node.js 24 platform fixtures have passed on Windows, Ubuntu and macOS in [platfo
 
 ## Reports and evidence
 
+Version 1 operating contracts and complete artifact collection copy, rotation and restore are documented in [evidence archives](evidence-archive.md). Existing prepared and interrupted records retain their original bytes and hashes across upgrades. Archived history becomes available to ordinary queries after restore at its original artifact location.
+
 The CLI exports JSON, JUnit and Markdown. The report workspace supports live updates, history, issue diagnosis, architecture navigation and linked reruns. Artifacts are stored under the target project's `.canary/artifacts/`; logs belong under `.canary/logs/`.
 
 Function adapters can acknowledge delivery of reviewed experience context. Selection alone and legacy metadata do not prove delivery, and delivery does not prove agent use or improvement. HTTP/MCP application adapters do not inject that context. The host MCP server exposes bounded sealed evidence and scoped CLI verification actions; see [MCP integration](mcp.md) and [official Skill delivery](skills.md).

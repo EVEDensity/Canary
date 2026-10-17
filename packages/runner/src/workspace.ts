@@ -1,7 +1,8 @@
 import { closeSync, existsSync, mkdirSync, openSync, readFileSync, rmSync, unlinkSync, writeFileSync } from "node:fs";
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
+import { withCollectionMutation } from "@canary/trace";
 import { pidAlive, reclaimOrphans } from "@canary/isolation";
 
 export type IsolationFaultCode =
@@ -167,7 +168,10 @@ export async function reservePort(host = "127.0.0.1", preferred?: number): Promi
   });
 }
 
-export function createExecutionWorkspace(input: {
+export function createExecutionWorkspace(input:Parameters<typeof createExecutionWorkspaceInCollection>[0]):ExecutionWorkspace {
+  return withCollectionMutation(dirname(resolve(input.artifactDir)),()=>createExecutionWorkspaceInCollection(input));
+}
+function createExecutionWorkspaceInCollection(input: {
   artifactDir: string;
   runId: string;
   extraEnv?: Record<string, string | undefined>;

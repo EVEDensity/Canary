@@ -4,6 +4,7 @@ import { join, resolve, relative } from "node:path";
 import type { ProjectChecksConfig, ProjectCheckResult, ProjectContext, RunSnapshot, RunLineage } from "@canary/core";
 import {
   ArtifactPrivacyError,
+  acquireCollectionLease,
   beginArtifacts,
   sealArtifacts,
   writePrivateJson,
@@ -32,7 +33,11 @@ import { evaluateBehaviorContracts, saveChangeVerification, saveUnavailableChang
 import type { CliOptions, RunCommandResult } from "./index.js";
 import { executionSourceProof, trySourceFingerprint } from "./source-identity.js";
 
-export async function runProjectChecks(
+export async function runProjectChecks(...args:Parameters<typeof runProjectChecksInCollection>):Promise<RunCommandResult> {
+  const release=acquireCollectionLease(args[1].artifactRoot);
+  try{return await runProjectChecksInCollection(...args);}finally{release();}
+}
+async function runProjectChecksInCollection(
   config: ProjectChecksConfig,
   context: ProjectContext,
   options: CliOptions,

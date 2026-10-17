@@ -55,3 +55,5 @@ export * from "./project-memory.js";
 export * from "./quality-assessment.js";
 export * from "./controlled-improvement.js";
 export * from "./controlled-benefit.js";
+export * from "./evidence-archive.js";
+export * from "./operating-contracts.js";

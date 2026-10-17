@@ -15,7 +15,7 @@ import {
   type RunnerPorts,
   type RunCheckpoint,
 } from "@canary/runner";
-import { ArtifactIntegrityError, ArtifactPrivacyError, AsyncJsonlTraceStore, FileArtifactRepository, beginArtifacts, sealArtifacts, collectSecretValues, writePrivateJson, writePrivateText, type RunStore } from "@canary/trace";
+import { ArtifactIntegrityError, ArtifactPrivacyError, AsyncJsonlTraceStore, FileArtifactRepository, beginArtifacts, sealArtifacts, acquireCollectionLease, collectSecretValues, writePrivateJson, writePrivateText, type RunStore } from "@canary/trace";
 import { conclusionHash, recordEvidence } from "./evidence.js";
 import { buildStructure, compareStructure, analyzeArchitecture, analyzeImpact } from "@canary/structure";
 import { CliFailure } from "./ci.js";
@@ -104,6 +104,10 @@ export interface EvaluationInput {
 
 /** Shared run use-case used by CLI (and Web replay hooks). Does not start HTTP. */
 export async function runEvaluation(input: EvaluationInput): Promise<{ runId: string; exitCode: number; artifactPath: string; snapshot: RunSnapshot }> {
+  const release=acquireCollectionLease(input.context.artifactRoot);
+  try {return await runEvaluationInCollection(input);} finally {release();}
+}
+async function runEvaluationInCollection(input:EvaluationInput):Promise<{runId:string;exitCode:number;artifactPath:string;snapshot:RunSnapshot}> {
   const cwd = input.context.projectRoot;
   const executor = input.ports?.executeCase ?? createRunnerPorts().executeCase;
   const fallbackReps = input.repetitions ?? input.config.runtime?.repetitions ?? 1;

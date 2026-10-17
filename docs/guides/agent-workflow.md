@@ -79,7 +79,7 @@ canary improvement recover <sessionId> --apply --session-hash <sessionHash> --lo
 
 `recover` previews ownership and exact session/lock hashes by default. Explicit `--apply` closes only an interrupted ledger whose owner is proven absent; use the returned `lockHash`, including the literal `absent` when no lock exists. Active, unproven, mismatched or changed ownership blocks recovery. It records actor/reason, keeps the attempt consumed and marks its unobserved duration, cases and tool calls unknown. It does not rerun work, establish a repair result or terminate a persisted PID. An interrupted recovery guard is retained for inspection.
 
-Decision and improvement records protect referenced run evidence from retention. Busy, corrupt or changed reference stores block pruning. Session storage is bounded to 64 records; records and source evidence remain intact at the limit. Full evidence archival and migration are part of the next release-acceptance stage; see [maintenance](local-log-maintenance.md).
+Decision and improvement records protect referenced run evidence from retention. Busy, corrupt or changed reference stores block pruning. Session storage is bounded to 64 records; records and source evidence remain intact at the limit. Use reviewed [evidence archive rotation](evidence-archive.md) to retain the complete collection and free active record quotas. Restore preserves the original hashes and charged attempts.
 
 ## Retain useful knowledge
 

@@ -13,7 +13,8 @@ import {
   unlinkSync,
   writeFileSync,
 } from "node:fs";
-import { basename, join, resolve } from "node:path";
+import { basename, dirname, join, resolve } from "node:path";
+import { withCollectionMutation } from "./collection-guard.js";
 import { artifactManifestSchema, type ArtifactManifest, type RunLineage } from "@canary/core";
 import {
   containsSensitiveText,
@@ -114,7 +115,7 @@ function checkBody(name: string, body: string): boolean {
   }
 }
 
-export function verifyArtifacts(dir: string, ancestors: ReadonlySet<string> = new Set()): IntegrityResult {
+export function verifyArtifacts(dir: string, ancestors: ReadonlySet<string> = new Set(), originalCollectionRoot?:string): IntegrityResult {
   const result: IntegrityResult = {
     v: 1,
     kind: "canary.artifact-integrity",
@@ -209,8 +210,10 @@ export function verifyArtifacts(dir: string, ancestors: ReadonlySet<string> = ne
           if (!check.childRun) continue;
           try {
             const childDir = safeArtifactPath(resolve(dir, ".."), check.childRun.runId);
-            const child = verifyArtifacts(childDir, visited);
-            if (child.status !== "verified" || child.manifestHash !== check.childRun.manifestHash || realpathSync.native(resolve(check.childRun.artifactPath)) !== realpathSync.native(join(childDir, "run.json"))) issue("CHILD_EVIDENCE_INVALID", "run.json");
+            const child = verifyArtifacts(childDir, visited, originalCollectionRoot);
+            const actualPath=originalCollectionRoot?resolve(check.childRun.artifactPath):realpathSync.native(resolve(check.childRun.artifactPath));
+            const expectedPath=originalCollectionRoot?resolve(originalCollectionRoot,check.childRun.runId,"run.json"):realpathSync.native(join(childDir,"run.json"));
+            if (child.status !== "verified" || child.manifestHash !== check.childRun.manifestHash || actualPath !== expectedPath) issue("CHILD_EVIDENCE_INVALID", "run.json");
           } catch { issue("CHILD_EVIDENCE_INVALID", "run.json"); }
         }
       }
@@ -224,6 +227,9 @@ export function verifyArtifacts(dir: string, ancestors: ReadonlySet<string> = ne
 }
 
 export function beginArtifacts(dir: string, lineage: RunLineage = {}): void {
+  return withCollectionMutation(dirname(resolve(dir)),()=>beginArtifactsUnlocked(dir,lineage));
+}
+function beginArtifactsUnlocked(dir: string, lineage: RunLineage): void {
   mkdirSync(dir, { recursive: true });
   if (existsSync(join(dir, "manifest.json")) || existsSync(join(dir, "run.json")))
     throw new Error("Run artifacts already exist; use a new runId");
@@ -322,6 +328,9 @@ function writeManifestRevision(dir: string, options: SealOptions = {}): Artifact
 }
 
 export function sealArtifacts(dir: string, options: SealOptions = {}): ArtifactManifest {
+  return withCollectionMutation(dirname(resolve(dir)),()=>sealArtifactsUnlocked(dir,options));
+}
+function sealArtifactsUnlocked(dir: string, options: SealOptions): ArtifactManifest {
   const integrity = verifyArtifacts(dir);
   if (integrity.status !== "partial" && integrity.status !== "verified") throw new ArtifactIntegrityError(integrity);
   return writeManifestRevision(dir, options);
@@ -332,6 +341,9 @@ export function reviseArtifacts(
   mutate: () => void,
   options: SealOptions & { allowPartial?: boolean } = {},
 ): void {
+  return withCollectionMutation(dirname(resolve(dir)),()=>reviseArtifactsUnlocked(dir,mutate,options));
+}
+function reviseArtifactsUnlocked(dir:string,mutate:()=>void,options:SealOptions & {allowPartial?:boolean}):void {
   const lock = safeArtifactPath(dir, "manifest.lock");
   const fd = openSync(lock, "wx");
   try {
@@ -348,9 +360,12 @@ export function reviseArtifacts(
 
 /** Legitimate derived-artifact updates preserve the prior manifest hash and reject existing corruption. */
 export function updateArtifact(dir: string, name: string, value: unknown, privacy: RedactionOptions = {}): void {
+  return withCollectionMutation(dirname(resolve(dir)),()=>updateArtifactUnlocked(dir,name,value,privacy));
+}
+function updateArtifactUnlocked(dir:string,name:string,value:unknown,privacy:RedactionOptions):void {
   if (name === "manifest.json" || transient.has(name)) throw new Error("Reserved artifact name");
   mkdirSync(dir, { recursive: true });
-  reviseArtifacts(
+  reviseArtifactsUnlocked(
     dir,
     () => {
       writePrivateJson(safeArtifactPath(dir, name), value, privacy);

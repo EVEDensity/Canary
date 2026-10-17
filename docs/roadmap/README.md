@@ -2,7 +2,7 @@
 
 Canary connects Agent evaluation, guided improvement, project checks, architecture, coverage and failure evidence. Distribution uses GitHub source and Releases.
 
-R16–R31 have implemented workflows within the documented support boundaries.
+R16–R32 have implemented workflows within the documented support boundaries.
 
 - **[R16 — Unified failure evidence](https://github.com/EVEDensity/Canary/issues/1):** structured diagnostics, conservative failure grouping and exportable evidence bundles.
 - **[R17 — Pull request integration](https://github.com/EVEDensity/Canary/issues/2):** CI summaries, version-bound results and optional source annotations.
@@ -26,13 +26,11 @@ R16–R31 have implemented workflows within the documented support boundaries.
 
 - **[R31 — Measured reliability and recovery](https://github.com/EVEDensity/Canary/issues/27):** implemented read-only `profile` for five analysis stages with bounded inputs, scope identities and explicit unavailable reasons. Executable configuration uses a responsive supervisor and Worker deadline. Hash-bound improvement recovery closes proven dead-owner ledgers without rerunning work or terminating a process identified by a stored PID. Retention protects decision/session evidence and rejects changed, busy or corrupt references. Generic artifact writers are rechecked rather than serialized by a collection-wide transaction. See [CLI operations](../guides/cli.md) and [maintenance](../guides/local-log-maintenance.md).
 
-## Next stages
+- **[R32 — v1.0 acceptance](https://github.com/EVEDensity/Canary/issues/28):** implemented versioned operating schemas, frozen CI/MCP contracts and golden compatibility records. Full-collection copy, rotation and restore preserve references, original hashes, choices and consumed budgets; collection leases coordinate managed writers. A repeatable six-case acceptance executes assessment, choice, candidate verification, actual interruption recovery, archive and restore. GitHub source installation, cross-directory execution and upgrade/rollback remain the supported delivery workflow. See [archive and acceptance operations](../guides/evidence-archive.md).
 
-The official Skill explains the shared quality brief through a compatible host. R29 records recommended options and explicit choices; R30 connects eligible selected Agent options to frozen, explicitly authorized candidate verification and paired benefit.
+## Next focus
 
-- **[R32 — v1.0 acceptance](https://github.com/EVEDensity/Canary/issues/28):** freeze supported CLI/MCP/schema contracts; verify clean installation, cross-directory execution, upgrade/rollback and the full Agent improvement workflow against the support matrix. Define migration and explicit archival of records together with their source evidence, including quota handling. Publish reproducible release evidence and measured workload limits; broad production performance is not inferred from fixtures.
-
-R32 compatibility, archival and release acceptance remain the required next gates.
+Improve guided onboarding, adapter/case proposals and diagnostic precision from reproducible usage reports. Preserve user choices, evidence identities and execution budgets while reducing unnecessary configuration. Extend the supported scope when a concrete integration requires it; broad production performance is not inferred from fixture measurements.
 
 ## Expansion after the core release
 
